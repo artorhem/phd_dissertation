@@ -1,67 +1,89 @@
-          NAME1 = diss
-       PRODUCT1 = $(NAME1).pdf
-     TEXSOURCE1 = $(NAME1).tex \
-		    abstract.tex ack.tex glossary.tex intro.tex laysummary.tex \
-		    ubcdiss.cls
-           BBL1 = $(NAME1).bbl
+###############################################################################
+# Configuration
+###############################################################################
 
-#         NAME2 =
-#      PRODUCT2 = $(NAME2).pdf
-#    TEXSOURCE2 = $(NAME2).tex 
-#          BBL2 = $(NAME2).bbl
+# The paper name without pdf extension
+PAPER=diss
 
-      BIBINPUTS = biblio.bib
+# Build directory for the paper
+BUILD_DIR=build
 
-     PDFFIGURES = $(BUILTPDFFIGURES) ${PNGFIGURES}
-     PNGFIGURES = 
-     GIFFIGURES = 
-     SVGFIGURES = 
-# Following is for Berkeley Make syntax:
-#BUILTPDFFIGURES = \
-#		    ${PNGFIGURES:C/\.png/.pdf/g} \
-#		    ${GIFFIGURES:C/\.gif/.pdf/g} \
-#		    ${SVGFIGURES:C/\.svg/.pdf/g}
+# the plots used in the apper
+PLOTS=
 
-all: doc.pdf $(PRODUCT1)
+# the figures that are used in the paper
+FIGURES=
 
-$(NAME1).pdf: $(TEXSOURCE1) $(BBL1) $(PDFFIGURES)
-$(NAME1).dvi: $(TEXSOURCE1) $(BBL1) $(EPSFIGURES)
-$(NAME1).bbl: $(TEXSOURCE1) $(BIBINPUTS) $(PDFFIGURES)
+# optional build dependencies
+DEPS_OPT=
 
-#$(NAME2).pdf: $(TEXSOURCE2) $(BBL2) $(BUILTPDFFIGURES)
-#$(NAME2).dvi: $(TEXSOURCE2) $(BBL2) $(BUILTEPSFIGURES)
-#$(NAME2).bbl: $(TEXSOURCE2) $(BIBINPUTS) $(BUILTEPSFIGURES) $(BUILTPDFFIGURES)
+# LATEXMK Options
+LATEXMK_OPTS=\
+	-latexoption=-interaction=nonstopmode \
+	-output-directory=$(BUILD_DIR) \
+	-e '$$max_repeat=10' \
+
+###############################################################################
+# The paper targets
+###############################################################################
+PAPER_DRAFT=$(PAPER)-draft
+PAPER_DRAFT_MAIN=diss.tex
+PAPER_DRAFT_PDF=$(BUILD_DIR)/$(PAPER_DRAFT).pdf
+
+DEFAULT_MODE=$(PAPER_DRAFT_PDF)
+
+###############################################################################
+# Latexmk command definition
+###############################################################################
+
+# the latexmk command
+LATEXMK=latexmk -pdf -logfilewarnings -f $(LATEXMK_OPTS)
+
+
+###############################################################################
+# Dependencies
+###############################################################################
+
+DEPS_TEX=$(wildcard content/*.tex)
+DEPS_BIB=$(wildcard content/*.bib)
+DEPS_FIG=$(wildcard figures/**)
+DEPS_PLOT=$(wildcard plots/**)
+
+DEPS=Makefile $(DEPS_TEX) $(DEPS_BIB) $(DEPS_FIG) $(DEPS_PLOT) $(DEPS_OPT)
+
+
+###############################################################################
+# Make Targets (Building)
+###############################################################################
+
+
+default: $(DEFAULT_MODE)
+
+all:  $(PAPER_DRAFT_PDF) $(PAPER_SUBMISSION_PDF)
 
 clean:
-	$(RM) ${BUILTPDFFIGURES} $(NAME1).aux $(NAME1).dvi \
-	    $(NAME1).log $(NAME1).blg $(NAME1).bbl $(NAME1).out \
-	    $(NAME1).toc $(NAME1).lof $(NAME1).lot $(NAME1).brf \
-            *.aux
+	rm -rf $(BUILD_DIR)/*
 
-# configuration issues
-.SUFFIXES: .tex .pdf .bbl
+distclean: clean
 
-PDFLATEX=	pdflatex
-BIBTEX=		bibtex
-XELATEX=	xelatex 
-LATEX=		latex
-BIBLATEX=	$(PDFLATEX)
-BIBTEX=		bibtex -min-crossref=1000
-RM=		rm -f
-MV=		mv
-CP=		cp -p
+$(PAPER_DRAFT_PDF) : $(DEPS) $(PAPER_DRAFT_MAIN)
+	$(LATEXMK) -jobname="$(PAPER_DRAFT)" $(PAPER_DRAFT_MAIN)
+	cp $(PAPER_DRAFT_PDF) $(BUILD_DIR)/$(PAPER)-latest.pdf
+	@echo ""
+	@echo "Built paper:    $(PAPER_DRAFT_PDF)"
+	@echo "Updated latest: $(BUILD_DIR)/$(PAPER)-latest.pdf"
 
-.tex.pdf:
-	$(PDFLATEX) $(LATEXFLAGS) $<
-	@while egrep -q 'LaTeX Warning:.*Rerun|Rerun to get' $*.log; do \
-	       echo $(PDFLATEX) $<; \
-	      $(PDFLATEX) $(LATEXFLAGS) $< || exit $$?; \
-	done
+draft: $(PAPER_DRAFT_PDF)
 
-.tex.bbl: 
-	$(BIBLATEX) $(LATEXFLAGS) $<
-	$(BIBTEX) $*
-	$(RM) $*.aux $*.dvi $*.pdf
+.PHONY: all clean rebuild-figures $(PAPER_DRAFT_PDF)
 
-doc.pdf: diss.pdf
-	$(CP) diss.pdf doc.pdf
+
+figures/%.pdf: figures/%.svg
+	inkscape $< --export-area-drawing --export-pdf=$@
+
+###############################################################################
+# Make Targets (Open)
+###############################################################################
+
+view-draft: $(PAPER_DRAFT_PDF)
+	xdg-open $(PAPER_DRAFT_PDF)

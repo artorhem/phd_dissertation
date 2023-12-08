@@ -1,0 +1,63 @@
+\chapter{Introduction}
+\PM{things to say in this section: large graphs, permanent storage needed, GPS need ETL, graph databases slow. Need something like a database, but rolling a new system is difficult and error-prone. Use a mature system and see how far we can take the performance.}
+Graph structured data express complicated relationships in various domains such as transportation planning \cite{bast2016route}, studying protein interactions \cite{proteinNetworks, mason2007graph}, and social networks analysis\cite{mislove2007measurement}.
+A recent study by Sahu et. al. \cite{ubiquity_large_graphs_vldb2017} highlighted the ubiquity of large graphs and the very real need to store and process these ever-growing datasets.
+Graphs with billions of nodes and edges are common\cite{ubiquity_large_graphs_vldb2017,snapnets, roamanalytics_2017} and companies regularly want to scale their analyses to trillion-edge data sets \cite{ching2015one}. 
+This ubiquity of large graphs highlights the need to build systems to efficiently store and process them.
+
+Research into creating graph processing system that can scale to handle large graphs began with the development of distributed processing and storage systems such as MapReduce\cite{dean2004mapreduce} and subsequently Pregel\cite{malewicz2010pregel}.
+This spurred a near decade long quest into building fast graph processing systems that scale well for graphs that are much larger than installed memory and compute resources than are available on a single server.
+Several distributed graph processing systems have been designed that scale their computation using multiple machines \PM{dist systems non-shared memory}.
+These distributed graph processing systems are often out-performed by NUMA-aware in-memory systems \PM{cite "shared" memory systems.} that keep the graph entirely in RAM.
+The oft-cited study by McSherry \cite{mcsherry2015scalability}, however, proves that an optimized single-threaded implementation of graph algorithms can outperform distributed systems that use many cores.
+\MIS{ I think we need to start qualifying the McSherry claims; they are only valid for edge-centric algorithms which, while important, are not all analytics $($I was thinking about this after our meeting and I think the key insight is that a lot of the metrics used to describe graphs are amenable to edge-centric processing, but I'm not 100\% sure $)$.}
+Most large graph processing systems favor scalability over single-node performance, even though most graphs are not large enough to require distribution across multiple compute nodes. \ugh{this is convoluted}\MIS{Yes, I make this claim, but you just spent a paragraph claiming that "everyone has trillion node graphs." So, we need to decide if graphs larger than a single machine are common or uncommon .... how do we figure this out?}
+Zhu et. al. \cite{zhu2016gemini} made a similar observation that graph processing systems should achieve multi-core efficiency \emph{before} trying to achieve scalability.
+System designs that deliver strong single-node performance are supported by the fact that even low-end commodity servers have large amounts\MIS{quantify -- we need data to claim what a low end server is and what typical core utilization is ..} of installed RAM and many (underutilized) cores.
+While abundant, RAM is still expensive \PM{ask Shaurya for citation}, and the system design should honor this constraint.\MIS{One of the thing Shaurya keeps pointing out is that cloud providers limit RAM.  I wonder if we could make an economic argument.  Let's say that we have a TB graph. Is it cheapter to: (A) get enough smallish AWS instances and analyze the graph across many machines, (B) buy a huge instance and analyze it in memory or (C) get a multi-core instance without some memory, but not a TB and execute against a persistent representation. This seems like a fun experiment to run ...  Maybe Joe could play with this?}
+
+Out-of-core graph processing systems offer an alternative design to in-memory systems, and several such systems have been created.
+\ugh{too verbose -- compress into fewer sentences.}
+Running graph processing tasks out-of-core is more resource-efficient and allows processing larger graphs that do not fit in RAM on a single machine, but it is slower than the in-memory paradigm.
+We focus on single-node out-of-core graph processing systems running on a single-socket CPU.
+\MIS{This seems to be the key point -- I think basically we need to just lay out the options as I did above and then claim that our target is relevant/important and under-explored.}
+
+The ability to store and process data much larger than available physical memory is an important feature of disk-based DBMSs.
+\PM{databases -- where do they fit into this landscape -- I think the DB discussion belongs at the place where we discuss data larger than RAM.}\\
+At first glance, databases appear to be the obvious solution to store and process graphs, especially considering that most data to be analyzed are often already present in some relational database.
+Databases such as Postgres and MySQL have mature storage backends that support high insertion rates and provide strong consistency guarantees but remain largely difficult and non-intuitive to use for graph processing.
+Graph Databases store graphs natively but are usually unable to scale to graphs with billions of nodes, and they exhibit poor ingestion rates. 
+Most applications require access to graph-structured data in addition to relational, semi- or unstructured data, and, therefore, graph databases are used alongside more traditional databases.
+
+Regardless of how a graph processing system stores the graph for processing, one must first spend some amount of time in ingesting the graph and preprocessing it to match a format that the system expects to function efficiently.
+Preprocessing must be repeated every time the graph evolves and can dominate the overall runtime of a graph processing system.\MIS{cite data}
+\PM{Desiderata for graph representations}
+The graph representation produced by the preprocessing task is expected to provide high-locality access to the graph while minimizing read/write contention in computation phase, and for out-of-core systems, maximize  utilization of the available disk bandwidth.
+The most appropriate representation varies depends on the application, but also on whether the graph evolves over time, and the statistical properties of the graph being analyzed.
+Therefore, the representation needs to be flexible and independent of the underlying storage mechanism to allow the application developer to choose what works best for their setup and workload.
+Such uncoupling has the added benefit of allowing experimentation with the graph representation independently of the storage mechanism being employed underneath.
+Most specialized graph processing systems directly manage IO and thread scheduling to maximize performance from the system, and in the process of doing so, basically reinvent the storage stack.
+Custom-made storage engines are difficult to build correctly, and usually, are overkill for most applications.
+\PM{I want to mention that I am interested in exploring the performance we leave on the table by not implementing a custom storage engine, and the benefits that come from using a Persistent backend}
+\MIS{That seems a fine thing in a thesis proposal; unclear it fits in a paper.}
+On the other hand, using a general-purpose, mature storage backend provides a seductive alternative when creating a graph processing system.
+This choice presents a trade-off: a custom-storage engine is optimized and highly performant but difficult to create; a mature storage backend provides several advantages for managing data (e.g. snapshots, indexing, scalability) but is going to be less performant than a custom-engine.
+
+We explore the design of an out-of-core graph storage and processing system that uses a mature, graph-agnostic storage backend on top of which we build an API that allows persisting graph data formats similar to the formats produced by the pre-processing steps employed by general GPSs.
+This exploration of the design space is manifested in our prototype -  \project{}.
+Our design has several advantages:
+\begin{enumerate}
+    \item Persistent graph representation that match the representation needed to efficiently run graph algorithms directly on the primary data-source. This allows us to eliminate ETL and preprocessing overheads.
+    \item Shifts the research focus away from having to (re)build an efficient storage engine upfront and towards the more fundamental study of the impact of graph statistics, workload variance, and locality-friendly formats.
+    \item A representation-agnostic API that provides near-sequential access to the in- and out- neighborhoods of the graph allows the user greater flexibility in expressing algorithms. Our design of the API allows us to express the computation in both an edge-centric and vertex-centric fashion.
+    \item Using a semi-external model to handle vertex data and algorithm state allows expressing computation in either synchronous or asynchronous fashion.\PM{expand}
+    \item Our API allows efficient management of transient algorithm state, which can be persisted for a future round of computation on new snapshots of the graph, similar to GraphTau\cite{GraphTau}
+\end{enumerate}
+\MIS{These seem to be a nice set of contrbiutions, but it's unclear that the introduction leads to them.}
+
+\project{} uses WiredTiger\footnote{\url{https://source.wiredtiger.com/11.0.0}} as the storage engine taking advantage of the production quality persistence, fast-indexing, snapshots, and read scalability it provides.
+The API has been designed to enable efficient access to the graph and its neighborhood; currently, we have implemented three popular representations of the data: an explicit adjacency-list representation, a CSR-like (Compressed Sparse Row) representation, and a two-table representation as one might in a RDBMS.
+Using our GraphAPI, we implement several graph algorithms in both edge- and vertex-centric paradigms and compare the performance against other out-of-core specialized graph processing systems and popular graph databases.
+Our results show that we are competitive with graph processing systems and are upto X times faster than commercial graph databases.
+
+\PM{We can reduce the introduction and make it more compact by splitting it into intro + another section on Motivation. I think the current section flows okay, but appears rambling at times.}

@@ -1,0 +1,16 @@
+*.aux 
+*.dvi
+*.log 
+*.blg 
+*.bbl 
+*.out
+*.toc 
+*.lof 
+*.lot 
+*.brf
+*.fls
+Makefile_diss
+build/
+diss.fdb_latexmk
+diss.pdf
+diss.synctex.gz
