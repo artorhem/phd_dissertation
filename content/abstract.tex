@@ -11,7 +11,7 @@ Whenever there are new data to analyze, all this effort is repeated.
 
 One representation does not suit all workloads or graphs, and changing a custom storage engine that is tightly coupled with the graph processing system and its data representation can be difficult and error-prone.
 Using a database, in contrast, appears to be the natural choice to manage evolving data.
-However, databases remain relatively underutilized for running in-situ analytics tasks for various reasons ranging from difficulty to program iterative tasks to poor performance on analytics benchmarks.
+However, databases remain relatively underutilized for running in-situ analytics \PM{this is not the correct term for what you are trying to describe.} tasks for various reasons ranging from difficulty to program iterative tasks to poor performance on analytics benchmarks.
 
 We take a middle-of-the-road approach and created \project{}, a graph database built on top of a mature key-value store that provides production quality data management while allowing flexibility in prototyping different data layouts easily without having to reimplement the storage stack.
 We enable fast in-database analytics by using at rest data layouts that match closely with the in-memory layout needed by the analytics tasks. We also eliminate the need to run ETL tools or preprocess the graph.
