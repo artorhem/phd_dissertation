@@ -62,7 +62,7 @@ default: $(DEFAULT_MODE)
 all:  $(PAPER_DRAFT_PDF) $(PAPER_SUBMISSION_PDF)
 
 clean:
-	rm -rf $(BUILD_DIR)/*
+	rm -rf $(BUILD_DIR)/* ; rm -rf content/*.aux
 
 distclean: clean
 
