@@ -1,0 +1,31 @@
+\chapter{Abstract}
+  
+  What we want to say here:
+  \begin{enumerate}
+    \item Large graphs exist and we need to store them
+    \begin{enumerate}
+      \item Graphs are the perfect struct to encapsulate a lot of connected data, and we are generating a lot more of such data. We need some way to store and process it.
+    \end{enumerate}
+
+    \item Lifecycle of a graph and where improvement is sought
+    \begin{enumerate}
+      \item A significant amount of data comes ordered from a primary datastore (database). Maybe talk about the types of datastores the graphs can be extracted from. 
+      \item The types of analytics activity that is common on graph datasets - batch, interactive + exploratory, query, <-- find more.
+      \item This is just one aspect of the picture. There is also a need to store this data in a clean format that is amenable to analytics.
+      \item  I think we need to break down requirements into feature groups (hierarchy of needs)
+      \begin{enumerate}
+        \item one set about what we need from the storage component that is used entirely during the ```get()``` calls during analytics
+        \item Metadata or transient state during execution
+        \item Concurrency model
+        \item Versioning (is this independent of concurrency?)
+        \item The application layer requirements -- what we enable (attributes, structure only, programming API and ready to go algorithms, hooks for query execution engine?)
+        \item Achieve full HTAP capability
+      \end{enumerate}
+    \end{enumerate}
+    \item Generality vs Specificity in Storage Engines:
+    \begin{enumerate}
+      \item The system that underpins any data-intensive system is a storage engine. Most systems custom-craft their system which works incredibly well for their specific usecases, but might not at all work for all the usecases that one might need in the future.
+      \item Using a full-feature battle-hardened storage engine can make the system future and feature proof. Sure, performance and generality are often at odds, but such a system might be useful in its own right as a research vehicle to explore different processing semantics, datastructure choices, or features.
+      \item We want to ease the burden of development for future systems and by having an interface that allows easy extension. 
+    \end{enumerate}
+  \end{enumerate}

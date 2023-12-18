@@ -33,8 +33,8 @@
 % \documentclass[gpscopy,onehalfspacing,11pt]{ubcdiss}
 
 % For your own copies (looks nicer)
- \documentclass[balanced,twoside,singlespacing,11pt]{ubcdiss}
-
+ \documentclass[balanced,oneside,singlespacing,11pt]{ubcdiss}
+\usepackage{layouts}
 \input{env/packages.tex}
 %% And include some of our own useful macros
 \input{env/commands.tex}
@@ -74,7 +74,7 @@
 % \makecommitteepage
 
 %    3. Abstract (mandatory - maximum 350 words)
-\include{content/abstract}
+\include{content/abstract_thesis}
 % \cleardoublepage
 
 %    4. Lay Summary (Effective May 2017, mandatory - maximum 150 words)
@@ -118,7 +118,9 @@
 \acresetall	% reset all acronyms used so far
 
 %    1. Introduction
+\part[\project{}]{Designing Storage Engines for HTAP Graph Databases}
 \include{content/fairy-tale}
+\include{content/abstract_flexograph}
 \include{content/introduction.tex}
 \include{content/background}
 

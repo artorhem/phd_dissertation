@@ -92,10 +92,16 @@
 \RequirePackage{setspace}
 
 \ifb@l@nced
-    \setlength{\oddsidemargin}{\paperwidth-\textwidth}%
-    % TeX's margin parameters are implicitly relative to 1in
-    \setlength{\evensidemargin}{0.5\oddsidemargin-1in}%
-    \setlength{\oddsidemargin}{\evensidemargin}%
+    % \setlength{\oddsidemargin}{\paperwidth-\textwidth}%
+    % % TeX's margin parameters are implicitly relative to 1in
+    % \setlength{\evensidemargin}{0.5\oddsidemargin-1in}%
+    % \setlength{\oddsidemargin}{\evensidemargin}%
+
+    \usepackage[twoside=false, head=13pt,
+    paperwidth=8.5in, paperheight=11in,
+    includeheadfoot, columnsep=2pc,
+    top=57pt, bottom=73pt, inner=54pt, outer=54pt,
+    marginparwidth=2pc,heightrounded]{geometry}
 \fi
 
 \RequirePackage{textcase}	% for lower- and upper-casing
