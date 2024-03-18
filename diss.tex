@@ -34,7 +34,6 @@
 
 % For your own copies (looks nicer)
  \documentclass[balanced,oneside,singlespacing,11pt]{ubcdiss}
-\usepackage{layouts}
 \input{env/packages.tex}
 %% And include some of our own useful macros
 \input{env/commands.tex}
@@ -71,7 +70,7 @@
 
 %    2. Committee page (mandatory): lists supervisory committee and,
 %    if applicable, the examining committee
-% \makecommitteepage
+\makecommitteepage
 
 %    3. Abstract (mandatory - maximum 350 words)
 \include{content/abstract_thesis}
@@ -118,11 +117,7 @@
 \acresetall	% reset all acronyms used so far
 
 %    1. Introduction
-\part[\project{}]{Designing Storage Engines for HTAP Graph Databases}
-\include{content/fairy-tale}
-\include{content/abstract_flexograph}
-\include{content/introduction.tex}
-\include{content/background}
+
 
 %    2. Main body
 % Generally recommended to put each chapter into a separate file
