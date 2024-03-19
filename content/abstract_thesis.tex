@@ -4,5 +4,14 @@
 Graph-structured data is common, and there are many data domains that find natural expressions in graphs.
 There is a large amount of graph-structured data being produced, and the traditional data management techniques do not directly work on graphs.
 Most approaches have focused on analyzing graph data, but far fewer attempts have been made to store the graphs in easy-to-manage and easy-to-analyze formats.
-We address this fundamental dichotomy in the research landscape and offer solutions to store and manage graph-structured data that is also friendly towards analytics.
-We show that it is indeed possible to address both these requirements in a single system that is both performant and extensible.
+The state-of-the-art in graph-processing involves expensive data movement and preprocessing to convert the data into an analyzable format; this process must be repeated every time the data changes.
+On the other hand, graph databases work well for storing and managing dynamic graph data, but they are not performant on long-running iterative graph algorithms.
+\\\\
+This thesis explores this dichotomy by asking: is it possible to store and manage dynamic graph-structured data in a way that is both performant and extensible?
+We designed and implemented a transactional graph database system based on a production-ready general purpose storage engine, and provide an API that lets the user interact with their data efficiently.
+Our system is designed to be extensible and allows the user to store multi-layer property graphs, and gives them a choice of three different storage formats, or to implement their own.
+The API allows writing algorithms in any style the user wishes, and the system itself imposes no restrictions on the paradigms that can be used.
+Our system is designed for a single-node, single-socket environment, and we show that it is possible to achieve high performance on graph analytics tasks without needing to scale to a cluster.
+Additionally, we show that our system scales to large graphs that scales to billions of edges and is able to handle transactional and analytical workloads simultaneously.
+
+\PM{how do I conclude this?}

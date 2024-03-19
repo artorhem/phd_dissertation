@@ -286,6 +286,51 @@
 	\ClassError{ubcdiss}{frontmatter should not be used}}
 }
 
+\newcommand{\makecandidacytitle}{%
+    % For some reason GPS thinks the title page should be page 1
+    % but \frontmatter causes the page count to be reset.  So
+    % we do it here, and forbid use of \frontmatter
+    \ifgpscopy\frontmatter\fi
+    \pagestyle{empty}	% in case of \cleardoublepage in end-titlepage
+    \begin{titlepage}
+    \null\vfil\par
+    \begin{center}\setlength{\baselineskip}{20pt}
+        {\Large \textbf{\@title}}\\[1em]
+	\ifx\@subtitle\empty%
+	    \relax
+	\else%
+	    {\large\bfseries\@subtitle}
+	    \vspace{2em}
+	\fi
+
+	{\large by}\\[1em]
+	{\large \@author}\\[1em]
+	\ifx\@previousdegrees\empty\relax\else\@previousdegrees\vspace{2em}\fi
+
+	{\Large \textsc{a proposal submitted in partial fulfillment}}\\
+	{\Large \textsc{of the requirements for advancement }}\\
+    {\Large \textsc{to candidacy for the degree of}}\\[1em]
+
+	{\large \textbf{\@degreetitle}}\\[1em]
+	{\large in}\\[1em]
+	{\Large \textsc{\MakeTextLowercase{\f@culty}}}\\
+	\ifx\dep@rtment\empty\relax\else(\dep@rtment)\fi
+	\vspace{1em}
+
+	{\large \@institution}\\
+	{\large (\c@mpus)}\\[1em]
+	{\large \@submonth\ \@subye@r}\\[1em]
+
+	{\large \textcopyright\ \@author, \@subye@r}
+    \end{center}
+    \vfill\null
+    \end{titlepage}
+    \ifgpscopy\setcounter{page}{2}\else\frontmatter\fi
+    \pagestyle{plain}
+    \renewcommand{\frontmatter}{%
+	\ClassError{ubcdiss}{frontmatter should not be used}}
+}
+
 \newcommand*{\ex@miners}{}
 \newcommand*{\@supervisory}{}
 \newcommand{\examiningcommittee}[2]{\@addto{ex@miners}{%
@@ -317,3 +362,25 @@
     \cleardoublepage
 }
 
+\newcommand{\makecandidacypage}{%
+    \begin{singlespace}
+    \noindent The following individuals certify that they have read,
+    and recommend to the Faculty of Graduate and Postdoctoral Studies
+    for acceptance, the candidacy proposal entitled entitled:\\[1em]
+        {\large \textbf{\@title}}\\[1em]
+    submitted by 
+	\textbf{\@author}
+    in partial fulfillment of the requirements for the degree of
+	\textbf{\@degreetitle}
+    in
+	\textbf{\ifx\dep@rtment\empty\f@culty\else\dep@rtment\fi}.%
+    \par\bigskip%
+    \noindent\textbf{Examining Committee:}%
+    \ex@miners%
+    \ifx\@supervisory\empty\relax\else%
+        \par\bigskip%
+        \noindent\textbf{Additional Supervisory Committee Members:}%
+        \@supervisory\fi%
+    \end{singlespace}
+    \cleardoublepage
+}
