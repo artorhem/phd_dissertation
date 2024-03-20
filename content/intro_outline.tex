@@ -1,3 +1,27 @@
 \chapter{Introduction Outline}
+\section{Topic Level}
+\PM{Graphs are important}
+A lot of scientific and real-world data is interconnected and can be naturally expressed as a graph.
 
-A lot of scientific and real-world data is interconnected and can be naturally expressed as a graph. 
+\PM{scaling to large graphs} Much research effort has gone into developing algorithms, systems, partitioning schemes, and programming models to conveniently and efficiently do computations on these ever-larger graphs.
+
+\PM{SoTA (good)} RAM is the most expensive resource in a datacenter and the emergence of fast storage devices has made OOC processing on a single-node machine competitive with distributed computation systems.
+
+\PM{SoTA (bad)} Regardless of whether the graph is stored in-memory or on disk, there is an expensive ETL and preprocessing pipeline needed to get the graph in a usable format; the time spent on this cannot be amortized if the graph changes frequently.
+
+\PM{What we want to change} We examine whether it is possible to store the graph in an analytics-friendly format using traditional key-value stores; and whether a single-node, out-of-core system can be competitive with other custom graph processing systems and other systems/databases designed for dynamic graph data.
+\cleardoublepage
+%----------------------------------------
+\section{Sentence Level Outline}
+Large graphs are ubiquitous, and there is an increasing need to be able to store, process, and manage them efficiently.
+
+Graphs have skewed properties, and the canonical data structures that store graphs exhibit poor locality.
+
+As the size of the graph dataset increases, the challenges in processing the graph get amplified; The graph might become too large to be kept in memory, forcing out-of-core computation or necessitating using a distributed system to run computations.\PM{major design points}
+
+\subsection{Scaling Graph Processing}
+The onset of distributed graph processing is marked by the publishing of the seminal paper Pregel~\cite{malewicz2010pregel}, and marks the initial state of the research landscape in graph processing.
+
+
+
+

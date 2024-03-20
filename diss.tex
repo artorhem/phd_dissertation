@@ -30,10 +30,10 @@
 %%
 
 % For submission to GPS
-% \documentclass[gpscopy,onehalfspacing,11pt]{ubcdiss}
+\documentclass[gpscopy,onehalfspacing,11pt]{ubcdiss}
 
 % For your own copies (looks nicer)
- \documentclass[balanced,oneside,singlespacing,11pt]{ubcdiss}
+% \documentclass[balanced,oneside,singlespacing,11pt]{ubcdiss}
 \input{env/packages.tex}
 %% And include some of our own useful macros
 \input{env/commands.tex}
@@ -66,13 +66,18 @@
 
 % Preliminary Pages (numbered in lower case Roman numerals)
 %    1. Title page (mandatory)
-% \maketitle
-\makecandidacytitle
-
+\ifgpscopy
+  \maketitle
+\else
+  \makecandidacytitle
+\fi
 %    2. Committee page (mandatory): lists supervisory committee and,
 %    if applicable, the examining committee
-% \makecommitteepage
-\makecandidacypage
+\ifgpscopy
+  \makecommitteepage
+\else
+  \makecandidacypage
+\fi 
 
 %    3. Abstract (mandatory - maximum 350 words)
 \include{content/abstract_thesis}
