@@ -1,27 +1,70 @@
 \chapter{Introduction Outline}
 \section{Topic Level}
 \PM{Graphs are important}
-A lot of scientific and real-world data is interconnected and can be naturally expressed as a graph.
+Much scientific and real-world data is interconnected and can be naturally expressed as a graph.
 
-\PM{scaling to large graphs} Much research effort has gone into developing algorithms, systems, partitioning schemes, and programming models to conveniently and efficiently do computations on these ever-larger graphs.
-
-\PM{SoTA (good)} RAM is the most expensive resource in a datacenter and the emergence of fast storage devices has made OOC processing on a single-node machine competitive with distributed computation systems.
-
-\PM{SoTA (bad)} Regardless of whether the graph is stored in-memory or on disk, there is an expensive ETL and preprocessing pipeline needed to get the graph in a usable format; the time spent on this cannot be amortized if the graph changes frequently.
-
-\PM{What we want to change} We examine whether it is possible to store the graph in an analytics-friendly format using traditional key-value stores; and whether a single-node, out-of-core system can be competitive with other custom graph processing systems and other systems/databases designed for dynamic graph data.
+\PM{scaling to large graphs} Much research has gone into developing algorithms, systems, partitioning schemes, and programming models to conveniently and efficiently process these ever-larger graphs.
+\\\\
+\PM{SoTA (good)} RAM is the most expensive resource in a data center, and the emergence of fast storage devices has made OOC processing on a single-node machine competitive with distributed computation systems.
+\\\\
+\PM{SoTA (bad)} Regardless of whether the graph is stored in memory or on disk, there is an expensive ETL and preprocessing pipeline needed to get the graph in a usable format; the time spent on this cannot be amortized if the graph changes frequently.
+\\\\
+\PM{What we want to change} We examine whether it is possible to store the graph in an analytics-friendly format using traditional key-value stores and whether a single-node, out-of-core system can be competitive with other custom graph processing systems and other systems/databases designed for dynamic graph data.
 \cleardoublepage
 %----------------------------------------
 \section{Sentence Level Outline}
 Large graphs are ubiquitous, and there is an increasing need to be able to store, process, and manage them efficiently.
-
+\\\\
 Graphs have skewed properties, and the canonical data structures that store graphs exhibit poor locality.
-
+\\\\
 As the size of the graph dataset increases, the challenges in processing the graph get amplified; The graph might become too large to be kept in memory, forcing out-of-core computation or necessitating using a distributed system to run computations.\PM{major design points}
 
 \subsection{Scaling Graph Processing}
-The onset of distributed graph processing is marked by the publishing of the seminal paper Pregel~\cite{malewicz2010pregel}, and marks the initial state of the research landscape in graph processing.
+The onset of distributed graph processing is marked by the seminal paper Pregel~\cite{malewicz2010pregel}, and it set the initial state of the research landscape in graph processing. \PM{the knee-jerk reaction was to fit things to match the MapReduce paradigm}
+\\\\
+Distributed graph computation was shown to be incredibly inefficient to the point that a hand-optimized single-threaded application outperformed most distributed systems. This spurred research into establishing better baselines by choosing better, more performant algorithms and designing efficient shared-memory systems.\PM{GAPBS and shared memory systems}
+\\\\
+RAM is limited and expensive, so it is not viable (in most scenarios) to keep the entire graph in memory on a single machine. At the same time, fast solid-state devices became widely available. This led to another branch in the graph processing research towards out-of-core systems that keep either none or a limited amount of state in memory. 
+\PM{GraphChi, X-Stream, Grigdraph, etc.}
+\\\\
+Regardless of whether the GPS has an in-memory, Out-of-Core, or distributed architecture, the performance is primarily determined by the combination of the algorithms being computed (workload), the data layout in memory and on disk, and the programming model employed by the system. \PM{we now pivot towards data structures and the programming models these systems provide/need?}
 
+\subsection{State of the Art: What's good?}
+\PM{semi-external processing, better algorithm baselines, data layouts that maximize serial access, and overlapping computation with data loading.}
+\\\\
+With this basic outline of the research landscape of graph processing systems, we can examine which design choices fulfill our requirements. \PM{where do we define what we need in a GPS? This should be a subsection, but I don't know where to place this.}
+\\\\
+\PM{the flow is: semi-external -> data layout -> overlapping computation and IO -> best-in-class algorithms}\\
+The choice of semi-external graph processing strikes the correct balance between an expensive but fast in-memory state and a massive state that remains on slow external storage.\PM{we need semi-external processing}
+\\\\
+The semi-external paradigm is effective only when coupled with data layouts that maximize serial access to the data. \PM{talk about the layouts used by GraphChi, X-Stream, and Blaze. Also, mention the time spent preprocessing to make these layouts. } 
+\\\\
+The semi-external paradigm can be more performant with non-blocking IO and lock-free synchronization in data structures that hold the algorithmic state. \PM{parallel vectors, sliding queues, buckets, async IO}
+\\\\
+Finally, any datastructure is only as good as the algorithm it is used with. Therefore, it is imperative to use the best-in-class algorithms available that can fit into the programming model supported by the system. \PM{what came first: the choice of algorithm or the programming model?}
 
+\subsection{State of the Art: What needs to be changed?}
+\PM{The basic flow: on-disk layouts that match in-memory layouts, using a database that lets one work on dynamic graphs larger than memory, building an HTAP graph database that does not need to run analytics independently from transactions, making the single-node system perform great before scaling to a cluster/NUMA setting.}
+\\\\
+Past research has conclusively shown that premature distribution of tasks based on poor single-node baselines is bound to underperform. \PM{make single-node great}
+\\\\
+On a single-node setup, syncretic in-memory and on-disk data layouts are essential to extracting every last bit of performance. \PM{no preprocessing}
+\\\\
+Graphs are rarely static, but GPS' are often designed to be static. This leads to an expensive ETL-based pipeline to keep the data freshness guarantees -- a new snapshot must be created, preprocessed, and then processed each time a new analysis is sought.  \PM{ETL on demand because the system is static, but the graph is not; never amortized.}
+\\\\
+\PM{Data management feature parity for graph data} Users of relational database systems expect a strong set of guarantees about their data - ACID, snapshotting, fault-tolerance and recovery.
 
+\subsection{What have we done?}
+\PM{matching data layouts, no ETL/preprocessing, use a mature KV store as the storage substrate instead of custom crafting a storage engine, design a GraphAPI that is flexible enough to support multiple data layouts and algorithm types. Talk about the implicit locality in keeping the graph in a B-Tree, and designing cursors to take advantage of this. Option to store the algorithmic state to bootstrap new rounds of computation. adapting GAPBS to use our API. Property stores. Expressing diff algorithm types using API.}
+\\
+This thesis answers the question whether it is possible to persist the graph in an analytics-ready layout in a KV store such that we can get the convenience of persistence without sacrificing too much of the performance compared to in-memory/out-of-core systems with a custom data layout.\PM{descibe the system at a high level}
+\\\\
+We demonstrate the performance of such a system under 3 different data layouts - a standard RDBMS-que layout, an adjacency list representation, and another CSR-like representation.\PM{ability to prototype different in-mem layouts}
+\\\\
+The API provides iterators to nodes, edges, and the in- and out- neighbourhoods of graphs which exploit the underlying key-ordering in WiredTiger.\PM{we get sequential access for free}
+\\\\
+WiredTiger provides strong ACID guarantees which makes it a lot easier to reason about the isolation semantics in an application. Our benchmark kernels work on a snapshot of the graph, but the application developer is free to choose any isolation level they find appropriate for their workload.\PM{talk about the transactional API and that the benchmark is run on a snapshot.}
+\\\\
+Our API is flexible enough to allow the user to store arbitrary attributes with both nodes and edges, and allows the creation of multi-layer graphs.\PM{talk about attribute storage and multi-layer graphs}
 
+The remainder of this thesis proceeds as follows. In Chapter 2 we provide the necessary background that motivates our work. Chapter 3 focuses on 

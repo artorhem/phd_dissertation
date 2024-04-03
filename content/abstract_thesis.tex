@@ -2,16 +2,15 @@
 
 (Outline)\\
 Graph-structured data is common, and there are many data domains that find natural expressions in graphs.
-As large graphs become ubiquitous, there is a increasing interest in storing them fast and processing them at scale.
-Most approaches have focused on analyzing graph data, but far fewer attempts have been made to store the graphs in easy-to-manage and easy-to-analyze formats.
-The state-of-the-art in graph-processing involves expensive data movement and preprocessing to convert the data into an analyzable format; this process must be repeated every time the data changes.
-On the other hand, graph databases work well for storing and managing dynamic graph data, but they are not performant on long-running iterative graph algorithms.
+As large graphs become ubiquitous, there is an increasing interest in storing them and processing them efficiently at scale.
+Graphs are rarely stored natively; most graph data is extracted from data resident in some persistent database, and then transformed into an in-memory representation that can be used for graph-wide statistics. State-of-the-art graph processing systems are built around these extract-transform/preprocess-load pipelines; this process must be repeated every time the data changes.
+While graph databases work well for storing and managing dynamic graph data, they are not performant on these long-running iterative graph algorithms.
 \\\\
 This thesis explores this dichotomy by asking: is it possible to store and manage dynamic graph-structured data in a way that is both performant and extensible?
-We designed and implemented a transactional graph database system based on a production-ready general purpose storage engine, and provide an API that lets the user interact with their data efficiently.
-Our system is designed to be extensible and allows the user to store multi-layer property graphs, and gives them a choice of three different storage formats, or to implement their own.
+We designed and implemented a transactional graph database system based on a production-ready general purpose key-value storage engine, which provides an API that lets the user interact with their data efficiently.
+Our system is extensible and allows the user to store multi-layer property graphs and gives them a choice of three different storage formats.
 The API allows writing algorithms in any style the user wishes, and the system itself imposes no restrictions on the paradigms that can be used.
 Our system is designed for a single-node, single-socket environment, and we show that it is possible to achieve high performance on graph analytics tasks without needing to scale to a cluster.
-Additionally, we show that our system scales to large graphs that scales to billions of edges and is able to handle transactional and analytical workloads simultaneously.
+Additionally, we show that our system scales to large graphs that scale to billions of edges and is able to handle transactional and analytical workloads simultaneously.
 
 \PM{how do I conclude this?}

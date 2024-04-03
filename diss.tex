@@ -30,10 +30,10 @@
 %%
 
 % For submission to GPS
-\documentclass[gpscopy,onehalfspacing,11pt]{ubcdiss}
+% \documentclass[gpscopy,onehalfspacing,11pt]{ubcdiss}
 
 % For your own copies (looks nicer)
-% \documentclass[balanced,oneside,singlespacing,11pt]{ubcdiss}
+\documentclass[balanced,oneside,singlespacing,11pt]{ubcdiss}
 \input{env/packages.tex}
 %% And include some of our own useful macros
 \input{env/commands.tex}
@@ -84,12 +84,16 @@
 \cleardoublepage
 
 %    4. Lay Summary (Effective May 2017, mandatory - maximum 150 words)
-\include{content/laysummary}
-\cleardoublepage
+% \ifgpscopy
+    \include{content/laysummary}
+    \cleardoublepage
+% \fi
 
 %    5. Preface
-\include{content/preface}
-\cleardoublepage
+\ifgpscopy
+    \include{content/preface}
+    \cleardoublepage
+\fi
 
 %    6. Table of contents (mandatory - list all items in the preliminary pages
 %    starting with the abstract, followed by chapter headings and
@@ -129,11 +133,7 @@
 %    2. Main body
 % Generally recommended to put each chapter into a separate file
 \include{content/intro_outline}
-%\include{model}
-%\include{impl}
-%\include{discussion}
-%\include{conclusions}
-
+\include{content/background}
 %    3. Notes
 %    4. Footnotes
 
