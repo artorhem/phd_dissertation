@@ -1,39 +1,104 @@
-\chapter{Introduction Outline}
-\section{Topic Level}
-\PM{Graphs are important}
-Much scientific and real-world data is interconnected and can be naturally expressed as a graph.
+\chapter{Introduction}
+% \section{Topic Level}
+% \PM{Graphs are important}
+% Much scientific and real-world data is interconnected and can be naturally expressed as a graph.
 
-\PM{scaling to large graphs} Much research has gone into developing algorithms, systems, partitioning schemes, and programming models to conveniently and efficiently process these ever-larger graphs.
-\\\\
-\PM{SoTA (good)} RAM is the most expensive resource in a data center, and the emergence of fast storage devices has made OOC processing on a single-node machine competitive with distributed computation systems.
-\\\\
-\PM{SoTA (bad)} Regardless of whether the graph is stored in memory or on disk, there is an expensive ETL and preprocessing pipeline needed to get the graph in a usable format; the time spent on this cannot be amortized if the graph changes frequently.
-\\\\
-\PM{What we want to change} We examine whether it is possible to store the graph in an analytics-friendly format using traditional key-value stores and whether a single-node, out-of-core system can be competitive with other custom graph processing systems and other systems/databases designed for dynamic graph data.
-\cleardoublepage
-%----------------------------------------
-\section{Sentence Level Outline}
-Large graphs are ubiquitous, and there is an increasing need to be able to store, process, and manage them efficiently.
-\\\\
-Graphs have skewed properties, and the canonical data structures that store graphs exhibit poor locality.
-\\\\
-As the size of the graph dataset increases, the challenges in processing the graph get amplified; The graph might become too large to be kept in memory, forcing out-of-core computation or necessitating using a distributed system to run computations.\PM{major design points}
+% \PM{scaling to large graphs} Much research has gone into developing algorithms, systems, partitioning schemes, and programming models to conveniently and efficiently process these ever-larger graphs.
+% \\\\
+% \PM{SoTA (good)} RAM is the most expensive resource in a data center, and the emergence of fast storage devices has made OOC processing on a single-node machine competitive with distributed computation systems.
+% \\\\
+% \PM{SoTA (bad)} Regardless of whether the graph is stored in memory or on disk, there is an expensive ETL and preprocessing pipeline needed to get the graph in a usable format; the time spent on this cannot be amortized if the graph changes frequently.
+% \\\\
+% \PM{What we want to change} We examine whether it is possible to store the graph in an analytics-friendly format using traditional key-value stores and whether a single-node, out-of-core system can be competitive with other custom graph processing systems and other systems/databases designed for dynamic graph data.
+% \cleardoublepage
+% %----------------------------------------
+% \section{Sentence Level Outline}
+\TLS{Why do graphs even come from?}
+New data is being generated rapidly, and there is an ever-present and growing need to store and analyze it efficiently.
+Much of this data has some inherent schema or structure, and relational databases are a natural choice for efficiently storing it.
+Conversely, graphs are rarely found \emph{as is} and must be extracted from another primary data store, usually a relational database.
+One way to view a graph is to consider it a materialized view of the relational database, and there has been much research in identifying which graphs can be inferred and extracted from a relational database~\cite{graphgen_sigmod17}.
+As the size of the primary data source increases, so does the size of any graphs derived from it.
 
-\subsection{Scaling Graph Processing}
-The onset of distributed graph processing is marked by the seminal paper Pregel~\cite{malewicz2010pregel}, and it set the initial state of the research landscape in graph processing. \PM{the knee-jerk reaction was to fit things to match the MapReduce paradigm}
-\\\\
-Distributed graph computation was shown to be incredibly inefficient to the point that a hand-optimized single-threaded application outperformed most distributed systems. This spurred research into establishing better baselines by choosing better, more performant algorithms and designing efficient shared-memory systems.\PM{GAPBS and shared memory systems}
-\\\\
-RAM is limited and expensive, so it is not viable (in most scenarios) to keep the entire graph in memory on a single machine. At the same time, fast solid-state devices became widely available. This led to another branch in the graph processing research towards out-of-core systems that keep either none or a limited amount of state in memory. 
-\PM{GraphChi, X-Stream, Grigdraph, etc.}
-\\\\
-Regardless of whether the GPS has an in-memory, Out-of-Core, or distributed architecture, the performance is primarily determined by the combination of the algorithms being computed (workload), the data layout in memory and on disk, and the programming model employed by the system. \PM{we now pivot towards data structures and the programming models these systems provide/need?}
+\TLS{Large graphs are ubiquitous~\cite{ubiquity_large_graphs_vldb2017}, and there is an increasing need to store, process, and manage them efficiently.}
+% \PM{1. large graphs exist. 2. Every system is designed to process ever-larger graphs, so it's a priority, 3. Whole graph analytics needs either fast access to the graph or keep it entirely in memory <-- first phase. 4. Poor locality even with the nice datastructures }
+Graphs with trillions of edges and billions of edges are common \PM{cite}.
+Each node and edge in a graph can have any number of properties associated with them (these are called property graphs), and synthetic property graphs used in research and benchmarks are easily upwards of several terabytes \PM{LDBC SNB BI SF1000 dataset}
+Analyzing datasets of this scale requires creating systems that can handle the enormous scale of the data efficiently while remaining cheap to own and operate.
 
-\subsection{State of the Art: What's good?}
-\PM{semi-external processing, better algorithm baselines, data layouts that maximize serial access, and overlapping computation with data loading.}
+A recent survey~\cite{mehrotra2024sok} identified at least 277 graph processing systems presented in academic literature \footnote{This is an approximate count since the exact definition of what constitutes a GPS is vague and subject to interpretation.}, with the ability to handle graphs with billions or even trillions of edges as the primary design goal\PM{citations}.
+A graph processing system must make design choices that make the graph efficiently navigable and easy to query, and graph processing systems research has explored the whole gamut of design decisions: single node vs cluster-based systems, in-memory vs disk-based processing, computation models, etc. \cite{Heidari:2018:SGP:3212709.3199523}
+However, the primary choice each system must make is to decide a data layout for storing the graph in a way that maximizes access efficiency \footnote{Access efficiency measures the sequential access possible in a certain graph layout. Sequential access is always faster than accessing having to traverse data randomly.}
+Several data layouts have been proposed for graph storage, the most popular of which are Compressed Sparse Row (CSR) format(\autoref{sec::background::CSR}), Adjacent Lists(\autoref{sec::background::adjlist}), and Edge Lists(\autoref{sec::background::edgelog}).
+
+\TLS{Graphs have skewed properties, and the canonical data structures that store graphs exhibit poor locality.}
+Each datastructure provides a different degree of locality when accessing the graph; the amount of locality is a feature of the access pattern, the statistical properties of the graph, and the amount of indirection needed to traverse the graph stored in the data structure. \PM{revise for clarity}
+Graphs have skewed degree distribution\PM{few nodes have a very high degree and a significantly larger number of nodes have a very low degree}, and high-degree vertices are sparsely interspersed with low-degree vertices.
+Together, these graph properties and the access pattern cause poor cache utilization and thrashing, leading to a significant drop in performance.
 \\\\
-With this basic outline of the research landscape of graph processing systems, we can examine which design choices fulfill our requirements. \PM{where do we define what we need in a GPS? This should be a subsection, but I don't know where to place this.}
+\TLS{As the size of the graph dataset increases, the challenges in processing the graph get amplified.}
+The cache utilization drops further as the number of low-degree vertices increases, and there are many optimizations created to reorder the graph in ways that keep the high-degree vertices spatially close for better cache utilization\PM{cite Alex's thesis and all his references}
+Many studies have identified this effect and provided efficient data-ordering schemes\PM{rabbit order, etc.} and schemes to traverse the data structures efficiently\PM{Hilbert curves}.
+\\
+\TLS{Graphs can be dynamic, and the datastructures needed to store an evolving graph must provide efficient concurrent access and resizing.}
+The datastructures for storing a static graph do not work well (or at all) on a dynamic graph.
+CSR representation needs expensive reconstruction whenever a graph changes; modified CSRs and their derivatives allow room for a growing neighborhood by using gaps in the CSR ~\cite{PMA_bender2007}, using snapshots to manage updates~\cite{llama}, or by segmenting the CSR such that updates do not force reconstruction of the entire CSR~\cite{csr++_firmli2020}.
+Additionally, concurrent reads and writes to the graph can occur in a dynamic environment, and the datastructure must provide transactional support to ensure consistency and isolation.
+Indeed, designing concurrent datastructures for storing dynamic graphs is an important and growing area of research, and many systems have been presented~\cite{graphone_kumar, aspen_feng2021risgraph, stinger_ediger2012, zhu2019livegraph, sortledton_fuchs2022, 10.1145/3639282}.
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Scaling Graph Processing}
+\TLS{Whether static or dynamic, the graph might be too large to keep in main memory.}
+In this scenario, the system designer has two options: distributing computation to a cluster of machines with aggregate RAM large enough to store the graph or running the computation out-of-core such that only a small subset of the graph and algorithmic state is kept in memory and the remainder is streamed from slower storage.
+% This graph processing system design must rely on fast sequential access to the graph to minimize the impact of accessing slower media such as an SSD or hard drive.
+We now examine strategies to scale up graph processing.
+
+\subsection{Distributed Graph Processing Systems}
+The onset of distributed graph processing is marked by the groundbreaking Pregel~\cite{malewicz2010pregel} paper, and it set the initial state of the research landscape in graph processing. \PM{the knee-jerk reaction was to fit things to match the MapReduce paradigm}
+In the years following the publication of MapReduce\cite{dean2004mapreduce} and Pregel, MapReduce-style distributed graph processing systems became the dominant paradigm for processing large graphs, and several systems were designed around that paradigm \PM{cite papers with MR-style BSP-based graph processing.}
+Distributed graph processing allows the processing of larger graphs that can fit in any one machine's main memory.
+Several optimizations have been proposed to make distributed graph computation more efficient, including batching updates, careful handling of high-degree vertices in a graph, better partitioning strategies, and several others that are summarized in the surveys ~\cite{mccune2023_tlavSurvey, Heidari:2018:SGP:3212709.3199523}.
+
+Using a large cluster for graph processing increases the total amount of memory available to store the graph and provides additional cores for parallelization. 
+However, if a large cluster is used for distributed computation, the communication overhead increases, and the per-core performance drops~\cite[Figure~1.1]{beamer2016understanding}.
+This partly explains the shocking results reported by McSherry et al., where they demonstrated that an optimized single-threaded implementation outperformed many popular distributed systems using hundreds of cores~\cite{mcsherry2015scalability}.
+The McSherry paper underscored the need for better single-node baselines that use performant algorithms to benchmark distributed graph processing systems. \PM{this sentence does not add anything to this discussion}
+\subsection{Shared Memory Graph Processing Systems}
+Compared to distributed memory networks of multiprocessors, shared-memory multiprocessor networks have a much lower communication overhead and typically achieve a significantly higher performance per-core~\cite[Section~1.1]{beamer2016understanding}.
+This observation led to the development of shared-memory graph processing systems that perform orders of magnitudes faster than their distributed competitors~\cite{shun2013ligra, nguyen2013lightweight, zhu2016gemini, graphmat, lakhotia2020gpop, beamer2015gap}.
+\PM{I feel like I should write more about these systems, but I don't know what}
+\subsection{Semi-External Graph Processing Systems}
+DRAM, however, is an expensive resource and can account for roughly 30\% of the cost of a server in a modern datacenter~\cite[Figure~1]{weiner2022tmo}.
+With the unrelenting growth of graph dataset sizes, keeping all the graph data in memory is increasingly untenable.
+Thankfully, fast solid-state devices such as NVMe devices have become widely available, and they present another architecture for graph processing: semi-external graph processing systems.
+In this architecture, a small subset of the graph and some algorithmic state is maintained in memory (tunable based on the memory budget); the rest of the graph is streamed from slower external storage.
+Popular systems that are built with this architecture include GraphChi~\cite{kyrola2012graphchi}, X-Stream~\cite{roy2013x}, GridGraph~\cite{zhu2015gridgraph}, FlashGraph~\cite{zheng2015flashgraph}, Blaze~\cite{kim2022blaze}, Wonderland~\cite{zhang2018wonderland}, Mosaic~\cite{maass2017mosaic}, Garaph~\cite{ma2017garaph}, GraFBoost~\cite{jun2018grafboost}, and many more.
+These systems have democratized running graph analytics, allowing users to run computations on their trillion-edged graphs on a single machine at a fraction of the cost of doing the same on a cluster. 
 \\\\
+Regardless of the architecture the GPS has been designed for, the performance is primarily determined by the combination of the algorithms being computed (workload), the data layout in memory and on disk, and the programming model employed by the system. \PM{we now pivot towards data structures and the programming models these systems provide/need?}
+% These factors have been the focus of optimization efforts to improve the performance of graph processing systems: using more efficient algorithms that use more efficient data structures coupled with better parallelization strategies and data layouts with enhanced sequential access.
+Sequential access to the graph becomes critical when the graph processing system uses a semi-external architecture. 
+Even on the best SSDs, sequential access is still significantly faster than random access, and therefore, semi-external processing is critically dependent on good data layouts.
+Most semi-external graph processing systems spend a significant amount of time preprocessing the data \footnote{with the notable exception of X-Stream, which instead relies on the sheer parallelism of RAID devices to stream the graph edges.} to construct sequential data layout.
+This optimization is in synergy with constructing data traversal schemes that minimize conflicts when updating the in-memory state and maximize cache reuse.
+Underpinning all this effort is an efficient storage engine that interleaves computation with IO requests, handles the file or block IO, and provides some atomicity-consistency-isolation-durability (ACID) guarantees (if the system has been designed to provide any).
+\\\\
+This thesis takes the position that efficient single-node semi-external graph processing is the foundation upon which one can build a robust and scalable graph data mangement and analysis system.
+There are several design decisions from the state of art that sit will with our objective while some that need to be modified and revisited.
+In the following discussion we elaborate on which design decision we like and build upon versus the ones that we decided to change or modify.
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{State of the Art: What's good?}
+% \PM{semi-external processing, better algorithm baselines, data layouts that maximize serial access, and overlapping computation with data loading.}
+With this basic outline of the research landscape of graph processing systems, we can examine key design choices that fulfill our requirements.
+\begin{enumerate}
+    \item Efficient out-of-the-box algorithms and a rich, useful API for expressing computations: The Waterloo survey on the state of graph processing~\cite{ubiquity_large_graphs_vldb2017} identified that users of graph processing systems need their GPS system to not only have a rich set of algorithms available to use out-of-the-box, but also they would prefer the system to have a useful API that they can use to write their own algorithms. Using efficient algorithms are essential for correctly benchmarking the system and establishing areas that need improvement for future research~\cite{mcsherry2015scalability, beamer2016understanding, mehrotra2024sok}.
+    \item The use of well-designed datastructures that can be parallelized without incurring severe penalties from locking overheads is critical in the design of massively parallel semi-external graph processing systems that use fast storage devices. Blaze~\cite{kim2022blaze}, for instance, has been designed for maximizing the bandwidth utilization of a fast NVMe SSD provides by reducing the amount of locking and the use of compare-and-lock style update propagation that is common in other graph processing systems designed to run on flash storage.
+    \item Using data layouts that maximize sequential access to the graph are preferred and painstakingly designed. This has been the central pain-point for much research in semi-external graph processing and every system has its own clever scheme to address this problem for their API and computation model. GraphChi~\cite{kyrola2012graphchi}, for example, processes a graph in \emph{parallel sliding windows} of vertices, and the data layout is such that computation threads processing a certain window can read all incoming edges to vertices in that window by reading in a single disk-based shard.\PM{rewrite for clarity. Maybe mention another system layout?}.
+\end{enumerate}
+ 
 \PM{the flow is: semi-external -> data layout -> overlapping computation and IO -> best-in-class algorithms}\\
 The choice of semi-external graph processing strikes the correct balance between an expensive but fast in-memory state and a massive state that remains on slow external storage.\PM{we need semi-external processing}
 \\\\
@@ -43,7 +108,7 @@ The semi-external paradigm can be more performant with non-blocking IO and lock-
 \\\\
 Finally, any datastructure is only as good as the algorithm it is used with. Therefore, it is imperative to use the best-in-class algorithms available that can fit into the programming model supported by the system. \PM{what came first: the choice of algorithm or the programming model?}
 
-\subsection{State of the Art: What needs to be changed?}
+\section{State of the Art: What needs to be changed?}
 \PM{The basic flow: on-disk layouts that match in-memory layouts, using a database that lets one work on dynamic graphs larger than memory, building an HTAP graph database that does not need to run analytics independently from transactions, making the single-node system perform great before scaling to a cluster/NUMA setting.}
 \\\\
 Past research has conclusively shown that premature distribution of tasks based on poor single-node baselines is bound to underperform. \PM{make single-node great}
@@ -54,7 +119,7 @@ Graphs are rarely static, but GPS' are often designed to be static. This leads t
 \\\\
 \PM{Data management feature parity for graph data} Users of relational database systems expect a strong set of guarantees about their data - ACID, snapshotting, fault-tolerance and recovery.
 
-\subsection{What have we done?}
+\section{What have we done?}
 \PM{matching data layouts, no ETL/preprocessing, use a mature KV store as the storage substrate instead of custom crafting a storage engine, design a GraphAPI that is flexible enough to support multiple data layouts and algorithm types. Talk about the implicit locality in keeping the graph in a B-Tree, and designing cursors to take advantage of this. Option to store the algorithmic state to bootstrap new rounds of computation. adapting GAPBS to use our API. Property stores. Expressing diff algorithm types using API.}
 \\
 This thesis answers the question whether it is possible to persist the graph in an analytics-ready layout in a KV store such that we can get the convenience of persistence without sacrificing too much of the performance compared to in-memory/out-of-core systems with a custom data layout.\PM{descibe the system at a high level}

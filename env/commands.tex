@@ -11,6 +11,28 @@
 \renewcommand{\subsectionautorefname}{Section}
 \renewcommand{\subsubsectionautorefname}{Section}
 
+% % Change autoref names
+% \renewcommand*\sectionautorefname{Section}
+% \renewcommand*\subsectionautorefname{Section}
+% \renewcommand*\subsubsectionautorefname{Section}
+
+% The below commands color the "Figure", "Algorithm", and "Table" caption prefixes
+\definecolor{figurecolor}{RGB}{22,90,220}
+\definecolor{citecolor}{RGB}{198,81,19}
+\captionsetup[figure]{labelfont={color=figurecolor}}
+\captionsetup[table]{labelfont={color=figurecolor}}
+\captionsetup[algorithm]{labelfont={color=figurecolor}}
+% PDF metadata
+\hypersetup{ colorlinks=true, urlcolor=black, linkcolor=figurecolor, citecolor=citecolor, pdfstartview=FitH,
+        pdftitle={SoK: Best Practices in Graph Processing Benchmarking},
+        pdfauthor={}
+        }
+
+\def\Snospace~{\S{}}
+\def\sectionautorefname{\Snospace}
+\def\subsectionautorefname{\Snospace}
+\def\subsubsectionautorefname{\Snospace}
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Lists
