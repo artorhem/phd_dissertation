@@ -48,3 +48,26 @@
 
 \usepackage{wasysym}
 \newcommand\yesml[1]{\nbc{ML {\textcolor{yellow}\sun}}{#1}{mircolor}}
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%% to make the colored frame
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\usepackage{framed}
+
+%% The following is for color coding the bar
+% blue for work that is basically all complete, orange for parts where the research is basically done, but it's not completely written up, and red for work that is neither research nor writing complete. 
+\newlength{\leftbarwidth}
+\setlength{\leftbarwidth}{3pt}
+\newlength{\leftbarsep}
+\setlength{\leftbarsep}{10pt}
+
+\newcommand*{\leftbarcolorcmd}{\color{leftbarcolor}}% as a command to be more flexible
+\colorlet{leftbarcolor}{black}
+
+\renewenvironment{leftbar}{%
+    \def\FrameCommand{{\leftbarcolorcmd{\vrule width \leftbarwidth\relax\hspace {\leftbarsep}}}}%
+    \MakeFramed {\advance \hsize -\width \FrameRestore }%
+}{%
+    \endMakeFramed
+}
