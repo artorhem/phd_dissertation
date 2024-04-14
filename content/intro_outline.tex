@@ -21,7 +21,7 @@ One way to view a graph is to consider it a materialized view of the relational 
 As the size of the primary data source increases, so does the size of any graphs derived from it.
 
 \TLS{Large graphs are ubiquitous~\cite{ubiquity_large_graphs_vldb2017}, and there is an increasing need to store, process, and manage them efficiently.}
-% \PM{1. large graphs exist. 2. Every system is designed to process ever-larger graphs, so it's a priority, 3. Whole graph analytics needs either fast access to the graph or keep it entirely in memory <-- first phase. 4. Poor locality even with the nice datastructures }
+% \PM{1. large graphs exist. 2. Every system is designed to process ever-larger graphs, so it's a priority, 3. Whole graph analytics needs fast access to the graph or keep it entirely in memory <-- first phase. 4. Poor locality even with the nice datastructures }
 Graphs with trillions of edges and billions of edges are common \PM{cite}.
 Each node and edge in a graph can have any number of properties associated with them (these are called property graphs), and synthetic property graphs used in research and benchmarks are easily upwards of several terabytes \PM{LDBC SNB BI SF1000 dataset}
 Analyzing datasets of this scale requires creating systems that can handle the enormous scale of the data efficiently while remaining cheap to own and operate.
@@ -84,9 +84,9 @@ Most semi-external graph processing systems spend a significant amount of time p
 This optimization is in synergy with constructing data traversal schemes that minimize conflicts when updating the in-memory state and maximize cache reuse.
 Underpinning all this effort is an efficient storage engine that interleaves computation with IO requests, handles the file or block IO, and provides some atomicity-consistency-isolation-durability (ACID) guarantees (if the system has been designed to provide any).
 \\\\
-This thesis takes the position that efficient single-node semi-external graph processing is the foundation upon which one can build a robust and scalable graph data mangement and analysis system.
-There are several design decisions from the state of art that sit will with our objective while some that need to be modified and revisited.
-In the following discussion we elaborate on which design decision we like and build upon versus the ones that we decided to change or modify.
+This thesis argues that efficient single-node semi-external graph processing is the foundation for a robust and scalable graph data management and analysis system.
+Several design decisions from the state of the art align with our objective, while some need to be modified and revisited.
+In the following discussion, we elaborate on which design decisions we like to build upon versus the ones we decide to change or modify.
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -94,19 +94,32 @@ In the following discussion we elaborate on which design decision we like and bu
 % \PM{semi-external processing, better algorithm baselines, data layouts that maximize serial access, and overlapping computation with data loading.}
 With this basic outline of the research landscape of graph processing systems, we can examine key design choices that fulfill our requirements.
 \begin{enumerate}
-    \item Efficient out-of-the-box algorithms and a rich, useful API for expressing computations: The Waterloo survey on the state of graph processing~\cite{ubiquity_large_graphs_vldb2017} identified that users of graph processing systems need their GPS system to not only have a rich set of algorithms available to use out-of-the-box, but also they would prefer the system to have a useful API that they can use to write their own algorithms. Using efficient algorithms are essential for correctly benchmarking the system and establishing areas that need improvement for future research~\cite{mcsherry2015scalability, beamer2016understanding, mehrotra2024sok}.
-    \item The use of well-designed datastructures that can be parallelized without incurring severe penalties from locking overheads is critical in the design of massively parallel semi-external graph processing systems that use fast storage devices. Blaze~\cite{kim2022blaze}, for instance, has been designed for maximizing the bandwidth utilization of a fast NVMe SSD provides by reducing the amount of locking and the use of compare-and-lock style update propagation that is common in other graph processing systems designed to run on flash storage.
-    \item Using data layouts that maximize sequential access to the graph are preferred and painstakingly designed. This has been the central pain-point for much research in semi-external graph processing and every system has its own clever scheme to address this problem for their API and computation model. GraphChi~\cite{kyrola2012graphchi}, for example, processes a graph in \emph{parallel sliding windows} of vertices, and the data layout is such that computation threads processing a certain window can read all incoming edges to vertices in that window by reading in a single disk-based shard.\PM{rewrite for clarity. Maybe mention another system layout?}.
+    \item Efficient out-of-the-box algorithms and a rich, useful API for expressing computations: The Waterloo survey on the state of graph processing~\cite{ubiquity_large_graphs_vldb2017} identified that users of graph processing systems desire a system to provide not only a rich set of algorithms available to use out-of-the-box but also a useful API to write their algorithms. Using efficient algorithms is essential for correctly benchmarking the system and establishing areas that need improvement for future research~\cite{mcsherry2015scalability, beamer2016understanding, mehrotra2024sok}.
+    \item The use of well-designed datastructures that can be parallelized without incurring severe penalties from locking overheads is critical in designing massively parallel semi-external graph processing systems that use fast storage devices. Blaze~\cite{kim2022blaze}, for instance, has been designed to maximize the bandwidth utilization of a fast NVMe SSD by reducing the amount of locking and the use of compare-and-lock style update propagation that is common in other graph processing systems designed to run on flash storage.
+    \item Using data layouts that maximize sequential access to the graph are preferred and painstakingly designed. This has been the central theme for much research in semi-external graph processing, and every system has its clever scheme to address this problem for its API and computation model. GraphChi~\cite{kyrola2012graphchi}, for example, processes a graph in \emph{parallel sliding windows} of vertices, and the data layout is such that computation threads processing a certain window can read all incoming edges to vertices in that window by reading in a single disk-based shard. \\
+    X-Stream~\cite{roy2013x} takes a different approach to maximize sequential access to the edge data. Unlike GraphChi, they stream the edges and update the vertex states in memory~\footnote{The system exploits a common property of graphs that the number of edges is an order of magnitude more than the number of vertices}. X-Stream uses the notion of a \emph{streaming partition} which is a subset of vertices and all the edges that have a source vertex in that subset. The graph is partitioned~\footnote{The premise is that partitioning a graph by the source vertex ID is less computationally expensive than sorting the edges as is done by GraphChi. There is no requirement to maintain a strict ordering of edges within a partition. This is why the authors claim that X-Stream does not need any preprocessing.} by the source vertex of the edges. The graph is processed by streaming in the edges of a streaming partition and keeping the vertex state in memory.
+
+    Any shard creation or specialized data layout creation requires preprocessing the graph, which is a significant overhead compared to the cost of actually running the computation. Preprocessing costs are rarely amortized since the layout must be reconstructed each time the graph changes.
+    
 \end{enumerate}
- 
-\PM{the flow is: semi-external -> data layout -> overlapping computation and IO -> best-in-class algorithms}\\
-The choice of semi-external graph processing strikes the correct balance between an expensive but fast in-memory state and a massive state that remains on slow external storage.\PM{we need semi-external processing}
-\\\\
-The semi-external paradigm is effective only when coupled with data layouts that maximize serial access to the data. \PM{talk about the layouts used by GraphChi, X-Stream, and Blaze. Also, mention the time spent preprocessing to make these layouts. } 
-\\\\
-The semi-external paradigm can be more performant with non-blocking IO and lock-free synchronization in data structures that hold the algorithmic state. \PM{parallel vectors, sliding queues, buckets, async IO}
-\\\\
-Finally, any datastructure is only as good as the algorithm it is used with. Therefore, it is imperative to use the best-in-class algorithms available that can fit into the programming model supported by the system. \PM{what came first: the choice of algorithm or the programming model?}
+% The semi-external paradigm is effective only when coupled with data layouts that maximize serial access to the data. \PM{talk about the layouts used by GraphChi, X-Stream, and Blaze. Also, mention the time spent preprocessing to make these layouts. } 
+% \\\\
+% The semi-external paradigm can be more performant with non-blocking IO and lock-free synchronization in data structures that hold the algorithmic state. \PM{parallel vectors, sliding queues, buckets, async IO}
+% \\\\
+% Finally, any datastructure is only as good as the algorithm it is used with. Therefore, it is imperative to use the best-in-class algorithms available that can fit into the programming model supported by the system. \PM{what came first: the choice of algorithm or the programming model?}
+\PM{The following feels like it should be part of the background, but it feels relevant here as well. @Margo? :help: }
+\TLS{These optimizations together manifest in the programming model a system provides to the end-user.}
+Since all graphs can be expressed as sparse matrices, all graph computations can be thought of as matrix operations. For instance, graph processing algorithms can be expressed as: 
+\begin{equation}
+    Y = X^{T}A
+\end{equation}
+where $X$ and $Y$ are vectors of vertex states, and $A$ is the sparse adjacency representation of the graph.
+Semi-External graph processing essentially keeps the vertex states (or parts of it) in memory, and the data layouts are designed to maximize sequential access to $A$ that matches the order in which $X$ and/or $Y$ are accessed.
+Considering this framing, all programming models can be classified according to:
+\begin{enumerate}
+    \item Where the state is stored
+    \item Which discrete steps of the matrix multiplication need a
+\end{enumerate}
 
 \section{State of the Art: What needs to be changed?}
 \PM{The basic flow: on-disk layouts that match in-memory layouts, using a database that lets one work on dynamic graphs larger than memory, building an HTAP graph database that does not need to run analytics independently from transactions, making the single-node system perform great before scaling to a cluster/NUMA setting.}
