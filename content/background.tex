@@ -3,6 +3,19 @@
 \PM{DO NOT READ -- FROM PREVIOUS DRAFT}\\\\
 \PM{Is it fair to imagine Flexograph as the storage backend for materialized graph views?}
 
+\TLS{These optimizations together manifest in the programming model a system provides to the end-user.}
+Since all graphs can be expressed as sparse matrices, all graph computations can be thought of as matrix operations. For instance, graph processing algorithms can be expressed as: 
+\begin{equation}
+    Y = X^{T}A
+\end{equation}
+where $X$ and $Y$ are vectors of vertex states, and $A$ is the sparse adjacency representation of the graph.
+Semi-External graph processing essentially keeps the vertex states (or parts of the vertex state) in memory, and the data layouts are designed to maximize sequential access to $A$ that matches the order in which $X$ and/or $Y$ are accessed.
+Considering this framing, all programming models can be classified according to:
+\begin{enumerate}
+    \item Where the state is stored: \PM{is the state updates propagated through edges or kept with the vertex set. This controls how much random access is needed to make algorithmic progress. }
+    \item 
+\end{enumerate}
+
 \subsection{Graph Representations}
 Talk about CSR/CSC, adjacency Lists, and EdgeLists. Maybe TEL and EdgeLogs
 \subsubsection{Compressed Sparse Row}

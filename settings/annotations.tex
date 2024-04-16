@@ -62,6 +62,11 @@
 \newlength{\leftbarsep}
 \setlength{\leftbarsep}{10pt}
 
+\definecolor{idea}{rgb}{1.0, 0.13, 0.32} %awesome on latexcolor.com
+\definecolor{nocode}{rgb}{1.0, 0.88, 0.21} %bananayellow on latexcolor.com
+\definecolor{prototyped}{rgb}{1.0, 0.88, 0.21} %applegreen on latexcolor.com
+
+% Define custom environment with left bar
 \newcommand*{\leftbarcolorcmd}{\color{leftbarcolor}}% as a command to be more flexible
 \colorlet{leftbarcolor}{black}
 
@@ -70,4 +75,12 @@
     \MakeFramed {\advance \hsize -\width \FrameRestore }%
 }{%
     \endMakeFramed
+}
+
+%define a new environment that accepts a color and creates a left bar of that color
+\newenvironment{statusbar}[1]{%
+		\colorlet{leftbarcolor}{#1}%
+		\leftbar
+}{%
+		\endleftbar
 }

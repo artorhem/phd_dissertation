@@ -91,6 +91,7 @@ In the following discussion, we elaborate on which design decisions we like to b
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \section{State of the Art: What's good?}
+\label{intro:whats_good}
 % \PM{semi-external processing, better algorithm baselines, data layouts that maximize serial access, and overlapping computation with data loading.}
 With this basic outline of the research landscape of graph processing systems, we can examine key design choices that fulfill our requirements.
 \begin{enumerate}
@@ -100,33 +101,44 @@ With this basic outline of the research landscape of graph processing systems, w
     X-Stream~\cite{roy2013x} takes a different approach to maximize sequential access to the edge data. Unlike GraphChi, they stream the edges and update the vertex states in memory~\footnote{The system exploits a common property of graphs that the number of edges is an order of magnitude more than the number of vertices}. X-Stream uses the notion of a \emph{streaming partition} which is a subset of vertices and all the edges that have a source vertex in that subset. The graph is partitioned~\footnote{The premise is that partitioning a graph by the source vertex ID is less computationally expensive than sorting the edges as is done by GraphChi. There is no requirement to maintain a strict ordering of edges within a partition. This is why the authors claim that X-Stream does not need any preprocessing.} by the source vertex of the edges. The graph is processed by streaming in the edges of a streaming partition and keeping the vertex state in memory.
 
     Any shard creation or specialized data layout creation requires preprocessing the graph, which is a significant overhead compared to the cost of actually running the computation. Preprocessing costs are rarely amortized since the layout must be reconstructed each time the graph changes.
-    
 \end{enumerate}
+
+We build upon these ideas to create \project{}.
+\begin{statusbar}{prototyped}
+We use lock-free implementations in our application code, that eliminates the overhead of compare-and-swap or locking-based update propagation.\PM{I want to revisit the blaze-style non-blocking propagation that uses two buffers for each thread. Jack prototyped it, but I don't recall why we never actually used it.}
+\end{statusbar}
+
+\project{} prototypes three different data layouts that each have their own benefits and drawbacks, which we analyze in \PM{Add forward section reference.}. 
+We provide a detailed comparative analysis of these data layouts and provide hints for choosing a data layout based on the read-write mix an evolving graph might experience.
+
+\begin{statusbar}{idea}
+Counter to popular opinion, we showcase that using a key-value store-based database for persisting the graph, does not automatically lead to unmitigated performance losses, and the use of a robust storage engine augurs in benefits that would otherwise require significant developer effort.
+\end{statusbar}
+
 % The semi-external paradigm is effective only when coupled with data layouts that maximize serial access to the data. \PM{talk about the layouts used by GraphChi, X-Stream, and Blaze. Also, mention the time spent preprocessing to make these layouts. } 
 % \\\\
 % The semi-external paradigm can be more performant with non-blocking IO and lock-free synchronization in data structures that hold the algorithmic state. \PM{parallel vectors, sliding queues, buckets, async IO}
 % \\\\
 % Finally, any datastructure is only as good as the algorithm it is used with. Therefore, it is imperative to use the best-in-class algorithms available that can fit into the programming model supported by the system. \PM{what came first: the choice of algorithm or the programming model?}
-\PM{The following feels like it should be part of the background, but it feels relevant here as well. @Margo? :help: }
-\TLS{These optimizations together manifest in the programming model a system provides to the end-user.}
-Since all graphs can be expressed as sparse matrices, all graph computations can be thought of as matrix operations. For instance, graph processing algorithms can be expressed as: 
-\begin{equation}
-    Y = X^{T}A
-\end{equation}
-where $X$ and $Y$ are vectors of vertex states, and $A$ is the sparse adjacency representation of the graph.
-Semi-External graph processing essentially keeps the vertex states (or parts of it) in memory, and the data layouts are designed to maximize sequential access to $A$ that matches the order in which $X$ and/or $Y$ are accessed.
-Considering this framing, all programming models can be classified according to:
-\begin{enumerate}
-    \item Where the state is stored
-    \item Which discrete steps of the matrix multiplication need a
-\end{enumerate}
+
 
 \section{State of the Art: What needs to be changed?}
+\label{intro:what_change}
 \PM{The basic flow: on-disk layouts that match in-memory layouts, using a database that lets one work on dynamic graphs larger than memory, building an HTAP graph database that does not need to run analytics independently from transactions, making the single-node system perform great before scaling to a cluster/NUMA setting.}
 \\\\
-Past research has conclusively shown that premature distribution of tasks based on poor single-node baselines is bound to underperform. \PM{make single-node great}
+\TLS{Past research has conclusively shown that premature distribution of tasks based on poor single-node baselines is bound to underperform.} \PM{make single-node great}
+McSherry et al.~\cite{mcsherry2015scalability} demonstrated that several popular distributed GPS evaluated their scalability by comparing not against an efficient single-threaded implementation, but by evaluating how the run time changes as the total number of threads increases.
+This has led to several attempts at standardization of benchmarking practices for GPS~\cite{capotua2015graphalytics,mehrotra2024sok,beamer2015gap,graph500}, with each proposal identifying the need to use more performant algorithms and reporting more detailed performance metrics.
+Considering that distributed graph processing is inefficient due to the communication costs, the main benefit of using a cluster for graph processing is that the aggregate RAM might be sufficiently large to process a bigger graph than can be done on a single machine.
+The Waterloo survey on the state of graph processing reveals that large graphs are ubiquitous, and several of their participants claimed to operate on uncompressed graphs larger than 1 TB, the exact upper limit on the size of these graphs is unknown~\cite[Section~3.2]{ubiquity_large_graphs_vldb2017}.
+While servers with more than a few terabytes of RAM are not uncommon, they are expensive, and as we and others have shown, unnecessary.
+Scale-out systems that are built from semi-external graph processing systems should provide better dollar-to-dollar performance than a distributed graph/data processing system.
 \\\\
-On a single-node setup, syncretic in-memory and on-disk data layouts are essential to extracting every last bit of performance. \PM{no preprocessing}
+\TLS{We have seen in ~\autoref*{intro:whats_good} that the system performance is strongly linked to the in-memory and on-disk layout, and that significant preprocessing effort is spent in creating and maintaining these layouts.}\PM{ This part will talk about native graph storage, hybrid analytics and transactional design}
+Time spent in preprocessing the graph is never amortized since each snapshot of an evolving graph is analyzed just once before needing to run the ingestion and preprocessing pipelines again.
+A better alternative is to natively store the graph in a format that is similar or close to the in-memory representation that is required for efficient access.
+Graph databases do this, but they are optimized for transactional point queries rather than full-graph analytics.
+Neo4j~\cite{neo4j}, for instance, stores all graph data on disk as "linked lists of fixed size records"~\cite{neo4j:data_layout:2024}.
 \\\\
 Graphs are rarely static, but GPS' are often designed to be static. This leads to an expensive ETL-based pipeline to keep the data freshness guarantees -- a new snapshot must be created, preprocessed, and then processed each time a new analysis is sought.  \PM{ETL on demand because the system is static, but the graph is not; never amortized.}
 \\\\
