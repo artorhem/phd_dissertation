@@ -138,7 +138,10 @@ Scale-out systems that are built from semi-external graph processing systems sho
 Time spent in preprocessing the graph is never amortized since each snapshot of an evolving graph is analyzed just once before needing to run the ingestion and preprocessing pipelines again.
 A better alternative is to natively store the graph in a format that is similar or close to the in-memory representation that is required for efficient access.
 Graph databases do this, but they are optimized for transactional point queries rather than full-graph analytics.
-Neo4j~\cite{neo4j}, for instance, stores all graph data on disk as "linked lists of fixed size records"~\cite{neo4j:data_layout:2024}.
+Neo4j~\cite{neo4j}, for instance, stores all graph data on disk as "linked lists of fixed size records" \cite{neo4j:data_layout:2024}.
+A linked-list representation of graphs is great for connectivity queries but is bound to cause catastrophic random access overhead when running whole graph analytics.
+Newer research systems such as GraphFlowDB\cite{graphflowdb_gupta2021} provide a more methodical analysis of design decisions required to store a property graph in memory, but they do not persist the graph and do not evaluate the graph on whole-graph analytics benchmarks.
+We believe that storing a graph that is larger than available RAM requires careful persistent and in-memory data layout co-design, which performs well on both OLAP and OLTP-style workloads.
 \\\\
 Graphs are rarely static, but GPS' are often designed to be static. This leads to an expensive ETL-based pipeline to keep the data freshness guarantees -- a new snapshot must be created, preprocessed, and then processed each time a new analysis is sought.  \PM{ETL on demand because the system is static, but the graph is not; never amortized.}
 \\\\
