@@ -49,6 +49,7 @@ Indeed, designing concurrent datastructures for storing dynamic graphs is an imp
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \section{Scaling Graph Processing}
+\label{intro:scaling_gps}
 \TLS{Whether static or dynamic, the graph might be too large to keep in main memory.}
 In this scenario, the system designer has two options: distributing computation to a cluster of machines with aggregate RAM large enough to store the graph or running the computation out-of-core such that only a small subset of the graph and algorithmic state is kept in memory and the remainder is streamed from slower storage.
 % This graph processing system design must rely on fast sequential access to the graph to minimize the impact of accessing slower media such as an SSD or hard drive.
@@ -85,7 +86,7 @@ This optimization is in synergy with constructing data traversal schemes that mi
 Underpinning all this effort is an efficient storage engine that interleaves computation with IO requests, handles the file or block IO, and provides some atomicity-consistency-isolation-durability (ACID) guarantees (if the system has been designed to provide any).
 \\\\
 This thesis argues that efficient single-node semi-external graph processing is the foundation for a robust and scalable graph data management and analysis system.
-Several design decisions from the state of the art align with our objective, while some need to be modified and revisited.
+Several state-of-the-art design decisions align with our objective, while some need to be modified and revisited.
 In the following discussion, we elaborate on which design decisions we like to build upon versus the ones we decide to change or modify.
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -98,21 +99,21 @@ With this basic outline of the research landscape of graph processing systems, w
     \item Efficient out-of-the-box algorithms and a rich, useful API for expressing computations: The Waterloo survey on the state of graph processing~\cite{ubiquity_large_graphs_vldb2017} identified that users of graph processing systems desire a system to provide not only a rich set of algorithms available to use out-of-the-box but also a useful API to write their algorithms. Using efficient algorithms is essential for correctly benchmarking the system and establishing areas that need improvement for future research~\cite{mcsherry2015scalability, beamer2016understanding, mehrotra2024sok}.
     \item The use of well-designed datastructures that can be parallelized without incurring severe penalties from locking overheads is critical in designing massively parallel semi-external graph processing systems that use fast storage devices. Blaze~\cite{kim2022blaze}, for instance, has been designed to maximize the bandwidth utilization of a fast NVMe SSD by reducing the amount of locking and the use of compare-and-lock style update propagation that is common in other graph processing systems designed to run on flash storage.
     \item Using data layouts that maximize sequential access to the graph are preferred and painstakingly designed. This has been the central theme for much research in semi-external graph processing, and every system has its clever scheme to address this problem for its API and computation model. GraphChi~\cite{kyrola2012graphchi}, for example, processes a graph in \emph{parallel sliding windows} of vertices, and the data layout is such that computation threads processing a certain window can read all incoming edges to vertices in that window by reading in a single disk-based shard. \\
-    X-Stream~\cite{roy2013x} takes a different approach to maximize sequential access to the edge data. Unlike GraphChi, they stream the edges and update the vertex states in memory~\footnote{The system exploits a common property of graphs that the number of edges is an order of magnitude more than the number of vertices}. X-Stream uses the notion of a \emph{streaming partition} which is a subset of vertices and all the edges that have a source vertex in that subset. The graph is partitioned~\footnote{The premise is that partitioning a graph by the source vertex ID is less computationally expensive than sorting the edges as is done by GraphChi. There is no requirement to maintain a strict ordering of edges within a partition. This is why the authors claim that X-Stream does not need any preprocessing.} by the source vertex of the edges. The graph is processed by streaming in the edges of a streaming partition and keeping the vertex state in memory.
+    X-Stream~\cite{roy2013x} takes a different approach to maximize sequential access to the edge data. Unlike GraphChi, they stream the edges and update the vertex states in memory~\footnote{The system exploits a common property of graphs that the number of edges is an order of magnitude more than the number of vertices}. X-Stream uses the notion of a \emph{streaming partition}, which is a subset of vertices and all the edges with a source vertex in that subset. The graph is partitioned~\footnote{The premise is that partitioning a graph by the source vertex ID is less computationally expensive than sorting the edges, as GraphChi does. A strict ordering of edges within a partition is not required with X-Stream. This is why the authors claim that X-Stream does not need any preprocessing.} by the source vertex of the edges. The graph is processed by streaming in the edges of a streaming partition and keeping the vertex state in memory.
 
     Any shard creation or specialized data layout creation requires preprocessing the graph, which is a significant overhead compared to the cost of actually running the computation. Preprocessing costs are rarely amortized since the layout must be reconstructed each time the graph changes.
 \end{enumerate}
 
 We build upon these ideas to create \project{}.
 \begin{statusbar}{prototyped}
-We use lock-free implementations in our application code, that eliminates the overhead of compare-and-swap or locking-based update propagation.\PM{I want to revisit the blaze-style non-blocking propagation that uses two buffers for each thread. Jack prototyped it, but I don't recall why we never actually used it.}
+We use lock-free implementations in our application code, eliminating the overhead of compare-and-swap or locking-based update propagation.\PM{I want to revisit the blaze-style non-blocking propagation that uses two buffers for each thread. Jack prototyped it, but I don't recall why we never used it.}
 \end{statusbar}
 
 \project{} prototypes three different data layouts that each have their own benefits and drawbacks, which we analyze in \PM{Add forward section reference.}. 
-We provide a detailed comparative analysis of these data layouts and provide hints for choosing a data layout based on the read-write mix an evolving graph might experience.
+We provide a detailed comparative analysis of these data layouts and hints for choosing a data layout based on the read-write mix an evolving graph might experience.
 
 \begin{statusbar}{idea}
-Counter to popular opinion, we showcase that using a key-value store-based database for persisting the graph, does not automatically lead to unmitigated performance losses, and the use of a robust storage engine augurs in benefits that would otherwise require significant developer effort.
+Contrary to popular opinion, we showcase that using a key-value store-based database for persisting the graph does not automatically lead to unmitigated performance losses, and the use of a robust storage engine augurs in benefits that would otherwise require significant developer effort.
 \end{statusbar}
 
 % The semi-external paradigm is effective only when coupled with data layouts that maximize serial access to the data. \PM{talk about the layouts used by GraphChi, X-Stream, and Blaze. Also, mention the time spent preprocessing to make these layouts. } 
@@ -124,40 +125,72 @@ Counter to popular opinion, we showcase that using a key-value store-based datab
 
 \section{State of the Art: What needs to be changed?}
 \label{intro:what_change}
-\PM{The basic flow: on-disk layouts that match in-memory layouts, using a database that lets one work on dynamic graphs larger than memory, building an HTAP graph database that does not need to run analytics independently from transactions, making the single-node system perform great before scaling to a cluster/NUMA setting.}
-\\\\
+% \PM{The basic flow: on-disk layouts that match in-memory layouts, using a database that lets one work on dynamic graphs larger than memory, building an HTAP graph database that does not need to run analytics independently from transactions, making the single-node system perform great before scaling to a cluster/NUMA setting.}
+% \\\\
+\PM{TODO: Introduce this section}
+\subsection{Single-node optimization before scale-out}
 \TLS{Past research has conclusively shown that premature distribution of tasks based on poor single-node baselines is bound to underperform.} \PM{make single-node great}
-McSherry et al.~\cite{mcsherry2015scalability} demonstrated that several popular distributed GPS evaluated their scalability by comparing not against an efficient single-threaded implementation, but by evaluating how the run time changes as the total number of threads increases.
+McSherry et al.~\cite{mcsherry2015scalability} demonstrated that several popular distributed GPS evaluated their scalability by comparing not against an efficient single-threaded implementation but by evaluating how the run time changes as the total number of threads increases.
 This has led to several attempts at standardization of benchmarking practices for GPS~\cite{capotua2015graphalytics,mehrotra2024sok,beamer2015gap,graph500}, with each proposal identifying the need to use more performant algorithms and reporting more detailed performance metrics.
 Considering that distributed graph processing is inefficient due to the communication costs, the main benefit of using a cluster for graph processing is that the aggregate RAM might be sufficiently large to process a bigger graph than can be done on a single machine.
-The Waterloo survey on the state of graph processing reveals that large graphs are ubiquitous, and several of their participants claimed to operate on uncompressed graphs larger than 1 TB, the exact upper limit on the size of these graphs is unknown~\cite[Section~3.2]{ubiquity_large_graphs_vldb2017}.
-While servers with more than a few terabytes of RAM are not uncommon, they are expensive, and as we and others have shown, unnecessary.
-Scale-out systems that are built from semi-external graph processing systems should provide better dollar-to-dollar performance than a distributed graph/data processing system.
-\\\\
-\TLS{We have seen in ~\autoref*{intro:whats_good} that the system performance is strongly linked to the in-memory and on-disk layout, and that significant preprocessing effort is spent in creating and maintaining these layouts.}\PM{ This part will talk about native graph storage, hybrid analytics and transactional design}
-Time spent in preprocessing the graph is never amortized since each snapshot of an evolving graph is analyzed just once before needing to run the ingestion and preprocessing pipelines again.
-A better alternative is to natively store the graph in a format that is similar or close to the in-memory representation that is required for efficient access.
-Graph databases do this, but they are optimized for transactional point queries rather than full-graph analytics.
+The Waterloo survey on the state of graph processing reveals that large graphs are ubiquitous, and several of their participants claimed to operate on uncompressed graphs larger than 1 TB; the exact upper limit on the size of these graphs is unknown~\cite[Section~3.2]{ubiquity_large_graphs_vldb2017}.
+While servers with more than a few terabytes of RAM are not uncommon, they are expensive and, as we and others have shown, unnecessary.
+Scale-out systems built from semi-external graph processing systems should provide better dollar-to-dollar performance than a distributed graph/data processing system.
+We want to design and optimize a single-node, single-socket graph database before developing NUMA capabilities and, eventually, a distributed graph database.
+
+\subsection{Best-of-both worlds design for mixed OLAP and OLTP workloads}
+\TLS{We have seen in Section~\autoref*{intro:whats_good} that the system performance is strongly linked to the in-memory and on-disk layout and that significant preprocessing effort is spent in creating and maintaining these layouts.}\PM{ This part will talk about native graph storage, hybrid analytics, and transactional design}
+Time spent preprocessing the graph is never amortized since each snapshot of an evolving graph is analyzed just once before the ingestion and preprocessing pipelines need to be run again.
+A better alternative is to natively store the graph in a format similar to or close to the in-memory representation required for efficient access.
+Graph databases do this but are optimized for transactional point queries rather than full-graph analytics.
 Neo4j~\cite{neo4j}, for instance, stores all graph data on disk as "linked lists of fixed size records" \cite{neo4j:data_layout:2024}.
 A linked-list representation of graphs is great for connectivity queries but is bound to cause catastrophic random access overhead when running whole graph analytics.
-Newer research systems such as GraphFlowDB\cite{graphflowdb_gupta2021} provide a more methodical analysis of design decisions required to store a property graph in memory, but they do not persist the graph and do not evaluate the graph on whole-graph analytics benchmarks.
-We believe that storing a graph that is larger than available RAM requires careful persistent and in-memory data layout co-design, which performs well on both OLAP and OLTP-style workloads.
-\\\\
-Graphs are rarely static, but GPS' are often designed to be static. This leads to an expensive ETL-based pipeline to keep the data freshness guarantees -- a new snapshot must be created, preprocessed, and then processed each time a new analysis is sought.  \PM{ETL on demand because the system is static, but the graph is not; never amortized.}
-\\\\
-\PM{Data management feature parity for graph data} Users of relational database systems expect a strong set of guarantees about their data - ACID, snapshotting, fault-tolerance and recovery.
+Newer research systems such as GraphFlowDB~\cite{graphflowdb_gupta2021} provide a more methodical analysis of design decisions required to store a property graph in memory. Still, they do not persist or evaluate the system on whole-graph analytics benchmarks.
+Storing a graph larger than available RAM requires careful persistent and in-memory data layout co-design, which performs well on both OLAP and OLTP-style workloads.
+
+\subsection{In-Database Analytics}
+Graphs are mined from other data already present in some primary data source, often a relational database sytem~\cite{graphgen_sigmod17}.
+Graph databases are orders of magnitude slower than specialized graph processing systems~\cite{specialized_gdb_waterloo}.
+Therefore, the state-of-the-art in graph data management has evolved around a split system design: graph database systems for point queries and specialized high throughput graph processing systems (such as the ones we've examined in Section~\autoref{intro:scaling_gps}) for whole-graph analysis tasks.
+This leads to freshness mismatches between the data being stored in the original datastore, what's available for point-query analysis following an ingestion into a graph database, and what's available for batch analysis in a specialized graph processing system.
+The split system design also causes the creation of data silos which need constant ETL and data movement to maintain consistency.
+
+These problems have an equivalent in the relational database world: the constant data transformation needed to maintain consistency between a row-store and a column store~\cite{arulraj2016bridging}, and the subsequent development of Hybrid Transactional and Analytical Processing (HTAP) databases is a promising solution.
+Similar solutions must also be developed for analyzing graphs, and recent commercial graph databases, such as GART~\cite{shen2023bridging}, have started offering solutions for real-time graph analytics workloads.
+GART stores the extracted graph in memory since it has been designed for latency and freshness-sensitive tasks, such as fraud detection, and not for further downstream batch processing tasks we target.
+Graph HTAP systems should be designed to handle efficient real-time analytics and more intensive whole-graph processing tasks.
 
 \section{What have we done?}
-\PM{matching data layouts, no ETL/preprocessing, use a mature KV store as the storage substrate instead of custom crafting a storage engine, design a GraphAPI that is flexible enough to support multiple data layouts and algorithm types. Talk about the implicit locality in keeping the graph in a B-Tree, and designing cursors to take advantage of this. Option to store the algorithmic state to bootstrap new rounds of computation. adapting GAPBS to use our API. Property stores. Expressing diff algorithm types using API.}
-\\
-This thesis answers the question whether it is possible to persist the graph in an analytics-ready layout in a KV store such that we can get the convenience of persistence without sacrificing too much of the performance compared to in-memory/out-of-core systems with a custom data layout.\PM{descibe the system at a high level}
-\\\\
-We demonstrate the performance of such a system under 3 different data layouts - a standard RDBMS-que layout, an adjacency list representation, and another CSR-like representation.\PM{ability to prototype different in-mem layouts}
-\\\\
-The API provides iterators to nodes, edges, and the in- and out- neighbourhoods of graphs which exploit the underlying key-ordering in WiredTiger.\PM{we get sequential access for free}
-\\\\
-WiredTiger provides strong ACID guarantees which makes it a lot easier to reason about the isolation semantics in an application. Our benchmark kernels work on a snapshot of the graph, but the application developer is free to choose any isolation level they find appropriate for their workload.\PM{talk about the transactional API and that the benchmark is run on a snapshot.}
-\\\\
-Our API is flexible enough to allow the user to store arbitrary attributes with both nodes and edges, and allows the creation of multi-layer graphs.\PM{talk about attribute storage and multi-layer graphs}
+This thesis presents the design of a flexible and performant hybrid graph analytics and processing (HGTAP) database system that performs better than custom-created graph processing systems on analytics tasks and is competitive against graph databases on transactional point queries.
+We 
 
-The remainder of this thesis proceeds as follows. In Chapter 2 we provide the necessary background that motivates our work. Chapter 3 focuses on 
+Our system, \project{}, has been designed for a single-node setting and provides a fully transactional API for interacting with the graph. We also provide snapshot-level read-only iterators for fast serial reads for analytical tasks.
+\project{} has been designed to eliminate any preprocessing tasks needed before running analytics and provides two layouts we designed to get strong sequential iterator-based read performance common in analytics tasks.
+The API is flexible enough to let the users write algorithms in terms of vertex programs or edge programs; we demonstrate our performance by modifying GAP-BS to use our API and demonstrate that our analytics tasks have a robust performance compared to other semi-external and in-memory systems when factoring in their pre-processing times.
+\begin{statusbar}{idea}
+    Our system handles property graphs, and we evaluate the benefits of storing the graph's structure independently from their properties and contrast it with the choice to store them together. \PM{My idea: structural graph separate from property store. Jack's idea: storing them together.}
+\end{statusbar}
+
+
+The remainder of this thesis proceeds as follows:
+In \autoref{chapter:background}, we provide the background that motivates our work. 
+We begin by describing the datastructures used to represent graphs efficiently in memory.
+Following that, we examine how semi-external systems create an on-disk layouts that allow efficient access to the graph.
+We then turn our focus towards graph databases, and examine the transactional queries for which they are optimized.
+With this context in place, we contrast graph databases and graph processing systems complete, establishing the central dichotomy of graph data management and lay the foundation to discuss our hybrid graph transactional and analytical system design.
+
+\PM{Architecture chapter: Graph API, the three representations, discuss database design, iterator interfaces, no internal and external ID management, work assignment and scheduling (thread assignment to minimize insert/deletion conflicts, pooling, buffer management), what else?}\\
+\autoref{chapter:architecture} goes into the design of \project{} and we begin with an emphasis on structural graphs.
+We begin by describing the API that we provide to the user to manage their graph data and follow that with a description of three graph representations that implement these.
+This is followed by describing the iterators we provide to the users for accessing the graph elements: nodes, edges, and neighbourhoods of nodes; we conclude this with a description of work assignment and thread scheduling for reduced-conflict writes to the graph.
+Finally, we discuss the optimizations we provide for maintaining algorithmic state and using results from previous computations to jumpstart new rounds of computation.\\
+
+\begin{statusbar}{idea}
+\autoref{chapter:property_graphs} describes how we extend \project{} to store property graphs\cite{angles2018property}.
+We begin with a description of the design alternatives available to us for storing properties with graph objects\PM{inline with structure or independently} and describe the cost of using these two approaches.
+We compare these two designs with each other and against other dynamic graph processing systems and graph databases on LDBC queries, and show that we can perform similar to our competitors.
+\end{statusbar}
+
+\begin{statusbar}{idea}
+We discuss future work and conclude in Chapter 5. \PM{SO much future work, need to think what will be useful based on how the previous section turns out.}
+\end{statusbar}
