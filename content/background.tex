@@ -18,12 +18,28 @@ Hence, the edge $a_{ij}$ can either indicate a directed edge $i \rightarrow j$ o
 It is common to represent undirected edges between vertices $i$ and $j$ as two directed edges $i \rightarrow j $ and $j \rightarrow i$.
 
 
-
-
 \TLS{Real-world graphs tend to follow the power law distribution, have small diameters, and exhibit communities ~\cite[Section~2]{chakrabarti2006GraphMining}.}
 A power-law distribution of degrees leads to a few \textit{hub} nodes with very high degrees and many nodes with very low degrees (heavy tail of degree distribution)\PM{insert a log-log plot of degree distribution.}
 A direct consequence of the power law graph is that the resulting adjacency matrices are sparse and, therefore, memory inefficient.
-
+Figure at the adjacency matrix and the degree distribution plots for soc-epinions1~\cite{soc-epinions1}, a small network with around 76000 nodes. 
+\begin{figure}
+    \centering
+    \begin{subfigure}[b]{0.45\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{content/fig/background/epinions_adjmatrix.pdf}
+        \caption{The adjacency matrix for the soc-Epinions1 network}
+        \label{fig:background:soc_adjmat}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}[b]{0.45\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{content/fig/background/degree_distribution_epinions.pdf}
+        \caption{The log-log plot of degree distribution for the soc-Epinions1 network}
+        \label{fig:background:soc_degdist}
+    \end{subfigure}
+    \caption{A real-world graph that is sparse and follows a power-law degree distribution}
+    \label{fig:both}
+\end{figure}
 Many space-efficient representations have been developed to store graphs in memory, and we examine a few memory-efficient representations.
 
 \PM{Talk about CSR/CSC, adjacency Lists, Transactional Edge Log and EdgeLists}
