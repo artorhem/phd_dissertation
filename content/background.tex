@@ -1,100 +1,71 @@
 \chapter{Background and Motivation}
 \label{chapter:background}
-\PM{DO NOT READ -- FROM PREVIOUS DRAFT}\\\\
-\PM{Is it fair to imagine Flexograph as the storage backend for materialized graph views?}
 
-\TLS{These optimizations together manifest in the programming model a system provides to the end-user.}
-Since all graphs can be expressed as sparse matrices, all graph computations can be thought of as matrix operations. For instance, graph processing algorithms can be expressed as: 
+A graph processing system can be characterized by the workload it is designed to serve, the computational model it provides, and the data layouts maintained in memory and on disk to achieve good performance.
+In this section, we discuss how graphs are represented in memory\autoref{background::graph_rep} and how these representations can be efficiently stored externally when the graph does not fit in the main memory\autoref{background::data_layout}. 
+We follow this discussion by examining the computational models~\autoref{background::programming_model} commonly used by graph-processing systems and how they interact with and rely on the data layouts (both in-memory and persistent).
+Next, we examine graph workloads~\autoref{background::workloads}—both transactional and analytical—and how they influence and interact with the data layout and computational models.
+We conclude this section with a discussion of graph databases and how they are the primary candidate to bridge the archipelago of graph transactional and graph analytics systems.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%% IN-MEMORY GRAPH REPRESENTATIONS %%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Graph Representations}
+\label{background::graph_rep}
+\TLS{A graph is defined as a pair $G = (V, E)$ of sets $V$ and $E$ such that $E \subseteq [V]^2$; $V$ is the set of \textit{vertices} of the graph $G$, and $E$ is the set of \textit{edges} of $G$\cite{diestel2017basics}.}
+The vertices are the entities modeled by a graph, and an edge represents a relation between the vertices to which it connects.
+The canonical representation of a graph uses an $n \times n$ matrix $A$, where $n$ is the number of vertices in the graph; an element $a_{ij} = 1$ in $A$ indicates the presence of an edge between vertices $i$ and $j$.
+Depending on the matrix's definition, edges can be directional or non-directional (we use the term \textit{undirected graphs} to refer to these). 
+Hence, the edge $a_{ij}$ can either indicate a directed edge $i \rightarrow j$ or an undirected edge $i \leftrightarrow j$.
+It is common to represent undirected edges between vertices $i$ and $j$ as two directed edges $i \rightarrow j $ and $j \rightarrow i$.
+
+
+
+
+\TLS{Real-world graphs tend to follow the power law distribution, have small diameters, and exhibit communities ~\cite[Section~2]{chakrabarti2006GraphMining}.}
+A power-law distribution of degrees leads to a few \textit{hub} nodes with very high degrees and many nodes with very low degrees (heavy tail of degree distribution)\PM{insert a log-log plot of degree distribution.}
+A direct consequence of the power law graph is that the resulting adjacency matrices are sparse and, therefore, memory inefficient.
+
+Many space-efficient representations have been developed to store graphs in memory, and we examine a few memory-efficient representations.
+
+\PM{Talk about CSR/CSC, adjacency Lists, Transactional Edge Log and EdgeLists}
+\subsection{Adjacency Lists}
+\label{background::adjlist}
+
+
+\subsection{Compressed Sparse Row}
+\label{background::CSR}
+
+\subsection{Hybrid CSRs}
+
+\subsection{Edge Logs or Edge Lists}
+\label{background::edgelog}
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%% ON-DISK DATA LAYOUTS %%%%%%%%%%%%%%%%%%%%%%%%%%
+\subsection{On-Device Data Layout for fast serial access}
+\label{background::data_layout}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%% GRAPH COMPUTATION MODEL CLASSIFICATION %%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Graph Processing Programming Models}
+\label{background::programming_model}
+Since all graphs can be expressed as sparse matrices, all graph computations can be considered matrix operations. For instance, graph processing algorithms can be expressed as: 
 \begin{equation}
     Y = X^{T}A
 \end{equation}
 where $X$ and $Y$ are vectors of vertex states, and $A$ is the sparse adjacency representation of the graph.
 Semi-External graph processing essentially keeps the vertex states (or parts of the vertex state) in memory, and the data layouts are designed to maximize sequential access to $A$ that matches the order in which $X$ and/or $Y$ are accessed.
-Considering this framing, all programming models can be classified according to:
+Considering this framing, all programming models can be classified according to the following:
 \begin{enumerate}
     \item Where the state is stored: \PM{is the state updates propagated through edges or kept with the vertex set. This controls how much random access is needed to make algorithmic progress. }
     \item 
 \end{enumerate}
 
-\subsection{Graph Representations}
-Talk about CSR/CSC, adjacency Lists, and EdgeLists. Maybe TEL and EdgeLogs
-\subsubsection{Compressed Sparse Row}
-\label{sec::background::CSR}
+\TLS{The framing of graph computations as matrix operations allows us to borrow from the work on graph representation done in the space of linear algebra libraries.}
 
-\subsubsection{Adjacency Lists}
-\label{sec::background::adjlist}
+%%%%%%%%%%%%%%%%%%%% Graph Workloads - transactional and analytics based %%%%%%%%%%%%%% 
+\section{Graph Workloads}
+\label{background::workloads}
 
-\subsubsection{Edge Logs or Edge Lists}
-\label{sec::background::edgelog}
-
-This work builds upon four research areas: prior work on out-of-core graph processing, approaches to the persistence storage of graphs, in-memory graph representations, and the tradeoff between processing on a persistent representation and requiring a data ingest before analyzing a graph.
-We begin by discussing out-of-core graph processing and the processing models most commonly used in these systems.
-We then present a brief overview of persistent graph storage systems, including the use of key-value stores and relational databases.
-We then examine common data layouts that are friendly for graph analytics and conclude the section with a discussion on the trade-off between persistence and analytic performance.
-
-\subsection{Out-of-Core Graph Processing}
-\label{sec:background:ooc_gps}
-Out-of-Core graph processing systems process graphs that are too large to keep in memory on a single compute node.
-These systems were designed to enable fast analytics on resource-constrained consumer machines but have since gained traction by demonstrating similar or even better performance than distributed graph processing systems at a fraction of the operating cost.
-Single-node deployments are also easier to manage and tune than a compute cluster.
-Early out-of-core systems were designed to mitigate the high random access time of hard disks and early SSDs; maximizing sequential data access is a central design principle for these systems~\cite{kyrola2012graphchi, roy2013x}.
-The emergence of new storage devices with better random IO performance than rotational media, such as NAND SSDs and NVMe, has led to a new class of graph processing systems.
-Systems such as FlashGraph\cite{zheng2015flashgraph}, GridGraph\cite{zhu2015gridgraph}, and Blaze\cite{kim2022blaze} prioritize lowering IO amplification over issuing large sequential IO.
-
-Although having large amounts of DRAM installed has become more common, DRAM remains expensive and the price does not scale linearly with capacity \cite{datacenterknowledgeDontForget}.
-This price versus capacity trade-off, coupled with the observation that the size of the vertex data (id \& degree information and the algorithmic state) is an order of magnitude smaller than the edge data, motivated the creation of the \textbf{Semi-External processing model}.
-By keeping the vertex state in memory, systems that use the Semi-External Processing Model perform significantly better than fully external systems and are well suited for non-austere memory budgets.
-
-\subsection{Graph Storage}
-\label{sec:background:storage}
-\PM{Things I want to cover: livegraph, Relational DBs, and GraphDBs.}
-Relational DBMSs are the predominant transactional storage solution since they provide ACID semantics, mature query language and optimizers, and several important data management features, such as \PM{examples}.
-Graph databases offer a solution for persistent graph data management and allow transactional storage and access of graph data on a persistent medium.
-Many graph processing systems are now commercially available, such as Neo4j\cite{neo4j}, ArrangoDB\cite{arangodb}, TigerGraph\cite{deutsch2019tigergraph}, etc.
-More commonly, they are used to store graphs that have been extracted from a relational database, and there has been much research on converting a relational database into a graph database\cite{conv_rel2graph_grades2013} and running graph analytics jobs in the relational database using domain-specific languages\cite{fan2015case}.
-Systems such as Vertexica\cite{vertica,jindal2014vertexica} and SQLGraph \cite{SQLGraph_sigmod15} focus on generating schemas to store a graph dataset as a collection of tables in an RDBMS.
-
-The survey by Sahu et al. \cite{ubiquity_large_graphs_vldb2017} found that graph DBMSs were more popular than relational DBMSs for graph storage; RDBMs and GDBMSs are often used together: RDBMS as the transactional store and Graph DBMS for graph-centered tasks such as traversals. 
-Another interesting insight from the survey was that specialized distributed graph processing systems such as Giraph, Powergraph, etc. are less popular than general-purpose distributed data processing systems such as Hadoop and Spark.
-
-Another body of research has focussed on developing real-time graph analysis systems for evolving graphs.
-LLAMA \cite{llama} stores the graph as a "time series of snapshots" and the in-memory data structure is based on a CSR representation (Section \ref{sec:background:graph_representation}) and behaves similarly to a Log-Structured Merge Tree \cite{o1996log}.
-Livegraph \cite{zhu2019livegraph} uses a novel datastructure called a Transactional Edge Log to store incoming graph elements and allows purely sequential adjacency scans.
-\PM{which other systems is Milad working with?}
-
-\subsection{Graph Data Layouts}
-\label{sec:background:graph_representation}
-Any graph processing system needs to load the graph - either the full graph or a carefully selected subgraph - into memory before any processing can commence.
-There are three popular datastructures employed by in-memory graph processing systems: Compressed Sparse Rows, Adjacency Lists, and Edge Logs.
-
-\emph{CSR} is a compact representation that leads to better cache efficiency and allows sequential edge scans. 
-It is an immutable data structure and is the go-to choice for graph engines designed for read-only analytical workloads \cite{nguyen2013lightweight, gonzalez2012powergraph, zhu2016gemini, shun2013ligra}.
-\emph{Adjacency List}, which uses linked lists to store in- and out-edges for each vertex, is another popular datastructure used in Neo4j\cite{neo4j}. 
-This datastructure allows \emph{O(1)} inserts, but scans can lead to random accesses during pointer-based traversals.
-\emph{Edge Logs} are popular with real-time analytics frameworks such as LiveGraph\cite{zhu2019livegraph} and GraphOne\cite{graphone_kumar}.
-Edge logs allow \emph{O(1)} appends of incoming edges to the tail of the log while preserving the temporal order of insertion, which is important for real-time analytic systems.
-LiveGraph holds the edge log in a memory-mapped region, a practice which is not recommended for production systems \cite{crotty2022you}
-The memory requirements of in-memory systems can be quite high, which is why these systems often choose to scale out their storage and computation on a cluster \cite{low2014graphlab, gonzalez2012powergraph, gonzalez2014graphx, powerlyra2019}.
-
-In fully out-of-core and semi-external graph processing systems, two data layouts must be considered.
-The first is the layout of the graph as stored on persistent storage media, such as an NVMe drive or an SSD.
-Most graph processing systems preprocess the graph and shard the data into multiple files on disk that are structured in a way that lets the system read ingoing or outgoing edges from a node in a few sequential IO requests.
-GraphChi\cite{kyrola2012graphchi}, GridGraph\cite{zhu2015gridgraph}, Chaos\cite{royChaos2015}, and several other systems follow some version of the same principle.
-The second data layout is for the vertex and algorithmic state that is kept in memory while the graph processing task is running.
-This in-memory layout is designed to minimize random writes while not exceeding a predetermined memory budget that is large enough to hold the active vertex set (the full vertex set of the graph or a subset) that will be acted upon.
-Additionally, streaming edge partitions require large buffers to stream the "active" edges with a source or destination in the vertex subset being processed.
-In-memory layouts are meant to buffer updates before writing them back to the disk, thus reducing random writes.
-\PM{Bring it home, Patricia}
-
-\subsection{Speed vs. Manageability}
-\label{sec:background:tradeoff}
-The research community has come around to acknowledging that the manageability of large datasets is a problem just as important as being able to perform fast analytics.
-Every data migration and transformation produces a new data item that needs to be managed, and this problem is magnified in systems that use multiformat data stores.
-Most specialized graph processing systems are designed independently of any careful consideration towards the management of input data and how the metadata of the processing task itself gets stored.
-
-The use of databases as a unified transactional and analytics store for graph data remains elusive.
-Relational databases can be (and are) used for storing and processing graph data, but perform poorly compared to specialized graph processing systems.
-Specialized systems preprocess the data into a format that is tuned specifically for the analytics tasks that need to be performed, create indexes on the data to access the data pages for any given vertex, and employ smart page access methods that guarantee that only relevant edges are accessed.
-Custom graph processing systems re-invent a custom storage stack each time.
-The use of a mature database is not likely to allow easy prototyping of any of these clever optimizations, but instead provides great data management features.
-This is a classic speed vs generalizability\PM{usability?} tradeoff, and with \project{}, we explore a mid-point in the design space: how fast can we perform graph analytics without using a custom storage engine?
+%%%%%%%%%%%%%%%%%%%% Graph Databases %%%%%%%%%%%%%%%%%%%%
+\section{Graph Databases}
+\label{background::graphDB}
