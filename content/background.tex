@@ -25,9 +25,9 @@ A direct consequence of the power law graph is that the resulting adjacency matr
 The white space in the adjacency matrix visualization denotes the sparsity pattern, which translates to empty cells in a $n*n$ two-dimensional array representation of the graph.
 This wasted space in an adjacency matrix leads to poor cache utilization, which is already challenging due to the random access pattern inherent in graph traversal.
 Using better data structures that are more compressed than an adjacency matrix is essential to minimize the space requirement and maximize cache utilization. 
-We now examine a few memory-efficient data structures commonly used in graph processing systems and the cost of creating, updating, and finding neighborhoods of a node in each representation.
 
-\PM{I think we need to make clear the difference between the concept of adjacency lists (which I want to call neighbourhood) from the linked list based implementations. ALL graph representations are designed to provide easy access to a nodes neighbourhood list, but they can do so in different ways.}
+\TLS{Graph algorithms are often expressed as functions applied to each node's in- or out-neighborhoods, and therefore, any data structure that allows fast lookup of a node and sequential access to its neighborhood is desirable.}
+We now examine a few memory-efficient data structures commonly used in graph processing systems and the cost of creating, updating, and finding neighborhoods of a node in each representation.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \begin{figure}[ht!]
@@ -87,7 +87,7 @@ For the remainder of this discussion on graph data structures, we will use the s
 %~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~%~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~%
 \subsection{Adjacency Lists}
 \label{background::adjlist}
-Adjacency lists are a natural evolution from adjacency matrices and are constructed by breaking down the graph into per-vertex neighborhood lists.
+\TLS{Adjacency lists are a natural evolution from adjacency matrices and are constructed by breaking down the graph into per-vertex neighborhood lists.}
 For instance, consider the adjacency matrix shown in ~\autoref{fig:background:sample_adj_matrix}.
 To construct the neighborhood list for each node, we construct a vector containing the column index $j$ where $a_{ij} = 1 $ in the adjacency matrix. 
 The corresponding adjacency list representation of the graph is shown in ~\autoref{fig:background:adjlist}.
@@ -99,16 +99,17 @@ The corresponding adjacency list representation of the graph is shown in ~\autor
     \label{fig:background:adjlist}
 \end{figure*}
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-The memory requirement for the adjacency list representation is $O(|V| + |E|)$, which is superior than the $O(V^2)$ required for an adjacency matrix.
+The memory requirement for the adjacency list representation is $O(|V| + |E|)$, which is superior to the $O(V^2)$ required for an adjacency matrix.
 
-Adjacency lists allows sequential access to a node's neighborhood, however, a random seek is required to access the adjacency list (the vertex contains a pointer to the adjacency list).
-Insertion of a new edge into an unsorted adjacency list representation has an amortized $O(1)$ cost, however, if the list must be kept sorted, the cost increases to $O(log(n))$.
-
+\TLS{Adjacency lists allow sequential access to a node's neighborhood, however, a random seek is required to access the neighborhood (the vertex contains a pointer to the list).}
+This is a dynamic data structure: inserting new edges into an unsorted adjacency list representation has an amortized $O(1)$ cost, however, if the list must be kept sorted, the cost increases to $O(log(n))$.
+Typically, there are two adjacency lists maintained for a graph: one for the in-neighborhood and another for the out-neighborhood.
 %~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~%~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~%
 %~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~%~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~%
 \subsection{Compressed Sparse Row}
 \label{background::CSR}
-
+\TLS{Compressed Sparse Row is a compact representation to store the neighborhood information of nodes in 
+a graph.}
 
 \subsection{Hybrid CSRs}
 
