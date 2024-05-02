@@ -17,7 +17,6 @@ Depending on the matrix's definition, edges can be directional or non-directiona
 Hence, the edge $a_{ij}$ can either indicate a directed edge $i \rightarrow j$ or an undirected edge $i \leftrightarrow j$.
 It is common to represent undirected edges between vertices $i$ and $j$ as two directed edges $i \rightarrow j $ and $j \rightarrow i$.
 
-
 \TLS{Real-world graphs tend to follow the power law distribution, have small diameters, and exhibit communities ~\cite[Section~2]{chakrabarti2006GraphMining}.}
 A power-law distribution of degrees leads to a few \textit{hub} nodes with very high degrees and many nodes with very low degrees (heavy tail of degree distribution)\PM{insert a log-log plot of degree distribution.}
 A direct consequence of the power law graph is that the resulting adjacency matrices are sparse and, therefore, memory inefficient.
@@ -26,7 +25,6 @@ The white space in the adjacency matrix visualization denotes the sparsity patte
 This wasted space in an adjacency matrix leads to poor cache utilization, which is already challenging due to the random access pattern inherent in graph traversal.
 Using better data structures that are more compressed than an adjacency matrix is essential to minimize the space requirement and maximize cache utilization. 
 
-\TLS{Graph algorithms are often expressed as functions applied to each node's in- or out-neighborhoods, and therefore, any data structure that allows fast lookup of a node and sequential access to its neighborhood is desirable.}
 We now examine a few memory-efficient data structures commonly used in graph processing systems and the cost of creating, updating, and finding neighborhoods of a node in each representation.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -108,10 +106,38 @@ Typically, there are two adjacency lists maintained for a graph: one for the in-
 %~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~%~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~%
 \subsection{Compressed Sparse Row}
 \label{background::CSR}
-\TLS{Compressed Sparse Row is a compact representation to store the neighborhood information of nodes in 
-a graph.}
+\TLS{Compressed Sparse Row(CSR) ~\cite{saad2003iterative} is a very compact, \emph{immutable} data structure that uses two flat arrays to store the neighborhood lists for nodes in a graph.}
+\PM{Straightaway copied from my RPE doc}
+Assuming we have a non-symmetric sparse matrix A, we create two integer vectors: \emph{vertices} and \emph{edges}.
+For each $v_i \in V$, \emph{vertices[$v_i$]} = $idx_{v_i}$; where $idx_{v_i}$ is the index in \emph{edges} where $v$'s adjacency list begins.
+The contents of \emph{edges}[idx${v_i}$] to \emph{edges}[idx$_{v_i+1}$] are the sets of vertices $v_j$ such that $a_{ij} \neq 0$.
+CSR stores a graph $G = (V,E)$in $O(|V| + |E|)$, but since it is immutable, needs reconstruction upon any changes to the graph.
+Inserting new edges into CSR format takes time that is linear in the size of the graph in the worst case.
+% For adding an edge $(u,v)$, we must first search all edges with a source vertex $u$ to find the first edge with a destination vertex larger than $v$.
+% Then we insert $(u,v)$, and slide over all elements after it one by one.
+% We then increment the elements in the vertex array for all elements greater than u by 1.
+In the worst case, there might be resizing needed for the edge and vertex arrays.
 
 \subsection{Hybrid CSRs}
+\label{background::CSR}
+\TLS{CSRs are efficient for storing and traversing static graphs, however, they need to be reconstructed when the graph evolves.}
+The edge array might need reallocation to accommodate an incoming edge, and the old edges must be moved and shifted around the new edge.
+This is a pretty serious limitation for evolving graphs, and a lot of research has been done to create resizable CSRs for graphs.
+
+Three types of insert-friendly CSRs are commonly used:
+\begin{enumerate}
+    \item \textbf{In-place Updates}: These data structures are created in a way that allows for in-place insertion and deletion of graph elements without needing a full expensive rebuilding of the data structure.
+    NetworKit\cite{staudt2014networkit} doubles the size of the initial array and reserves space for new edges being inserted into the graph. 
+    A variant of the CSR called the Packed CSR \cite{packed_csr} leaves space between elements which allows for faster insertion and deletion of graph elements at the cost of a slowdown in traversals and an increase in the space overhead. 
+    \item \textbf{Batching updates}: Many systems batch updates and preprocess the updates to make the insertions faster.
+    Systems such as the one described by Madduri et. al. \cite{madduri2009compact} batch updates, order them by vertex ids and sort them before applying the updates.
+    \item \textbf{Multi-versioning and Delta Updates}: An alternative design to support fast inserts into a graph is to store all updates in a separate structure called a Delta Map.
+    This use of delta maps allows for running graph analytics on snapshots of the graph at different times in its evolution.
+    LLAMA\cite{llama} is one such snapshot-based graph system that supports multi-versioning and stores the delta updates as separate concurrently accessible snapshots. 
+    There are some downsides to using a snapshot-based system for analytics. 
+    A high ingestion rate leads to a lot of delta snapshots, which can degrade the performance of analytics tasks because updates get scattered over multiple snapshots, and these need to be read for running jobs.
+    This can be remedied by merging and consolidating updates into the CSR by a process called compaction. It is similar to garbage collection and is expensive and leads to latency spikes.
+\end{enumerate}
 
 \subsection{Edge Logs or Edge Lists}
 \label{background::edgelog}
