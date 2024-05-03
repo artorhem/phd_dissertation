@@ -1,43 +1,61 @@
-Background section:
+\chapter{Background Outline}
 
 We begin with explaining that the following discussion is entirely focused on single-node shared-memory systems and does not deal with/extrapolate fully to distributed systems.
 
-1. Data Layout:
-	1.1 In-memory:
-		(a) Adj Matrix
-		(b) AdjList
-		(c) CSR
-		(d) edgelists <-- why?
+\section{Data Layouts: In-memory}
+\label{bg_out:inmem}
+	\begin{enumerate}
+		\item Adj Matrix
+		\item AdjList
+		\item CSR
+		\item edgelists \PM{why? This feels unnecessary}
+	\end{enumerate}
 
-	1.2 Persistent Layouts:
-		(a) Transactional Edge Log (weakest form of persistence: MMAP based)
-		(b) Neo4J : on-disk layout + linked lists in memory
-		(c)	Preprocessed files + sharded files: Blaze, Bolt, GraphChi, X-Stream
-		(d) Proper DB: fit stuff into a Tree-based layouts: LSMT, B-Trees
+\section{Persistent Data Layouts}
+\label{bg_out:persistent}
+	\begin{enumerate}
+		\item Transactional Edge Log (weakest form of persistence: MMAP based)
+		\item Neo4J : on-disk layout + linked lists in memory
+		\item Preprocessed files + sharded files: Blaze, Bolt, GraphChi, X-Stream
+		\item Proper DB: fit stuff into a Tree-based layouts: LSMT, B-Trees
+	\end{enumerate}
 
-2. Workloads:
-	2.1 OLTP-like:
-		(a) Characteristics: R/W mix, insert/delete/short scans
-		(b) Requirements: efficient indexing to find neighborhoods, sequential scans, good join algorithms
-		(c) Special storage requirements for the properties of graph elements:
-			(i) Labeled Property Graph
-		(d) LDBC is used for benchmarking
+\section{Workloads}
+	\subsection{OLTP-like}
+	\begin{enumerate}
+		\item Characteristics: R/W mix, insert/delete/short scans
+		\item Requirements: efficient indexing to find neighborhoods, sequential scans, good join algorithms
+		\item Special storage requirements for the properties of graph elements. This is where we talk about Labeled Property Graph
+		\item  LDBC is used for benchmarking
+	\end{enumerate}	
 
-	2.2 OLAP-like:
-		(a) Characteristics: Read-only, snapshot-based, needs high bandwidth for whole graph traversals
-		(b) Kernels: The different types of benchmark kernels and why they are interesting. 
-		(c) Need access to whole graph and the computed value is defined for each vertex (vertex functions)
+	\subsection{OLAP-like}
+	\begin{enumerate}
+		\item Characteristics: Read-only, snapshot-based, needs high bandwidth for whole graph traversals
+		\item Kernels: The different types of benchmark kernels and why they are interesting. 
+		\item Need access to whole graph and the computed value is defined for each vertex (vertex functions)
+	\end{enumerate}
 
-3. Computational Model:
-	- Graph processing algorithms can be defined as matrix multiplications: Y = X'A (X' is transpose vector matrix). Under this framing, we need to access X' and load in the relevant "rows" in A (out or in-neighborhood) to produce the Y vector (value vector of cardinality |V|). X' can be placed in memory, since |V| is of a manageable size.
+\section{Computational Model}
 	
-	- In a single-node system, the computation model defines:
-		(i) [IO]is A read in its entirety each time, or is there some reasonable way to access a subgraph, ideally only the neighborhood needed (all: naive linear algebra, whole matrix in a smart way: x-stream, only relevant edges: most systems)
+Graph processing algorithms can be defined as matrix multiplications: $Y = X^TA$. Under this framing, we need to access $X^T$ and load in the relevant "rows" in $A$ (out or in-neighborhood) to produce the $Y$ vector (the value vector of cardinality $|V|$). $X^T$ can be placed in memory, since $|V|$ is of a manageable size.
+	
+In a single-node system, the computation model defines:
+\begin{enumerate}
+	\item \textbf{[IO]} is $A$ read in its entirety each time, or is there some reasonable way to access a subgraph, ideally only the neighborhood needed (all: naive linear algebra, whole matrix in a smart way: x-stream, only relevant edges: most systems). Does the system interleave IO with computation well enough to maximize the disk bandwidth utilization and the CPU cores well utilized?
 
-		(ii) [Consistency Semantics] Is Y immediately visible? There can be a synchronization barrier at the end of a round of computation and only after that are the results of a round available for use in the next round(Most systems). Otherwise, the values can be immediately applied and no synchronization is needed (GraphChi) // What does this mean for a single-node system?
+	\item\textbf{[Consistency Semantics]} Is Y immediately visible? There can be a synchronization barrier at the end of a round of computation and only after that are the results of a round available for use in the next round(Most systems). Otherwise, the values can be immediately applied and no synchronization is needed (GraphChi) // What does this mean for a single-node system?
+	
+	In an evolving graph system: does the system support concurrent reads and writes? How does it handle concurrent writes? 
 
-		(iii) ?
+	\item\textbf{[Isolation Guarantees]} Is the matrix A mutable while a computation of Y is in progress? If it is, how does the system guarantee the correctness of results? If not, how are these read-only versions maintained, and how are multiple versions of the graph managed? What is the granularity at which these versions are maintained? What's the garbage collection schedule for cleaning up old versions that are no longer needed?
+	
+	In the context of an HTAP system: what is the 
 
-	- Computational model dictates the data layout; the workload influences which data layout is useful and which computational model makes sense.
+	\item \textbf{[Concurrency Control]}
+\end{enumerate}
 
-	- Examine the computational model used by the systems in 1.2(c) 
+The computational model influences and is influenced by the data layout; the workload ultimately decides what combination of the computation model and data layout will perform best.
+These entities interact in non-trivial ways. 
+
+Examine the computational model used by the systems in Section~\autoref{bg_out:inmem} and Section~\autoref{bg_out:persistent} along these 4 axes.

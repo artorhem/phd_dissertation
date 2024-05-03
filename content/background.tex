@@ -150,7 +150,7 @@ Three types of insert-friendly CSRs are commonly used:
 \TLS{Graphs can be large and grow to a size that they cannot fit in RAM.}
 
 \TLS{Common graph algorithms traverse the graph by accessing each node's neighborhoods.}
-Sequential access is critical in a semi-external architecture.
+Sequential access is critical for an out-of-core system.
 Even on the best SSDs, sequential access is still significantly faster than random access, so semi-external processing is critically dependent on good data layouts.
 Persistent graph layouts are, therefore, designed to support the graph processing system in accessing the relevant sub-graph or neighborhood as efficiently as possible.
 Most semi-external graph processing systems spend a significant amount of time preprocessing the data to construct a sequential data layout.
@@ -159,6 +159,20 @@ Underpinning all this effort is an efficient storage engine that interleaves com
 
 \TLS{We examine a few persistent graph representations that have been proposed.}
 
+\subsection{Preprocessed and/or Sharded files on Disk}
+\TLS{Out-of-core graph processing systems have been well-optimized to maintain sequential disk locality and minimize the amount of IO needed per iteration by carefully preprocessing and sharding the graph. Let's examine some illustrative examples of interesting sharded graph data layouts}.\PM{I don't feel that I need to elaborate this more since the intro into this section already talks about this.}
+
+\PM{I want to talk about: GraphChi - because canonical OOC system, X-Stream - because very unique, GridGraph/FlashGraph/Blaze -- because SSDs and 2D partitioning. }
+\TLS{GraphChi~\cite{kyrola2012graphchi}, for example, processes a graph in \emph{parallel sliding windows} of vertices, and the data layout is such that computation threads processing a certain window can read all incoming edges to vertices in that window by reading in a single disk-based shard.}
+
+\TLS{X-Stream~\cite{roy2013x} takes a different approach to maximize sequential access to the edge data.} 
+Unlike GraphChi, X-Stream streams the edges and updates the vertex states in memory (the number of edges is an order of magnitude more than the number of nodes in many graphs), instead relying on the sheer parallelism of using RAID groups.
+X-Stream uses the notion of a \emph{streaming partition}, which is a subset of vertices and all the edges with a source vertex in that subset. 
+The graph is partitioned by the source vertex of the edges. The graph is processed by streaming in the edges of a streaming partition and keeping the vertex state in memory.
+The premise is that partitioning a graph by the source vertex ID is less computationally expensive than sorting the edges, as GraphChi does. A strict ordering of edges within a partition is not required with X-Stream. This is why the authors claim that X-Stream does not need any preprocessing.
+
+\TLS{Modern SSDs have different characteristics compared to the HDDs X-Stream/GraphChi were designed for. Consequently, the data layout was changed to align with the SSD's high-bandwidth, internal parallelism, and improved random read performance.}
+
 \subsection{Transactional Edge Log}
 \TLS{LiveGraph~\cite{zhu2019livegraph} is a recent graph storage system that is designed to allow purely sequential access to a graph's adjacency list.}
 \PM{describe the design in one paragraph}
@@ -166,35 +180,24 @@ Underpinning all this effort is an efficient storage engine that interleaves com
 \TLS{LiveGraph uses a large mmap region to store the graph, and the claim is that this is sufficient and efficient for storing the graph.
 It is well known that mmap-based storage engines are ill-suited for designing a robust database system~\cite{crotty2022you}.}
 
-\subsection{Preprocessed and/or Sharded files on Disk}
-\TLS{Out-of-core graph processing systems have been well-optimized to maintain sequential disk locality and minimize the amount of IO needed per iteration by carefully preprocessing and sharding the graph. Let's examine some illustrative examples of interesting sharded graph data layouts}.\PM{I don't feel that I need to elaborate this more since the intro into this section already talks about this.}
 
-\PM{I want to talk about: GraphChi - because canonical OOC system, X-Stream - because very unique, GridGraph/FlashGraph/Blaze -- because SSDs and 2D partitioning. }
-\TLS{GraphChi~\cite{kyrola2012graphchi}, for example, processes a graph in \emph{parallel sliding windows} of vertices, and the data layout is such that computation threads processing a certain window can read all incoming edges to vertices in that window by reading in a single disk-based shard.}
-
-X-Stream~\cite{roy2013x} takes a different approach to maximize sequential access to the edge data. 
-Unlike GraphChi, X-Stream streams the edges and updates the vertex states in memory (the number of edges is an order of magnitude more than the number of nodes in many graphs), instead relying on the sheer parallelism of using RAID groups.
-X-Stream uses the notion of a \emph{streaming partition}, which is a subset of vertices and all the edges with a source vertex in that subset. 
-The graph is partitioned by the source vertex of the edges. The graph is processed by streaming in the edges of a streaming partition and keeping the vertex state in memory.
-The premise is that partitioning a graph by the source vertex ID is less computationally expensive than sorting the edges, as GraphChi does. A strict ordering of edges within a partition is not required with X-Stream. This is why the authors claim that X-Stream does not need any preprocessing.
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%% GRAPH COMPUTATION MODEL CLASSIFICATION %%%%%%%%%%%%%%%%%%%%%%%%%
 \section{Graph Processing Programming Models}
 \label{background::programming_model}
-Since all graphs can be expressed as sparse matrices, all graph computations can be considered matrix operations. For instance, graph processing algorithms can be expressed as: 
+\TLS{Since all graphs can be expressed as sparse matrices, all graph computations can be considered matrix operations. For instance, graph processing algorithms can be expressed as: }
 \begin{equation}
     Y = X^{T}A
 \end{equation}
 where $X$ and $Y$ are vectors of vertex states, and $A$ is the sparse adjacency representation of the graph.
 Semi-External graph processing essentially keeps the vertex states (or parts of the vertex state) in memory, and the data layouts are designed to maximize sequential access to $A$ that matches the order in which $X$ and/or $Y$ are accessed.
-Considering this framing, all programming models can be classified according to the following:
-\begin{enumerate}
-    \item Where the state is stored: \PM{is the state updates propagated through edges or kept with the vertex set. This controls how much random access is needed to make algorithmic progress. }
-    \item 
-\end{enumerate}
 
-\TLS{The framing of graph computations as matrix operations allows us to borrow from the work on graph representation done in the space of linear algebra libraries.}
+In a single-node system, the computation model defines:
+(i) [IO]is A read in its entirety each time, or is there some reasonable way to access a subgraph, ideally only the neighborhood needed (all: naive linear algebra, whole matrix in a smart way: x-stream, only relevant edges: most systems)
+
+
+(ii) [Consistency Semantics] Is Y immediately visible? There can be a synchronization barrier at the end of a round of computation and only after that are the results of a round available for use in the next round(Most systems). Otherwise, the values can be immediately applied and no synchronization is needed (GraphChi) // What does this mean for a single-node system?
 
 %%%%%%%%%%%%%%%%%%%% Graph Workloads - transactional and analytics based %%%%%%%%%%%%%% 
 \section{Graph Workloads}

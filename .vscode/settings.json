@@ -1,5 +1,5 @@
 {
-  "editor.fontSize": 18,
+  "editor.fontSize": 14,
   "editor.wordWrap": "bounded",
   "latex-workshop.latex.outDir": "build"
 }
