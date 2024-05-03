@@ -2,14 +2,14 @@
 \label{chapter:background}
 
 A graph processing system can be characterized by the workload it is designed to serve, the computational model it provides, and the data layouts maintained in memory and on disk to achieve good performance.
-In this section, we discuss how graphs are represented in memory\autoref{background::graph_rep} and how these representations can be efficiently stored externally when the graph does not fit in the main memory\autoref{background::data_layout}. 
-We follow this discussion by examining the computational models~\autoref{background::programming_model} commonly used by graph-processing systems and how they interact with and rely on the data layouts (both in-memory and persistent).
-Next, we examine graph workloads~\autoref{background::workloads}—both transactional and analytical—and how they influence and interact with the data layout and computational models.
+In this section, we discuss how graphs are represented in memory\autoref{back:graph_rep} and how these representations can be efficiently stored externally when the graph does not fit in the main memory\autoref{back:data_layout}. 
+We follow this discussion by examining the computational models~\autoref{back:programming_model} commonly used by graph-processing systems and how they interact with and rely on the data layouts (both in-memory and persistent).
+Next, we examine graph workloads~\autoref{back:workloads}—both transactional and analytical—and how they influence and interact with the data layout and computational models.
 We conclude this section with a discussion of graph databases and how they are the primary candidate to bridge the archipelago of graph transactional and graph analytics systems.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%% IN-MEMORY GRAPH REPRESENTATIONS %%%%%%%%%%%%%%%%%%%%%%%%%%
 \section{Graph Representations}
-\label{background::graph_rep}
+\label{back:graph_rep}
 \TLS{A graph is defined as a pair $G = (V, E)$ of sets $V$ and $E$ such that $E \subseteq [V]^2$; $V$ is the set of \textit{vertices} of the graph $G$, and $E$ is the set of \textit{edges} of $G$\cite{diestel2017basics}.}
 The vertices are the entities modeled by a graph, and an edge represents a relation between the vertices to which it connects.
 The canonical representation of a graph uses an $n \times n$ matrix $A$, where $n$ is the number of vertices in the graph; an element $a_{ij} = 1$ in $A$ indicates the presence of an edge between vertices $i$ and $j$.
@@ -20,7 +20,7 @@ It is common to represent undirected edges between vertices $i$ and $j$ as two d
 \TLS{Real-world graphs tend to follow the power law distribution, have small diameters, and exhibit communities ~\cite[Section~2]{chakrabarti2006GraphMining}.}
 A power-law distribution of degrees leads to a few \textit{hub} nodes with very high degrees and many nodes with very low degrees (heavy tail of degree distribution)\PM{insert a log-log plot of degree distribution.}
 A direct consequence of the power law graph is that the resulting adjacency matrices are sparse and, therefore, memory inefficient.
-~\autoref{fig:background:soc_epinions} shows the adjacency matrix and the degree distribution plots for \texttt{soc-epinions1}~\cite{soc-epinions1:SNAP}, a small network with around 76000 nodes.
+~\autoref{fig:back:soc_epinions} shows the adjacency matrix and the degree distribution plots for \texttt{soc-epinions1}~\cite{soc-epinions1:SNAP}, a small network with around 76000 nodes.
 The white space in the adjacency matrix visualization denotes the sparsity pattern, which translates to empty cells in a $n*n$ two-dimensional array representation of the graph.
 This wasted space in an adjacency matrix leads to poor cache utilization, which is already challenging due to the random access pattern inherent in graph traversal.
 Using better data structures that are more compressed than an adjacency matrix is essential to minimize the space requirement and maximize cache utilization. 
@@ -34,21 +34,21 @@ We now examine a few memory-efficient data structures commonly used in graph pro
         \centering
         \includegraphics[width=\textwidth]{content/fig/background/epinions_adjmatrix.png}
         \caption{The adjacency matrix for the network}
-        \label{fig:background:soc_adjmat}
+        \label{fig:back:soc_adjmat}
     \end{subfigure}
     \hfill
     \begin{subfigure}[b]{0.45\textwidth}
         \centering
         \includegraphics[width=\textwidth]{content/fig/background/degree_distribution_epinions.png}
         \caption{Degree distribution plot for the network}
-        \label{fig:background:soc_degdist}
+        \label{fig:back:soc_degdist}
     \end{subfigure}
     \caption{\texttt{soc-Epinions1} is a sparse real-world graph that follows a power-law degree distribution. The adjacency matrix is memory inefficient. The power-law distribution shows that a few vertices have a high degree (hub nodes), while most vertices have a low degree. }
-    \label{fig:background:soc_epinions}
+    \label{fig:back:soc_epinions}
 \end{figure}
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-For the remainder of this discussion on graph data structures, we will use the sample graph shown in ~\autoref{fig:background:sample_graph}.
+For the remainder of this discussion on graph data structures, we will use the sample graph shown in ~\autoref{fig:back:sample_graph}.
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \newcommand{\sampleMatrix}
 {
@@ -66,7 +66,7 @@ For the remainder of this discussion on graph data structures, we will use the s
         \centering
         \includegraphics[width=\textwidth]{content/fig/background/sample_graph.drawio.png}
         \caption{A sample graph with 6 nodes}
-        \label{fig:background:sample_graph}
+        \label{fig:back:sample_graph}
     \end{subfigure}
     \hfill
     \begin{subfigure}[b]{0.45\textwidth}
@@ -75,7 +75,7 @@ For the remainder of this discussion on graph data structures, we will use the s
         A = \sampleMatrix
         \]
         \caption{The corresponding 6x6 adjacency matrix}
-        \label{fig:background:sample_adj_matrix}
+        \label{fig:back:sample_adj_matrix}
     \end{subfigure}
     \caption{A small directed graph with 6 nodes and 8 edges, and its adjacency matrix representation.}
 \end{figure}
@@ -84,17 +84,17 @@ For the remainder of this discussion on graph data structures, we will use the s
 %~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~%~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~%
 %~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~%~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~%
 \subsection{Adjacency Lists}
-\label{background::adjlist}
+\label{back:adjlist}
 \TLS{Adjacency lists are a natural evolution from adjacency matrices and are constructed by breaking down the graph into per-vertex neighborhood lists.}
-For instance, consider the adjacency matrix shown in ~\autoref{fig:background:sample_adj_matrix}.
+For instance, consider the adjacency matrix shown in ~\autoref{fig:back:sample_adj_matrix}.
 To construct the neighborhood list for each node, we construct a vector containing the column index $j$ where $a_{ij} = 1 $ in the adjacency matrix. 
-The corresponding adjacency list representation of the graph is shown in ~\autoref{fig:background:adjlist}.
+The corresponding adjacency list representation of the graph is shown in ~\autoref{fig:back:adjlist}.
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \begin{figure*}[ht!]
 \centering
     \includegraphics[scale=0.30]{content/fig/background/sample_adjlist.drawio.png} 
     \caption{Adjacency list representation of the outgoing edges in the sample graph}
-    \label{fig:background:adjlist}
+    \label{fig:back:adjlist}
 \end{figure*}
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 The memory requirement for the adjacency list representation is $O(|V| + |E|)$, which is superior to the $O(V^2)$ required for an adjacency matrix.
@@ -105,7 +105,7 @@ Typically, there are two adjacency lists maintained for a graph: one for the in-
 %~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~%~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~%
 %~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~%~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~%
 \subsection{Compressed Sparse Row}
-\label{background::CSR}
+\label{back:CSR}
 \TLS{Compressed Sparse Row(CSR) ~\cite{saad2003iterative} is a very compact, \emph{immutable} data structure that uses two flat arrays to store the neighborhood lists for nodes in a graph.}
 \PM{Straightaway copied from my RPE doc}
 Assuming we have a non-symmetric sparse matrix A, we create two integer vectors: \emph{vertices} and \emph{edges}.
@@ -119,7 +119,7 @@ Inserting new edges into CSR format takes time that is linear in the size of the
 In the worst case, there might be resizing needed for the edge and vertex arrays.
 
 \subsection{Hybrid CSRs}
-\label{background::CSR}
+\label{back:mutableCSR}
 \TLS{CSRs are efficient for storing and traversing static graphs, however, they need to be reconstructed when the graph evolves.}
 The edge array might need reallocation to accommodate an incoming edge, and the old edges must be moved and shifted around the new edge.
 This is a pretty serious limitation for evolving graphs, and a lot of research has been done to create resizable CSRs for graphs.
@@ -140,13 +140,13 @@ Three types of insert-friendly CSRs are commonly used:
 \end{enumerate}
 
 \subsection{Tree-based representations}
-\label{background::inmem_tree}
+\label{back:inmem_tree}
 \PM{We might need to talk about this because one can have an in-mem B-Tree for dynamic graphs (TESEO)}
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%% ON-DISK DATA LAYOUTS %%%%%%%%%%%%%%%%%%%%%%%%%%
 \section{Persistent Graph Layouts}
-\label{background::persistent_rep}
+\label{back:persistent_rep}
 \TLS{Graphs can be large and grow to a size that they cannot fit in RAM.}
 
 \TLS{Common graph algorithms traverse the graph by accessing each node's neighborhoods.}
@@ -160,7 +160,8 @@ Underpinning all this effort is an efficient storage engine that interleaves com
 \TLS{We examine a few persistent graph representations that have been proposed.}
 
 \subsection{Preprocessed and/or Sharded files on Disk}
-\TLS{Out-of-core graph processing systems have been well-optimized to maintain sequential disk locality and minimize the amount of IO needed per iteration by carefully preprocessing and sharding the graph. Let's examine some illustrative examples of interesting sharded graph data layouts}.\PM{I don't feel that I need to elaborate this more since the intro into this section already talks about this.}
+\label{back:persistent_rep:disk_files}
+\TLS{Out-of-core graph processing systems have been well-optimized to maintain sequential disk locality and minimize the amount of IO needed per iteration by carefully preprocessing and sharding the graph. Let's examine some illustrative examples of interesting sharded graph data layouts}.\PM{I don't feel that I need to elaborate more since the intro into this section already talks about this.}
 
 \PM{I want to talk about: GraphChi - because canonical OOC system, X-Stream - because very unique, GridGraph/FlashGraph/Blaze -- because SSDs and 2D partitioning. }
 \TLS{GraphChi~\cite{kyrola2012graphchi}, for example, processes a graph in \emph{parallel sliding windows} of vertices, and the data layout is such that computation threads processing a certain window can read all incoming edges to vertices in that window by reading in a single disk-based shard.}
@@ -174,18 +175,21 @@ The premise is that partitioning a graph by the source vertex ID is less computa
 \TLS{Modern SSDs have different characteristics compared to the HDDs X-Stream/GraphChi were designed for. Consequently, the data layout was changed to align with the SSD's high-bandwidth, internal parallelism, and improved random read performance.}
 
 \subsection{Transactional Edge Log}
+\label{back:persistent_rep:TEL}
 \TLS{LiveGraph~\cite{zhu2019livegraph} is a recent graph storage system that is designed to allow purely sequential access to a graph's adjacency list.}
 \PM{describe the design in one paragraph}
 
 \TLS{LiveGraph uses a large mmap region to store the graph, and the claim is that this is sufficient and efficient for storing the graph.
 It is well known that mmap-based storage engines are ill-suited for designing a robust database system~\cite{crotty2022you}.}
 
+\subsection{Tree-based data structures and layouts}
+\TLS{Storing data in indexed data structures such as B-Trees and Log Structured Merge Trees is a viable alternative to the }}
 
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%% GRAPH COMPUTATION MODEL CLASSIFICATION %%%%%%%%%%%%%%%%%%%%%%%%%
 \section{Graph Processing Programming Models}
-\label{background::programming_model}
+\label{back:programming_model}
 \TLS{Since all graphs can be expressed as sparse matrices, all graph computations can be considered matrix operations. For instance, graph processing algorithms can be expressed as: }
 \begin{equation}
     Y = X^{T}A
@@ -201,8 +205,8 @@ In a single-node system, the computation model defines:
 
 %%%%%%%%%%%%%%%%%%%% Graph Workloads - transactional and analytics based %%%%%%%%%%%%%% 
 \section{Graph Workloads}
-\label{background::workloads}
+\label{back:workloads}
 
 %%%%%%%%%%%%%%%%%%%% Graph Databases %%%%%%%%%%%%%%%%%%%%
 \section{Graph Databases}
-\label{background::graphDB}
+\label{back:graphDB}

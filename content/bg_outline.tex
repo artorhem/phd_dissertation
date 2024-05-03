@@ -1,6 +1,6 @@
 \chapter{Background Outline}
 
-We begin with explaining that the following discussion is entirely focused on single-node shared-memory systems and does not deal with/extrapolate fully to distributed systems.
+We begin by explaining that the following discussion is entirely focused on single-node shared-memory systems and does not deal with/extrapolate fully to distributed systems.
 
 \section{Data Layouts: In-memory}
 \label{bg_out:inmem}
@@ -8,16 +8,15 @@ We begin with explaining that the following discussion is entirely focused on si
 		\item Adj Matrix
 		\item AdjList
 		\item CSR
-		\item edgelists \PM{why? This feels unnecessary}
+		\item Edgelists \PM{why? This feels unnecessary}
 	\end{enumerate}
 
 \section{Persistent Data Layouts}
 \label{bg_out:persistent}
 	\begin{enumerate}
 		\item Transactional Edge Log (weakest form of persistence: MMAP based)
-		\item Neo4J : on-disk layout + linked lists in memory
 		\item Preprocessed files + sharded files: Blaze, Bolt, GraphChi, X-Stream
-		\item Proper DB: fit stuff into a Tree-based layouts: LSMT, B-Trees
+		\item Proper DB: fit stuff into Tree-based layouts: LSMT, B-Trees
 	\end{enumerate}
 
 \section{Workloads}
@@ -36,6 +35,14 @@ We begin with explaining that the following discussion is entirely focused on si
 		\item Need access to whole graph and the computed value is defined for each vertex (vertex functions)
 	\end{enumerate}
 
+\section{Graph Databases}
+	\begin{enumerate}
+		\item native vs non-native graph databases (something similar to \href{https://neo4j.com/blog/native-vs-non-native-graph-technology/}{this}). give examples of each
+		\item Neo4J : on-disk layout + linked lists in memory
+		\item ArangoDB and TigerGraph are based on RocksDB\PM{TIgerGraph is closed source}
+		\item BlazeGraph (acquired by Amazon Neptune) is an RDF store and uses a B+ Tree \PM{BlazeGraph open source development stopped after the acquisition. Neptune is closed source. Noting this for completeness}
+	\end{enumerate}
+
 \section{Computational Model}
 	
 Graph processing algorithms can be defined as matrix multiplications: $Y = X^TA$. Under this framing, we need to access $X^T$ and load in the relevant "rows" in $A$ (out or in-neighborhood) to produce the $Y$ vector (the value vector of cardinality $|V|$). $X^T$ can be placed in memory, since $|V|$ is of a manageable size.
@@ -46,16 +53,13 @@ In a single-node system, the computation model defines:
 
 	\item\textbf{[Consistency Semantics]} Is Y immediately visible? There can be a synchronization barrier at the end of a round of computation and only after that are the results of a round available for use in the next round(Most systems). Otherwise, the values can be immediately applied and no synchronization is needed (GraphChi) // What does this mean for a single-node system?
 	
-	In an evolving graph system: does the system support concurrent reads and writes? How does it handle concurrent writes? 
-
 	\item\textbf{[Isolation Guarantees]} Is the matrix A mutable while a computation of Y is in progress? If it is, how does the system guarantee the correctness of results? If not, how are these read-only versions maintained, and how are multiple versions of the graph managed? What is the granularity at which these versions are maintained? What's the garbage collection schedule for cleaning up old versions that are no longer needed?
 	
-	In the context of an HTAP system: what is the 
+	In the context of an HTAP system: consistency and isolation semantics apply to both concurrent read/write transactional operations, and also to the concurrent running of analytics and transactional queries.
 
-	\item \textbf{[Concurrency Control]}
 \end{enumerate}
 
 The computational model influences and is influenced by the data layout; the workload ultimately decides what combination of the computation model and data layout will perform best.
 These entities interact in non-trivial ways. 
 
-Examine the computational model used by the systems in Section~\autoref{bg_out:inmem} and Section~\autoref{bg_out:persistent} along these 4 axes.
+Examine the computational model used by the systems in Section~\autoref{bg_out:inmem} and Section~\autoref{bg_out:persistent} along these 3 axes.
