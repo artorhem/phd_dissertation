@@ -32,10 +32,12 @@ We begin with explaining that the following discussion is entirely focused on si
 	- Graph processing algorithms can be defined as matrix multiplications: Y = X'A (X' is transpose vector matrix). Under this framing, we need to access X' and load in the relevant "rows" in A (out or in-neighborhood) to produce the Y vector (value vector of cardinality |V|). X' can be placed in memory, since |V| is of a manageable size.
 	
 	- In a single-node system, the computation model defines:
-		(i) [IO]is A read in its entirety each time, or is there some reasonable way to access a subgraph, ideally only the neighborhood needed (all: naive linear algebra, smart whole matrix: x-stream, only relevant edges: most systems)
+		(i) [IO]is A read in its entirety each time, or is there some reasonable way to access a subgraph, ideally only the neighborhood needed (all: naive linear algebra, whole matrix in a smart way: x-stream, only relevant edges: most systems)
 
 		(ii) [Consistency Semantics] Is Y immediately visible? There can be a synchronization barrier at the end of a round of computation and only after that are the results of a round available for use in the next round(Most systems). Otherwise, the values can be immediately applied and no synchronization is needed (GraphChi) // What does this mean for a single-node system?
 
 		(iii) ?
 
-	- Computational model dictates the data layout; the workload influences which data layout is useful and which computational model makes sense, 
+	- Computational model dictates the data layout; the workload influences which data layout is useful and which computational model makes sense.
+
+	- Examine the computational model used by the systems in 1.2(c) 
