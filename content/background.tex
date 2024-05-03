@@ -139,14 +139,45 @@ Three types of insert-friendly CSRs are commonly used:
     This can be remedied by merging and consolidating updates into the CSR by a process called compaction. It is similar to garbage collection and is expensive and leads to latency spikes.
 \end{enumerate}
 
-\subsection{Edge Logs or Edge Lists}
-\label{background::edgelog}
-
+\subsection{Tree-based representations}
+\label{background::inmem_tree}
+\PM{We might need to talk about this because one can have an in-mem B-Tree for dynamic graphs (TESEO)}
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%% ON-DISK DATA LAYOUTS %%%%%%%%%%%%%%%%%%%%%%%%%%
-\subsection{On-Device Data Layout for fast serial access}
-\label{background::data_layout}
+\section{Persistent Graph Layouts}
+\label{background::persistent_rep}
+\TLS{Graphs can be large and grow to a size that they cannot fit in RAM.}
+
+\TLS{Common graph algorithms traverse the graph by accessing each node's neighborhoods.}
+Sequential access is critical in a semi-external architecture.
+Even on the best SSDs, sequential access is still significantly faster than random access, so semi-external processing is critically dependent on good data layouts.
+Persistent graph layouts are, therefore, designed to support the graph processing system in accessing the relevant sub-graph or neighborhood as efficiently as possible.
+Most semi-external graph processing systems spend a significant amount of time preprocessing the data to construct a sequential data layout.
+The layout must be designed in cooperation with constructing data traversal schemes that minimize conflicts when updating the in-memory state and maximize cache reuse.
+Underpinning all this effort is an efficient storage engine that interleaves computation with IO requests, handles the file or block IO, and provides some atomicity-consistency-isolation-durability (ACID) guarantees (if the system has been designed to provide any).
+
+\TLS{We examine a few persistent graph representations that have been proposed.}
+
+\subsection{Transactional Edge Log}
+\TLS{LiveGraph~\cite{zhu2019livegraph} is a recent graph storage system that is designed to allow purely sequential access to a graph's adjacency list.}
+\PM{describe the design in one paragraph}
+
+\TLS{LiveGraph uses a large mmap region to store the graph, and the claim is that this is sufficient and efficient for storing the graph.
+It is well known that mmap-based storage engines are ill-suited for designing a robust database system~\cite{crotty2022you}.}
+
+\subsection{Preprocessed and/or Sharded files on Disk}
+\TLS{Out-of-core graph processing systems have been well-optimized to maintain sequential disk locality and minimize the amount of IO needed per iteration by carefully preprocessing and sharding the graph. Let's examine some illustrative examples of interesting sharded graph data layouts}.\PM{I don't feel that I need to elaborate this more since the intro into this section already talks about this.}
+
+\PM{I want to talk about: GraphChi - because canonical OOC system, X-Stream - because very unique, GridGraph/FlashGraph/Blaze -- because SSDs and 2D partitioning. }
+\TLS{GraphChi~\cite{kyrola2012graphchi}, for example, processes a graph in \emph{parallel sliding windows} of vertices, and the data layout is such that computation threads processing a certain window can read all incoming edges to vertices in that window by reading in a single disk-based shard.}
+
+X-Stream~\cite{roy2013x} takes a different approach to maximize sequential access to the edge data. 
+Unlike GraphChi, X-Stream streams the edges and updates the vertex states in memory (the number of edges is an order of magnitude more than the number of nodes in many graphs), instead relying on the sheer parallelism of using RAID groups.
+X-Stream uses the notion of a \emph{streaming partition}, which is a subset of vertices and all the edges with a source vertex in that subset. 
+The graph is partitioned by the source vertex of the edges. The graph is processed by streaming in the edges of a streaming partition and keeping the vertex state in memory.
+The premise is that partitioning a graph by the source vertex ID is less computationally expensive than sorting the edges, as GraphChi does. A strict ordering of edges within a partition is not required with X-Stream. This is why the authors claim that X-Stream does not need any preprocessing.
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%% GRAPH COMPUTATION MODEL CLASSIFICATION %%%%%%%%%%%%%%%%%%%%%%%%%
 \section{Graph Processing Programming Models}
