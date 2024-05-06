@@ -215,9 +215,8 @@ In a single-node system, the computation model defines:
 \section{Graph Databases}
 \label{back:graphDB}
 
-\section{Graph Analytics Systems}
-\section{Scaling Graph Processing}
-\label{intro:scaling_gps}
+\section{Graph Processing Systems}
+\label{back:scaling_gps}
 \TLS{Whether static or dynamic, a graph might be too large to fit in main memory.}
 In this scenario, the system designer has two options: distributing computation to multiple machines with enough aggregated RAM to store the graph or running the computation on a single machine caching part of the graph and any algorithmic state in main memory, with the entire graphs on persistent storage (e.g., a flash drive). 
 % This graph processing system design must rely on fast sequential access to the graph to minimize the impact of accessing slower media such as an SSD or hard drive.
