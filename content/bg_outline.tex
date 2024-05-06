@@ -1,51 +1,82 @@
 \chapter{Background Outline}
 
 We begin by explaining that the following discussion is entirely focused on single-node shared-memory systems and does not deal with/extrapolate fully to distributed systems.
-
+\MIS{I agree, but we also begin with an overview of the chapter and WHY we are making the reader read/learn all this.  That is, why is it important for the reader to become familiar wtih all these areas (so they can understand the decisions behind Flexograph, presented in Chapter X).}
 \section{Data Layouts: In-memory}
+\MIS{I wonder if this should be:
+2.1 Data Layouts
+2.1.1 In-memory
+(Ends with explanation of WHY these don't work for persistent, which gives you a chance perhaps to introduce the "CSR designed for flash?
+2.1.2 Persistent
+}
 \label{bg_out:inmem}
-	\begin{enumerate}
-		\item Adj Matrix
-		\item AdjList
-		\item CSR
-		\item Edgelists \PM{why? This feels unnecessary}
-	\end{enumerate}
+\begin{enumerate}
+    \item Adj Matrix
+    \item AdjList
+    \item CSR
+    \item Edgelists \PM{why? This feels unnecessary}
+\end{enumerate}
 
 \section{Persistent Data Layouts}
 \label{bg_out:persistent}
-	\begin{enumerate}
-		\item Transactional Edge Log (weakest form of persistence: MMAP based)
-		\item Preprocessed files + sharded files: Blaze, Bolt, GraphChi, X-Stream
-		\item Proper DB: fit stuff into Tree-based layouts: LSMT, B-Trees
-	\end{enumerate}
+\begin{enumerate}
+    \item Transactional Edge Log (weakest form of persistence: MMAP based)
+    \item Preprocessed files + sharded files: Blaze, Bolt, GraphChi, X-Stream
+    \item Proper DB: fit stuff into Tree-based layouts: LSMT, B-Trees
+\end{enumerate}
 
 \section{Workloads}
-	\subsection{OLTP-like}
-	\begin{enumerate}
-		\item Characteristics: R/W mix, insert/delete/short scans
-		\item Requirements: efficient indexing to find neighborhoods, sequential scans, good join algorithms
-		\item Special storage requirements for the properties of graph elements. This is where we talk about Labeled Property Graph
-		\item  LDBC is used for benchmarking
-	\end{enumerate}	
+\MIS{Hmmm -- I wonder if this should come before layouts -- in some says, this is "our target" -- that provides context in which to discuss layouts?}
+\subsection{OLTP-like}
+\begin{enumerate}
+    \item Characteristics: R/W mix, insert/delete/short scans
+    \MIS{There is probably a paragraph under 2.3 that explains that there are two types of workloads; from where OLTP comes from (business data processing), what OLAP is and why it is different, etc.}
+    \item Requirements: efficient indexing to find neighborhoods, sequential scans, good join algorithms
+    \item Special storage requirements for the properties of graph elements. This is where we talk about Labeled Property Graph
+    \item  LDBC is used for benchmarking
+    \MIS{for graphs...}
+\end{enumerate}	
 
-	\subsection{OLAP-like}
-	\begin{enumerate}
-		\item Characteristics: Read-only, snapshot-based, needs high bandwidth for whole graph traversals
-		\item Kernels: The different types of benchmark kernels and why they are interesting. 
-		\item Need access to whole graph and the computed value is defined for each vertex (vertex functions)
-	\end{enumerate}
+\subsection{OLAP-like}
+\begin{enumerate}
+    \item Characteristics: Read-only, snapshot-based, needs high bandwidth for whole graph traversals
+    \item Kernels: The different types of benchmark kernels and why they are interesting. 
+    \item Need access to whole graph and the computed value is defined for each vertex (vertex functions)
+\end{enumerate}
 
+\MIS{ I think there is a whole section missing on graph processing systems, right?
+Again, this might be something like:
+2.4: Systems that compute on graphs
+Overview
+2.4.1 Graph Databases
+2.4.2 Graph Analytics Systems
+This motivates your entire thesis, so probably needs to be somewhere prominent -- maybe even right at the beginning?
+Then the computational model maybe goes with or right after that?
+If I am doing a shortest path query is that really best expressed as matrix multiplication?
+I also might be doing SQL-like queries on elements of my graph?
+I might also be looking for particular structures ....
+Basically, I'm not 110\% that the framing in 2.5 is exactly what we need; maybe it is, but I'm not positive.}
+\PM{ I removed the entire scaling graph processing subsection from the introduction and moved it to the background. It covers: distributed GPS, shared memory multiprocessor systems, and semi-external systems. I forgot to update the outline. So yes, there will be a section on GPS}
+\PM{The matrix framing works really well for iterative algorithms, but yes, even I wasn't 100\% sold on it.  I will rework this into something more general.}
 \section{Graph Databases}
-	\begin{enumerate}
-		\item native vs non-native graph databases (something similar to \href{https://neo4j.com/blog/native-vs-non-native-graph-technology/}{this}). give examples of each
-		\item Neo4J : on-disk layout + linked lists in memory
-		\item ArangoDB and TigerGraph are based on RocksDB\PM{TIgerGraph is closed source}
-		\item BlazeGraph (acquired by Amazon Neptune) is an RDF store and uses a B+ Tree \PM{BlazeGraph open source development stopped after the acquisition. Neptune is closed source. Noting this for completeness}
-	\end{enumerate}
+\begin{enumerate}
+    \item native vs non-native graph databases (something similar to \href{https://neo4j.com/blog/native-vs-non-native-graph-technology/}{this}). give examples of each
+    \item Neo4J : on-disk layout + linked lists in memory
+    \item ArangoDB and TigerGraph are based on RocksDB\PM{TIgerGraph is closed source}
+    \item BlazeGraph (acquired by Amazon Neptune) is an RDF store and uses a B+ Tree \PM{BlazeGraph open source development stopped after the acquisition. Neptune is closed source. Noting this for completeness}
+\end{enumerate}
+
+\section{Graph Analytics Systems}
+\begin{enumerate}
+    \item context: used for graph OLAP workloads, read-heavy, often static
+    \item distributed GPS: Pregel, PowerGraph, GraphX and the optimizations that they use to reduce the distributed communication overhead
+    \item shared-memory multiprocessor systems: mention COST, low communication overhead, don't need to partition the graph. Distributed synchronization (updates are network messages, push/pull ) vs. shared-mem coordination (locks/CAS).
+    \item semi-external systems: vertex state is in RAM, and the edges are streamed from disk. 
+\end{enumerate}
 
 \section{Computational Model}
 	
-Graph processing algorithms can be defined as matrix multiplications: $Y = X^TA$. Under this framing, we need to access $X^T$ and load in the relevant "rows" in $A$ (out or in-neighborhood) to produce the $Y$ vector (the value vector of cardinality $|V|$). $X^T$ can be placed in memory, since $|V|$ is of a manageable size.
+Graph processing algorithms are matrix multiplications: $Y = X^TA$. Under this framing, we need to access $X^T$ and load in the relevant "rows" in $A$ (out or in-neighborhood) to produce the $Y$ vector (the value vector of cardinality $|V|$). $X^T$ can be placed in memory, since $|V|$ is of a manageable size.
 	
 In a single-node system, the computation model defines:
 \begin{enumerate}
