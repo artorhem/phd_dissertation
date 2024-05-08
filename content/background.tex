@@ -127,7 +127,7 @@ Three types of insert-friendly CSRs are commonly used:
 \begin{enumerate}
     \item \textbf{In-place Updates}: These data structures are created in a way that allows for in-place insertion and deletion of graph elements without needing a full expensive rebuilding of the data structure.
     NetworKit\cite{staudt2014networkit} doubles the size of the initial array and reserves space for new edges being inserted into the graph. 
-    A variant of the CSR called the Packed CSR \cite{packed_csr} leaves space between elements which allows for faster insertion and deletion of graph elements at the cost of a slowdown in traversals and an increase in the space overhead. 
+    A variant of the CSR called the Packed CSR \cite{PackedCSR} leaves space between elements which allows for faster insertion and deletion of graph elements at the cost of a slowdown in traversals and an increase in the space overhead. 
     \item \textbf{Batching updates}: Many systems batch updates and preprocess the updates to make the insertions faster.
     Systems such as the one described by Madduri et. al. \cite{madduri2009compact} batch updates, order them by vertex ids and sort them before applying the updates.
     \item \textbf{Multi-versioning and Delta Updates}: An alternative design to support fast inserts into a graph is to store all updates in a separate structure called a Delta Map.
