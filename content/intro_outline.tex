@@ -7,15 +7,14 @@ Relational databases are perfectly well suited to store structured or semi-struc
 More involved analysis of data involves full dataset scans and extensive join processing, and these "business intelligence (BI) style" workloads are called Online Analytical Processing (OLAP).
 Several OLAP relational databases and data warehousing solutions exist to enable this workload at an enterprise scale~\cite{Redshift_2015,boncz2005monetdb,vertica, raasveldt2019duckdb}.
 
-Several data are interesting for containing some dimension for "higher order" analysis that would be more efficiently handled in a specialized system.
-Graphs are interesting since they are comprised of both structured (known schema) and unstructured parts (schema-free). 
+Several data are interesting for containing some latent features that are interesting for analysis that would be more efficiently handled in a specialized system.
 Take, for example, a social network: the user profile is usually structured and conforms to some known schema, while the content of any individual "column" of information on a user's profile can be unstructured.
 These are easily managed and stored in a relational database.
-However, the user data in a social network also presents relationships that can be efficiently modeled as a graph and is valuable to be analyzed as such.
-Follower relationships and repost relationships in social networks can form large graphs and are often modeled as adjacency lists.
+The social network database contains "follower" and "repost" relationships that are form large graphs and are often modeled as adjacency lists.
 Large adjacency lists also make graph OLTP more challenging since point updates can impact significant parts of the graph and result in long-running "mammoth" write transactions that are either not handled at all or handled poorly~\cite{Cheng2024Mammoths}.
+Moreover, 
 Traditional databases do not perform well for OLAP tasks on large graphs since they need to perform recursive self-joins to answer queries, and graphs usually have far too many rows for this to be an effective strategy~\cite{TransitiveClosure_Biskup_Stiefeling_1989}.
-
+Since graphs are not efficiently handled by the conventional relational database systems, there has been a growing demand for specialized graph data management systems.
 
 \TLS{Large graphs are ubiquitous~\cite{ubiquity_large_graphs_vldb2017}, and there is an increasing need to store, process, and manage them efficiently.}
 Graphs with trillions of edges and billions of nodes are common \PM{cite}.
