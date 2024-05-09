@@ -1,84 +1,53 @@
 \chapter{Introduction}
-
+\PM{How and where should I point out that Graph data management systems include graph databases and graph processing systems? I need to make this distinction to refer to both GDBs and GPSs collectively.}
 \TLS{New data are being generated rapidly, and there is an ever-present and growing need to store and analyze them efficiently.}
 Much of this data has some inherent schema or structure, and relational databases are a natural choice for efficiently storing it.
 Relational databases(RDBMS) have been the backbone of data management for six decades and have been extended to service new and emerging use cases, such as analytical databases that allow efficient scans on skippable columns~\cite{stonebraker2018c,boncz2005monetdb}.
 RDBMS are perfectly well suited to store structured or semi-structured data that contains attributes and experiences updates and has stringent consistency requirements: such a workload is called Online Transactional Processing (OLTP).
 More involved analysis of data involves full dataset scans and extensive join processing, and these "business intelligence (BI) style" workloads are called Online Analytical Processing (OLAP).
-
 Several OLAP databases and data warehousing solutions exist to enable this workload at an enterprise scale~\cite{Redshift2015,boncz2005monetdb,vertica, raasveldt2019duckdb}.
 
-Several data are interesting for containing some latent features that are interesting for analysis that would be more efficiently handled in a specialized system.
+\TLS{Several data are interesting for containing some latent features that are interesting for analysis that would be more efficiently handled in a specialized system.}
 Take, for example, a social network: the user profile is usually structured and conforms to some known schema, while the content of any individual "column" of information on a user's profile can be unstructured.
 This schema can be easily managed and stored in a relational database, as is done at Meta~\cite{bronson2013tao}.
 The social network database contains "follower" and "repost" relationships that form large graphs and are often modeled as adjacency lists.
-Large adjacency lists also make graph OLTP more challenging since point updates can impact significant parts of the graph and result in long-running "mammoth" write transactions that are either not handled at all or handled poorly~\cite{Cheng2024Mammoths}.
-Moreover,  
-Traditional databases do not perform well for OLAP tasks on large graphs since they need to perform recursive self-joins to answer queries, and graphs usually have far too many rows for this to be an effective strategy~\cite{TransitiveClosure_Biskup_Stiefeling_1989}.
-Since graphs are not efficiently handled by the conventional relational database systems, there has been a growing demand for specialized graph data management systems.
+Graph analysis tasks can require accessing the whole (or a significant part of the) graph.
+RDBMSs do not perform well for whole-graph analytics tasks since they need to perform recursive self-joins to answer queries, and graphs usually have far too many rows for this to be an effective strategy~\cite{TransitiveClosureBiskupStiefeling1989}.
 
-\TLS{Large graphs are ubiquitous~\cite{ubiquityLargeGraphsVLDB2017}, and there is an increasing need to store, process, and manage them efficiently.}
-Graphs with trillions of edges and billions of nodes are common \PM{cite}.
-Each node and edge in a graph can have any number of attributes or properties associated with them, and real-world applications, such as Project GDELT~\cite{ProjectGDELT} (an open-source knowledge graph repository), produce and use knowledge graphs that are well over several terabytes in size \emph{each year}.
-\MIS{Why do we care about synthetic graphs at thi point? I think we are trying to claim that REAL APPLICATIONS produce large graph-structure data -- protein networks, social networks, financial networks, etc.  I think that's way more compelling than "this benchmark some folks made up":}\PM{rewrote with Project GDELT; is this better?}
+\TLS{In the meantime, large graphs have become  ubiquitous~\cite{ubiquityLargeGraphsVLDB2017} and graphs with trillions of edges and billions of nodes are now common~\cite{ProjectGDELT, WDCHyper94:online}.}
 Analyzing datasets of this scale requires creating systems that can handle the enormous scale of the data efficiently while remaining economical to own and operate.
+Graphs are therefore sufficiently different and interesting that many specialized systems have been proposed to store and process them; popular graph databases include Neo4j~\cite{neo4j}, ArangoDB~\cite{arangodb} and popular graph processing systems include Pregel~\cite{malewicz2010pregel}, GraphX~\cite{gonzalez2014graphx}, PowerLyra~\cite{powerlyra2019}, GraphChi~\cite{kyrola2012graphchi} and Ligra~\cite{shun2013ligra}.
 
-\PM{This is where I want to introduce that there are two distinct workloads on graphs: OLAP and OLTP.}
-\TLS{There are typically two types of workloads that are commonly run on graphs.}
-A user might wish to run short queries on the graph to get some localized information, for instance, in a social network, a user might wish to see the latest posts made by their friends.
-This can be expressed as finding the user's immediate friend circle (1-hop neighborhood) and picking their posts.
+\TLS{Similar to traditional databases, graphs can also have transactional and analytical workloads.}
+Transactional (Graph OLTP) workloads are short queries on the graph to get (or set) some localized information, for instance, in a social network, a user might wish to see the latest posts made by their friends, or the changes to the network as a new friend joins the social network.
 Such \emph{interactive} queries are latency-sensitive, with many tasks such as fraud detection in financial networks demanding 20 ms latencies~\cite{qiu2018real}.\\
-Alternatively, there are some queries about the network that can be answered only through a "whole-graph" analysis.
+Analytical workloads on graphs (Graph OLAP) are queries about the network that can be answered only through a "whole-graph" analysis.
 For instance, a cloud service provider might wish to establish which clients have been exposed to an attack by using the login information log.
 One possible way to do this would be to run traversal queries from the affected clients and establish a \emph{blast radius} of possibly infected machines.
 This task must interact with large parts of the graph, if not the whole graph, and will typically take longer to finish.
-There are specialized systems to handle these workloads: Graph Processing Systems (GPS)(Section~\autoref{back:scaling_gps}) to handle the whole-graph analytics workloads, and Graph Databases (Section~\autoref{back:graphDB}) to handle the short, interactive queries on the graph data.
-
-\TLS{A recent survey~\cite{mehrotra2024sok} of academic literature identified at least 277 graph processing systems with the ability to handle graphs with billions or even trillions of edges as the primary design goal~\footnote{This is an approximate count since the exact definition of what constitutes a GPS is vague and subject to interpretation.}}\PM{citations}.
-A graph processing system must make design choices that make the graph efficiently navigable and easy to query. 
-Graph processing systems research has explored the whole gamut of design decisions: single node vs cluster-based systems, in-memory vs disk-based processing, whether they support evolving graphs or only static ones, the computation models they use, the programming models they provide, the coordination strategy for managing work in a cluster/multiprocessor environment, and the consistency and isolation models they conform with, just to name a few \cite{Heidari:2018:SGP:3212709.3199523}.
-\MIS{ You say "whole gamut" and then give a few examples, which sets the reader up for disappointment (also the sentence needs a period after the citation else it's just kind of hanging out there.}\PM{is it better now? I still need to add the individual citations, though.}
-However, each system must select a data layout for storing the graph to maximize sequential access efficiency.
+There are specialized systems to handle these workloads: Graph Processing Systems(Section~\autoref{back:scaling_gps}) to handle the whole-graph analytics workloads, and Graph Databases (Section~\autoref{back:graphDB}) to handle the short, interactive queries on the graph data.
+\\\\
+\TLS{Regardless of which workload the system has been designed for, its performance depends on how efficiently the system can access the relevant elements of the graph.}
+% \TLS{A recent survey~\cite{mehrotra2024sok} of academic literature identified at least 277 graph processing systems with the ability to handle graphs with billions or even trillions of edges as the primary design goal~\footnote{This is an approximate count since the exact definition of what constitutes a GPS is vague and subject to interpretation.}~\cite{ching2015oneTrillion}}.
+% Additionally, graph processing systems research has explored the whole gamut of design decisions in the pursuit of efficiency: single node vs cluster-based systems, in-memory vs disk-based processing, whether they support evolving graphs or only static ones, the computation models they use, the programming models they provide, the coordination strategy for managing work in a cluster/multiprocessor environment, and the consistency and isolation models they conform with, just to name a few \cite{Heidari:2018:SGP:3212709.3199523}.
+Graph data management systems choose data layouts that maximize sequential access efficiency.
 Several data layouts have been proposed for graph storage, the most popular of which are Compressed Sparse Row (CSR) format(\autoref{back:CSR}), Adjacency Lists(\autoref{back:adjlist}), and Edge Logs(\autoref{back:persistent_rep:TEL}).
-We discuss the design of graph processing systems in greater detail in Section~\autoref{back:scaling_gps}.
+We discuss the design of graph processing systems in Section~\autoref{back:scaling_gps} and graph databases in Section~\ref{back:graphDB}.
 
-% \TLS{Graphs have skewed properties, and the canonical data structures that store them exhibit poor locality.}
-\MIS{ I'm struggling with this paragraph. I think that the concept you really want to convey is something like: Large data are not new, but graphs pose a unique challenge. Many data exhibit strong locality (give concrete examples). However, graphs represent a complex structure that is not particularly local. Perhaps explain the challenge in the context of a social network. A user's friends are all those people connected via a friend relationship. Let's say that we store all of Alice's friends near Alice. What do we do when Bob comes along and half of Alice's friends are also Bob's friends? Then you conclude that this graph structure makes achieving locality challenging.I *think* this is the point you are trying to get across.  i don't think you need to get into cache utilization in the intro.You can go right into dynamism ... "Further exacerbating the locailty challenge, graphs change over time."}
-\PM{Is the paragraph better now?$\downarrow$ }
-
-\TLS{Large data are not new, but graph data management poses unique challenges to system designers, especially when considering evolving graphs.}
-Imagine a social network graph where the vertices are people, and the edges are "friends with" relations.
-Over time, a popular user (ex., a celebrity or a beloved professor) will aggregate far more friends than the average user.
-While there is no significant problem storing such a graph, distributing the graph for fast parallel processing can lead to unbalanced work distribution.
-In an evolving graph system, however, storing the graph can be challenging because choosing where to place new vertices can be non-trivial.
-For instance, let's say we store Alice's friends near Alice. What do we do when Bob joins the social network, and half of Alice's friends are also Bob's friends?
-There is no trivial way to know what's a good layout that satisfies all locality optimization goals.
-
-\TLS{Dynamic graphs need specialized data structures that provide efficient concurrent access and resizing.}
-The data structures for storing static graphs do not work well (or at all) on dynamic graphs.
-The CSR representation needs expensive reconstruction whenever a graph changes; modified CSRs and their derivatives allow room for growing neighborhoods by leaving space in the CSR ~\cite{PMA_bender2007}, using snapshots to manage updates~\cite{llama}, or by segmenting the CSR such that updates do not force reconstruction of the entire CSR~\cite{csr++_firmli2020}.
-Additionally, concurrent reads and writes to the graph can occur in a dynamic environment, and the data structure must provide transactional support to ensure consistency and isolation.
-Indeed, designing concurrent data structures for storing dynamic graphs is an important and growing area of research, and many systems have been presented~\cite{graphone_kumar, aspen2021fengRisGraph, stinger2012ediger, zhu2019livegraph, sortledton_fuchs2022, 10.1145/3639282}.
-Databases are ideal for handling large volumes of evolving data since they use persistent data structures that allow automatic resizing and indexing.
-Graph Databases, however, perform poorly and are therefore rarely used for whole-graph analytics tasks, being instead relegated to handling dynamic modifications and short interactive queries.
-
-\TLS{This thesis argues that efficient single-node semi-external graph processing should be the foundation for a robust and scalable "best of both worlds" graph data management and analysis system that can handle analytics tasks as well as transactional queries.
+\TLS{This thesis presents the design of a scalable and efficient hybrid "best of both worlds" graph data management system that can handle analytics tasks and transactional queries by storing graphs in analytics-friendly formats.
 Several state-of-the-art design decisions align with this objective, while some need to be modified and revisited.
-This thesis presents the design and implementation of a graph database system that stores graphs in analytics-friendly formats and demonstrates that it is possible to build an efficient hybrid system.
 There are several design choices in the state-of-art that we build upon and others we modified in service of our objectives.
 We now discuss these choices in detail.}
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \section{State of the Art: What's good?}
 \label{intro:whats_good}
-\MIS{Maybe something like, "In light of the existing architectures in the graph-processing research landscape, we identify a set of requirements for a single-node graph processing system.}
 In light of the existing architectures in the graph-processing research landscape, we identify a set of requirements for a single-node graph processing system.
 \begin{enumerate}
-    % \item \textbf{Efficient out-of-the-box algorithms and a rich, useful API for expressing computations}: The Waterloo survey on the state of graph processing~\cite{ubiquityLargeGraphsVLDB2017} identified that users of graph processing systems desire\MIS{ That's pretty weak; I desire a pony, but that doesn't mean I should get one ...} a system to provide both a rich set of algorithms readily available to use out-of-the-box and an easy-to-use API in which to express their algorithms. 
     \item \textbf{Efficient out-of-the-box algorithms and a rich, useful API for expressing computations}: Using efficient algorithms is essential for correctly benchmarking the system and establishing areas that need improvement for future research~\cite{mcsherry2015scalability, beamer2016understanding, mehrotra2024sok}. Additionally, it is very useful to have an intuitive and flexible API that allows the user to write custom algorithms.
-    \item The \textbf{use of well-designed data structures that can be parallelized without incurring severe penalties from locking overheads} is critical in designing massively parallel semi-external graph processing systems that use fast storage devices. Blaze~\cite{kim2022blaze}, for instance, has been designed to maximize the bandwidth utilization of a fast NVMe SSD by reducing the amount of locking and the use of compare-and-lock style update propagation that is common in other graph processing systems designed to run on flash storage.
-    \item \textbf{Using data layouts that maximize sequential access to the graph are preferred} and painstakingly designed. This has been the central theme for much research in semi-external graph processing, and every system has its clever scheme to address this problem for its API and computation model. 
-    Any shard creation or specialized data layout creation requires preprocessing the graph, which is a significant overhead compared to the cost of actually running the computation. Preprocessing costs are rarely amortized since the layout must be reconstructed each time the graph changes.
+    \item \textbf{Using well-designed data structures that can be parallelized without incurring severe penalties from locking overheads} is critical in designing massively parallel graph processing systems that use fast storage devices. 
+    % Blaze~\cite{kim2022blaze}, for instance, has been designed to maximize the bandwidth utilization of a fast NVMe SSD by reducing the amount of locking and the use of compare-and-lock style update propagation that is common in other graph processing systems designed to run on flash storage.
+    \item \textbf{Using data layouts that maximize sequential access to the graph are preferred} and painstakingly designed. This has been the central theme for much research in semi-external graph processing\footnote{In semi-external systems, vertex and algorithmic state is maintained in RAM and the graph edges are read from the storage device}, and every system has its clever scheme to address this problem for its API and computation model. Creating specialized data layouts requires preprocessing the graph, which is a significant overhead compared to the cost of actually running the computation. Preprocessing costs are rarely amortized.
 \end{enumerate}
 
 We build upon these ideas to create \project{}.
@@ -101,7 +70,7 @@ Contrary to popular opinion, we showcase that using a key-value store-based data
 \TLS{Based on the state of the art in graph data management, there is much that needs to change to accommodate}
 
 \subsection{Single-node optimization before scale-out}
-\TLS{Past research has conclusively shown that premature distribution of tasks based on poor single-node baselines is bound to underperform.} \PM{make single-node great}
+\TLS{Past research has conclusively shown that premature distribution of tasks based on poor single-node baselines is bound to underperform.}
 McSherry et al.~\cite{mcsherry2015scalability} demonstrated that several popular distributed GPS evaluated their scalability by comparing not against an efficient single-threaded implementation but by evaluating how the run time changes as the total number of threads increases.
 This led to several attempts at standardization of benchmarking practices for GPS~\cite{capotua2015graphalytics,mehrotra2024sok,beamer2015gap,graph500}, with each proposal identifying the need to use more performant algorithms and reporting more detailed performance metrics.
 Considering that distributed graph processing is inefficient due to the communication costs, the main benefit of using a cluster for graph processing is that the aggregate RAM might be sufficiently large to process a bigger graph than can be done on a single machine.
@@ -111,8 +80,9 @@ Scale-out systems built from semi-external graph processing systems should provi
 We want to design and optimize a single-node, single-socket graph database before developing NUMA capabilities and, eventually, a distributed graph database.
 
 \subsection{Best-of-both worlds design for mixed OLAP and OLTP workloads}
-\TLS{We have seen in Section~\autoref*{intro:whats_good} that the system performance is strongly linked to the in-memory and on-disk layout and that significant preprocessing effort is spent in creating and maintaining these layouts.}\PM{ This part will talk about native graph storage, hybrid analytics, and transactional design}
-Time spent preprocessing the graph is never amortized since each snapshot of an evolving graph is analyzed just once before the ingestion and preprocessing pipelines need to be run again.\MIS{Must that always be true?}
+\TLS{We have seen in Section~\autoref{intro:whats_good} that the system performance is strongly linked to the in-memory and on-disk layout and that significant preprocessing effort is spent in creating and maintaining these layouts.}
+Time spent to preprocess the graph will rarely get amortized; it varies by the freshness requirements for the workload and the rate at which new snapshots or increments need to be analyzed.
+
 A better alternative is to natively store the graph in a format similar to or close to the in-memory representation required for efficient access.
 Graph databases do this but are optimized for transactional point queries rather than full-graph analytics.
 Neo4j~\cite{neo4j}, for instance, stores all graph data on disk as "linked lists of fixed size records" \cite{neo4j:data_layout:2024}.
@@ -120,12 +90,11 @@ A linked-list representation of graphs is great for connectivity queries but is 
 Newer research systems such as GraphFlowDB~\cite{graphflowdb2021Gupta} provide a more methodical analysis of design decisions required to store a property graph in memory. Still, they do not persist or evaluate the system on whole-graph analytics benchmarks.
 Storing a graph larger than available RAM requires careful persistent and in-memory data layout co-design, which performs well on both OLAP and OLTP-style workloads.
 
-\subsection{In-Database Analytics} \PM{this is about the freshness of mined graphs and how they must be stored depending on their use case. This is *VERY* similar to the previous subsection, and I don't think I have managed to establish any difference between them.}
-Graphs extracted from a primary datastore must be stored in a way conducive to downstream processing, either transactional point queries or whole-graph analytics.
+\subsection{In-Database Analytics}
 We have already examined the use of specialized graph processing systems for analytics tasks and know they are typically not transactional and do not support point queries.
-Graph databases are transactional and perform well on point queries but are orders of magnitude slower than specialized graph processing systems~\cite{specialized_gdb_waterloo} on whole-graph analytics tasks.
-Therefore, the state-of-the-art in graph data management has evolved around a split system design: graph database systems for point queries and specialized high throughput graph processing systems (such as the ones we've examined in Section~\autoref{back:scaling_gps}) for whole-graph analysis tasks.
-This leads to freshness mismatches between the data stored in the original data store, what's available for point-query analysis following ingestion into a graph database, and what's available for batch analysis in a specialized graph processing system.
+Graph databases are transactional and perform well on point queries but are orders of magnitude slower than specialized graph processing systems~\cite{SpecializedGDB-Waterloo} on whole-graph analytics tasks.
+Therefore, the state-of-the-art in graph data management has evolved around a split system design: graph database systems for point queries and specialized high throughput graph processing systems for whole-graph analysis tasks.
+This leads to freshness mismatch between the data stored in the original data store, what's available for point-query analysis following ingestion into a graph database, and what's available for batch analysis in a specialized graph processing system.
 The split system design also causes the creation of data silos which need constant ETL and data movement to maintain consistency.
 
 These problems have an equivalent in the relational database world: the constant data transformation needed to maintain consistency between a row-store and a column store~\cite{HTAP2016ArchepelagoArulraj}, and the subsequent development of Hybrid Transactional and Analytical Processing (HTAP) databases is a promising solution.
@@ -156,14 +125,13 @@ Following that, we examine how semi-external systems create on-disk layouts that
 We then turn our focus towards graph databases, and examine the transactional queries for which they are optimized.
 With this context in place, we contrast graph databases and graph processing systems, establishing the central dichotomy of graph data management and lay the foundation to discuss our hybrid graph transactional and analytical system design.
 
-\PM{Architecture chapter: Graph API, the three representations, discuss database design, iterator interfaces, no internal and external ID management, work assignment and scheduling (thread assignment to minimize insert/deletion conflicts, pooling, buffer management), what else?}\\
-\autoref{chapter:architecture} goes presents the design of \project{}. We begin with an emphasis on structural graphs. \MIS{Not sure what this means???}
+\autoref{chapter:architecture} goes presents the design of \project{}.
 We begin by describing our graph API and then introduce the three layouts for which we provide that API.
 Next, we describe the iterators we provide for efficiently accessing graph elements: nodes, edges, and neighborhoods of nodes. We conclude with a description of work assignment and thread scheduling for reduced-conflict writes to the graph.
 Finally, we discuss the optimizations we provide for maintaining the algorithmic state and using results from previous computations to jumpstart new rounds of computation.\\
 
 \begin{statusbar}{idea}
-\autoref{chapter:property_graphs} describes how we extend \project{} to store property graphs~\cite{angles2018property}.
+\autoref{chapter:propertyGraphs} describes how we extend \project{} to store property graphs~\cite{angles2018property}.
 We begin with a description of the design alternatives available to us for storing properties with graph objects\PM{inline with structure or independently} and describe the cost of using these two approaches.
 We compare these two designs with each other and against other dynamic graph processing systems and graph databases on LDBC queries, and show that we can perform similar to our competitors.
 \end{statusbar}

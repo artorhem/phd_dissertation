@@ -40,3 +40,23 @@ Large adjacency lists also make graph OLTP more challenging since point updates 
 Traditional databases do not perform well for OLAP tasks on large graphs since they need to perform recursive self-joins to answer queries, and graphs usually have far too many rows for this to be an effective strategy~\cite{TransitiveClosure_Biskup_Stiefeling_1989}.
 
 Dynamic graphs also pose an interesting challenge when new nodes arrive.
+
+
+% Graph analysis tasks can require accessing the whole graph (computing PageRank values, for instance) or only subgraphs (ex: finding the neighbors of a node that match certain criteria), and this defines whether using traditional index and join-based processing typical of RDBMSs is viable.
+% RDBMSs do not perform well for whole-graph OLAP tasks as the graph increases since they need to perform recursive self-joins to answer queries, and graphs usually have far too many rows for this to be an effective strategy~\cite{TransitiveClosureBiskupStiefeling1989}.
+
+% Large adjacency lists make graph OLTP more challenging since point updates can impact significant parts of the graph and result in long-running "mammoth" write transactions that are either not handled at all or handled poorly~\cite{Cheng2024Mammoths}.
+
+Imagine a social network graph where the vertices are people, and the edges are "friends with" relations.
+Over time, a popular user (ex., a celebrity or a beloved professor) will aggregate far more friends than the average user.
+In an evolving graph system, however, storing the graph can be challenging because choosing where to place new vertices can be non-trivial.
+For instance, let's say we store Alice's friends near Alice. What do we do when Bob joins the social network, and half of Alice's friends are also Bob's friends?
+There is no trivial way to know what's a good layout that satisfies all locality optimization goals.
+
+% \TLS{Dynamic graphs need specialized data structures that provide efficient concurrent access and resizing.}
+% The data structures for storing static graphs do not work well (or at all) on dynamic graphs.
+% The CSR representation needs expensive reconstruction whenever a graph changes; modified CSRs and their derivatives allow room for growing neighborhoods by leaving space in the CSR ~\cite{PMA2007Bender}, using snapshots to manage updates~\cite{llama}, or by segmenting the CSR such that updates do not force reconstruction of the entire CSR~\cite{csr++2020Firmli}.
+% Additionally, concurrent reads and writes to the graph can occur in a dynamic environment, and the data structure must provide transactional support to ensure consistency and isolation.
+% Indeed, designing concurrent data structures for storing dynamic graphs is an important and growing area of research, and many systems have been presented~\cite{graphone2019kumar, aspen2021fengRisGraph, stinger2012ediger, zhu2019livegraph, sortledton2022Fuchs, 10.1145/3639282}.
+% Databases are ideal for handling large volumes of evolving data since they use persistent data structures that allow automatic resizing and indexing.
+% Graph Databases, however, perform poorly and are therefore rarely used for whole-graph analytics tasks, being instead relegated to handling dynamic modifications and short interactive queries.
