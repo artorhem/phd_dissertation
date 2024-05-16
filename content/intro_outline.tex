@@ -40,14 +40,16 @@ One possible way to do this would be to run traversal queries from the affected 
 This task must interact with large parts of the graph, if not the whole graph, and will typically take longer to finish.
 % There are specialized systems to handle these workloads: Graph Processing Systems(Section~\autoref{back:scaling_gps}) to handle the whole-graph analytics workloads, and Graph Databases (Section~\autoref{back:graphDB}) to handle the short, interactive queries on the graph data.
 
-\TLS{Regardless of which workload the system has been designed for, its performance depends on how efficiently the system can access the relevant elements of the graph.}
+% \TLS{Regardless of which workload the system has been designed for, its performance depends on how efficiently the system can access the relevant elements of the graph.}
 % \TLS{A recent survey~\cite{mehrotra2024sok} of academic literature identified at least 277 graph processing systems with the ability to handle graphs with billions or even trillions of edges as the primary design goal~\footnote{This is an approximate count since the exact definition of what constitutes a GPS is vague and subject to interpretation.}~\cite{ching2015oneTrillion}}.
 % Additionally, graph processing systems research has explored the whole gamut of design decisions in the pursuit of efficiency: single node vs cluster-based systems, in-memory vs disk-based processing, whether they support evolving graphs or only static ones, the computation models they use, the programming models they provide, the coordination strategy for managing work in a cluster/multiprocessor environment, and the consistency and isolation models they conform with, just to name a few \cite{Heidari:2018:SGP:3212709.3199523}.
 
-\TLS{This thesis presents the design of a scalable and efficient hybrid "best of both worlds" graph data management system that stores graphs in a database structure but can handle both analytics tasks and transactional queries using analytics-friendly formats.
-We draw inspiration from several state-of-the-art designs and introduce others to serve our objectives.
-We now discuss these choices in detail.}
-
+\TLS{This thesis presents the design of a scalable and efficient hybrid "best of both worlds" graph data management system that stores graphs in a database structure but can handle both analytics tasks and transactional queries using analytics-friendly formats.}
+% We draw inspiration from several state-of-the-art designs and introduce others to serve our objectives.
+% We now discuss these choices in detail.}
+Designing such a system needs close examination of the state-of-the-art to identify extant designs that are aligned with our design goals (Section~\ref{intro:whats_good}). 
+Additionally, we identify a few anti-patterns that we wish to avoid(Section~\ref{intro:what_change}) while designing our hybrid system.
+Together with our novel contributions in graph state management, principled persistent layout design, and thread scheduling, ~\project{} can achieve performance comparable to in-memory graph processing systems while also being competitive with graph databases.
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \section{State of the Art: What's good?}
 \label{intro:whats_good}
@@ -80,22 +82,26 @@ And, when we leverage the key-value store cache, we provide in-memory performanc
 \label{intro:what_change}
 % \PM{The basic flow: on-disk layouts that match in-memory layouts, using a database that lets one work on dynamic graphs larger than memory, building an HTAP graph database that does not need to run analytics independently from transactions, making the single-node system perform great before scaling to a cluster/NUMA setting.}
 % \\\\
-\TLS{Based on the state of the art in graph data management, there is much that needs to change to accommodate}
+% \TLS{Based on the state of the art in graph data management, there is much that needs to change to accommodate}
+Graph data management has a fork in the road: one set of systems focuses on high-throughput whole-graph analytics, while the other focuses on low-latency OLTP-style processing; data is transferred between these systems via extract-transform-load pipelines.
+\project{} is designed to find a middle ground in this landscape and reduce cross-silo data movement and preprocessing costs. 
+There are a few specific issues with the state-of-the-art graph processing systems we address with ~\project{}, namely, single-node optimization, in-database analytics, and bridging the gap between graph OLAP and graph OLTP systems.
 
 \subsection{Single-node optimization before scale-out}
 \TLS{Past research has conclusively shown that premature distribution of tasks based on poor single-node baselines is doomed to perform badly.}
 McSherry et al.~\cite{mcsherry2015scalability} demonstrated that several popular distributed GPS evaluated their scalability by comparing, not against an efficient single-threaded implementation, but by only showing how the run time changes as the total number of threads increases.
-When McSherry compared these scalable systems to an efficient sequential implementation, he revealed that some systems could not match ``laptop performance'' regardless of how many machinse were used!
+When McSherry compared these scalable systems to an efficient sequential implementation, he revealed that some systems could not match ``laptop performance'' regardless of how many machines were used!
 This stunning result
 led to several attempts at standardization of benchmarking practices for GPS~\cite{capotua2015graphalytics,mehrotra2024sok,beamer2015gap,graph500}. Each proposal identified the need to use more performant algorithms and report more comprehensive performance metrics.
 Considering that distributed graph processing is inefficient due to the communication costs, the main benefit of using a cluster for graph processing is that the aggregate RAM might be sufficiently large to enable processing graphs entirely in memory, even if their size is larger than the memory of a single machine.
-The Waterloo survey on the state of graph processing reveals that large graphs are ubiquitous, and several of their respondants reported operating on uncompressed graphs larger than 1 TB; the exact upper limit on the size of these graphs is unknown~\cite[Section~3.2]{ubiquityLargeGraphsVLDB2017}.
+The Waterloo survey on the state of graph processing reveals that large graphs are ubiquitous, and several of their respondents reported operating on uncompressed graphs larger than 1 TB; the exact upper limit on the size of these graphs is unknown~\cite[Section~3.2]{ubiquityLargeGraphsVLDB2017}.
 While servers with more than a few terabytes of RAM exist, they are expensive and, as we and others have shown, unnecessary.
 Scale-out systems built from semi-external graph processing systems should provide better price performance than a distributed graph/data processing system.
 We want to design and optimize a single-node, single-socket graph database before requiring distribution.
 
 \subsection{Best-of-both worlds design for mixed OLAP and OLTP workloads}
-\TLS{We have seen in Section~\autoref{intro:whats_good} that the system performance is strongly linked to the in-memory and on-disk layout and that significant preprocessing effort is spent in creating and maintaining these layouts.}
+% \TLS{We have seen in Section~\autoref{intro:whats_good} that the system performance is strongly linked to the in-memory and on-disk layout and that significant preprocessing effort is spent in creating and maintaining these layouts.}
+\TLS{As reported in section ~\ref{back:graph_rep}, many graph processing systems require expensive pre-processing steps to construct a suitable on-disk data layout that allows fast sequential access to the graph.}
 Time spent preprocessing the graph is rarely amortized; it varies by the freshness requirements for the workload and the rate at which new snapshots or increments need to be analyzed.
 
 A better alternative is to natively store the graph in a format similar to or close to the in-memory representation required for efficient access.
@@ -130,7 +136,10 @@ The API is flexible enough to let users write algorithms as vertex or edge progr
 The contributions of this thesis are:
 \begin{enumerate}
     \item The design of a Graph HTAP database takes a "best-of-both-worlds" approach to deliver robust performance on whole-graph analytics tasks and transactional queries without the need for constant preprocessing or ETL.
-    \item I can't think of anything else :sob:\MIS{You designed the system; you implemented it; you evaluated it against in-memory systems; you evaluted it against graph databases; and maybe you implemented (or collaborated on an implementation) of a fancy bulk ingester? You did enough work to start a database company in this era; I think that's enough for a thesis.}
+    % \item I can't think of anything else
+    \item We present a principled analysis of analytics friendly data layouts and how we use a mature key-value store (WiredTiger~\cite{WiredTigerDocumentation}) as the storage engine to store and access the graph. The API provided by \project{} allows the user to do fast neighborhood scans by using scan cursors and provides an API for persisting the algorithmic state of graph processing tasks to bootstrap future rounds of computations.
+    \item \project{} provides a multi-threaded bulk-insertion tool for quickly loading the initial graph into the database. Most other bulk-insertion tools require a single-writer to the database due to consistency requirements; we relax these requirements for fast bulk insertion.
+    \item We provide a comprehensive performance analysis of \project{} against graph databases and graph processing systems (in-memory, semi-external, and dynamic) to show that we are competitive in all cases, but with lower data migration cost due to low/no preprocessing and ETL costs.
     \end{enumerate}
 
 The remainder of this thesis proceeds as follows:
