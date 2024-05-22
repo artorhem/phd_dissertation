@@ -60,3 +60,41 @@ There is no trivial way to know what's a good layout that satisfies all locality
 % Indeed, designing concurrent data structures for storing dynamic graphs is an important and growing area of research, and many systems have been presented~\cite{graphone2019kumar, aspen2021fengRisGraph, stinger2012ediger, zhu2019livegraph, sortledton2022Fuchs, 10.1145/3639282}.
 % Databases are ideal for handling large volumes of evolving data since they use persistent data structures that allow automatic resizing and indexing.
 % Graph Databases, however, perform poorly and are therefore rarely used for whole-graph analytics tasks, being instead relegated to handling dynamic modifications and short interactive queries.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+Background outline:
+0. Defining graphs:
+  - start with a simple graph definition: the mathy kind. Maybe provide a full definition with weights, attributes, and labels.
+  - two basic representations for storing the structure of the connections in the graph: AdjMat and AdjList.
+  - Now talk more about property graphs.
+
+2. Graph Workloads:
+  - OLAP and OLTP: what this means in the context of graphs. 
+  - Subdivision of graph queries into local, neighborhood, traversal and whole-graph analytics. Also talk about interactive, BI, and Graph Analytics workloads. 
+  
+3. Basic graph representations used by GPS:
+  - compressed graph representations (in-memory)
+    - CSR
+    - adjacency lists
+    - why this does not work for persistent representation.
+
+  - Persistent graph representations:
+    - llama
+    - CSR++ and PMA
+    - preprocessed files and sharded files.
+
+4.  Graph Processing Systems:
+  - single-node (shared mem) vs distributed
+  - synchronous vs async
+  - in-memory vs out-of-core
+
+5. Graph Databases
+  - Classification using besta et. al.
+  - Data Layouts used by graph databases:
+    - Transactional Edge Logs
+    - Neo4j (native)
+    - ArangoDB (document store)
+  - Indexes in Graph Databases:
+    - neighbourhood Indexes
+    - data indexes --> on properties of vertices
+    - structural indexes: 

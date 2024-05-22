@@ -1,14 +1,8 @@
 \chapter{Background Outline}
 
 We begin by explaining that the following discussion is entirely focused on single-node shared-memory systems and does not deal with/extrapolate fully to distributed systems.
-\MIS{I agree, but we also begin with an overview of the chapter and WHY we are making the reader read/learn all this.  That is, why is it important for the reader to become familiar wtih all these areas (so they can understand the decisions behind Flexograph, presented in Chapter X).}
+
 \section{Data Layouts: In-memory}
-\MIS{I wonder if this should be:
-2.1 Data Layouts
-2.1.1 In-memory
-(Ends with explanation of WHY these don't work for persistent, which gives you a chance perhaps to introduce the "CSR designed for flash?
-2.1.2 Persistent
-}
 \label{bg_out:inmem}
 \begin{enumerate}
     \item Adj Matrix
@@ -26,7 +20,6 @@ We begin by explaining that the following discussion is entirely focused on sing
 \end{enumerate}
 
 \section{Workloads}
-\MIS{Hmmm -- I wonder if this should come before layouts -- in some says, this is "our target" -- that provides context in which to discuss layouts?}
 \subsection{OLTP-like}
 \begin{enumerate}
     \item Characteristics: R/W mix, insert/delete/short scans
@@ -44,20 +37,6 @@ We begin by explaining that the following discussion is entirely focused on sing
     \item Need access to whole graph and the computed value is defined for each vertex (vertex functions)
 \end{enumerate}
 
-\MIS{ I think there is a whole section missing on graph processing systems, right?
-Again, this might be something like:
-2.4: Systems that compute on graphs
-Overview
-2.4.1 Graph Databases
-2.4.2 Graph Analytics Systems
-This motivates your entire thesis, so probably needs to be somewhere prominent -- maybe even right at the beginning?
-Then the computational model maybe goes with or right after that?
-If I am doing a shortest path query is that really best expressed as matrix multiplication?
-I also might be doing SQL-like queries on elements of my graph?
-I might also be looking for particular structures ....
-Basically, I'm not 110\% that the framing in 2.5 is exactly what we need; maybe it is, but I'm not positive.}
-\PM{ I removed the entire scaling graph processing subsection from the introduction and moved it to the background. It covers: distributed GPS, shared memory multiprocessor systems, and semi-external systems. I forgot to update the outline. So yes, there will be a section on GPS}
-\PM{The matrix framing works really well for iterative algorithms, but yes, even I wasn't 100\% sold on it.  I will rework this into something more general.}
 \section{Graph Databases}
 \begin{enumerate}
     \item native vs non-native graph databases (something similar to \href{https://neo4j.com/blog/native-vs-non-native-graph-technology/}{this}). give examples of each
