@@ -63,27 +63,24 @@ There is no trivial way to know what's a good layout that satisfies all locality
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%
 Background outline:
-0. Defining graphs:
+1. Defining graphs:
   - start with a simple graph definition: the mathy kind. Maybe provide a full definition with weights, attributes, and labels.
-  - two basic representations for storing the structure of the connections in the graph: AdjMat and AdjList.
   - Now talk more about property graphs.
 
 2. Graph Workloads:
   - OLAP and OLTP: what this means in the context of graphs. 
   - Subdivision of graph queries into local, neighborhood, traversal and whole-graph analytics. Also talk about interactive, BI, and Graph Analytics workloads. 
-  
+
 3. Basic graph representations used by GPS:
+  - two basic representations for storing the structure of the connections in the graph: AdjMat and AdjList.
   - compressed graph representations (in-memory)
-    - CSR
-    - adjacency lists
+    - CSR and insert-friendly CSRs (llama, CSR++, and PMA)
     - why this does not work for persistent representation.
 
   - Persistent graph representations:
-    - llama
-    - CSR++ and PMA
     - preprocessed files and sharded files.
 
-4.  Graph Processing Systems:
+4. Graph Processing Systems:
   - single-node (shared mem) vs distributed
   - synchronous vs async
   - in-memory vs out-of-core
@@ -94,6 +91,16 @@ Background outline:
     - Transactional Edge Logs
     - Neo4j (native)
     - ArangoDB (document store)
+
+  
+
+% 5. Computational Models for graph management systems:
+%   - IO
+%   - Consistency Semantics
+%   - Isolation Guarantees
+
+
+THIS IS IN THE FUTURE WORK
   - Indexes in Graph Databases:
     - neighbourhood Indexes
     - data indexes --> on properties of vertices
