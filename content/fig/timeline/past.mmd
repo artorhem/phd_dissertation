@@ -1,0 +1,55 @@
+%%{init:
+    {
+        'theme': 'default',
+        'themeCSS': '.actorText, .messageText, .noteText { font-size: 22px !important; }'
+    }
+}%%
+gantt
+    title Timeline (past)
+    dateFormat YYYY-MM-DD
+    axisFormat %y-%m
+    todayMarker off
+    tickInterval 4month
+
+section Courses
+    %% CPSC 340      :c1, 2017-09-01, 2017-12-15
+    %% CPSC 527      :c2, 2017-09-01, 2017-12-15
+    %% CPSC 507      :c3, 2018-01-01, 2018-04-15
+    %% CPSC 521      :c4, 2018-01-01, 2018-04-15
+    %% CPEN 642      :c5, 2018-09-01, 2018-12-15
+    %% CPSC 513      :c6, 2018-09-01, 2018-12-15
+    %% CPSC 508      :c6, 2019-01-01, 2019-04-15
+    %% MSc.          :c8, 2017-09-01, 2019-11-15
+    %% Finish M.Sc.            :milestone, 2019-11-15, 2019-11-15
+    Coursework Complete     :milestone, 2020-01-01, 2020-01-01
+    CPSC 504(audit)  :c9, 2023-01-01, 2023-04-01 
+    Start PhD               :milestone, c7, 2020-01-01, 2020-01-01
+
+
+section "Acts of God"
+    COVID, Act I        :covid1, 2020-03-15, 2020-12-31
+    Omicron             :covid2, 2021-12-15, 2022-02-25
+
+section Implementation
+    Bootstrap project and Background Reading    :impl1, 2020-08-01, 2020-12-31
+    Implement GraphAPI (v1: no iterators)    :impl2, 2021-01-01, 2021-10-31
+    RPE exam   :milestone, m4, 2021-11-04, 2
+
+    GraphAPI (Iterators)    :impl3, 2022-03-01, 2022-08-15
+    Lockless prototype    :impl4, 2022-08-15, 2023-03-01
+    EdgeLog    :impl5, 2023-03-01, 2023-08-15
+    GAP-BS    :impl6, 2023-12-15, 2024-04-01
+    EdgeKey mod    :impl7, 2024-04-01, 2024-05-15
+    PropertyGraph prototype : impl8, 2024-01-01, 2024-04-20 
+
+section Other Projects
+    Benchmark Meta Survey   :t1, 2020-01-01, 2020-03-01
+    Smooth Kronecker Experiments: t2, 2020-01-01, 2020-04-01
+    Benchmark Survey (VLDB reject)  :milestone, m1, 2020-04-15, 2d
+    Benchmark Survey (JSys submission)  :t3, 2023-07-01, 2023-08-01
+    Benchmark Survey (JSys reject)  :milestone, m5, 2023-08-05, 2d
+    Benchmark Survey (CSUR reject)  :milestone, 2024-04-15, 2d
+    Benchmark Survey (ArXiv)  :milestone, 2024-04-01, 2d
+    Smooth Kronecker (GRADES'20 - accept)   :milestone, m2, 2020-05-01, 2
+    Smooth Kronecker presentation :milestone, m3, 2020-06-01, 2
+    SMR Project    :proj1, 2023-07-01, 2024-03-31

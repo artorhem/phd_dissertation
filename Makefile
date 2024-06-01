@@ -31,7 +31,7 @@ PAPER_DRAFT_MAIN=diss.tex
 PAPER_DRAFT_PDF=$(BUILD_DIR)/$(PAPER_DRAFT).pdf
 
 DEFAULT_MODE=$(PAPER_DRAFT_PDF)
-
+MERMAID_DIR=content/fig/timeline
 ###############################################################################
 # Latexmk command definition
 ###############################################################################
@@ -59,7 +59,7 @@ DEPS=Makefile $(DEPS_TEX) $(DEPS_BIB) $(DEPS_FIG) $(DEPS_PLOT) $(DEPS_OPT)
 
 default: $(DEFAULT_MODE)
 
-all:  $(PAPER_DRAFT_PDF) $(PAPER_SUBMISSION_PDF)
+all:  $(PAPER_DRAFT_PDF) $(PAPER_SUBMISSION_PDF) mermaid
 
 clean:
 	rm -rf $(BUILD_DIR)/* ; rm -rf content/*.aux
@@ -74,7 +74,16 @@ $(PAPER_DRAFT_PDF) : $(DEPS) $(PAPER_DRAFT_MAIN)
 	@echo "Updated latest: $(BUILD_DIR)/$(PAPER)-latest.pdf"
 
 draft: $(PAPER_DRAFT_PDF)
+# 
+		# pdfcrop $${file}.pdf $${file}.pdf; \
+		#getfilename from path
 
+mermaid: ${MERMAID_DIR}/*.mmd
+	for file in $^ ; do \
+		echo "Generating the sequence diagram from" $${file} ; \
+		docker run -v $(shell pwd):/data minlag/mermaid-cli -i /data/$${file} -o /data/$${file}.pdf; \
+		pdfcrop $${file}.pdf $${file}.pdf; \
+		done
 .PHONY: all clean rebuild-figures $(PAPER_DRAFT_PDF)
 
 
