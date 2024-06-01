@@ -109,7 +109,7 @@ GraphMineSuite provides a framework for evaluating and a reference implementatio
 %%%%%%%%%%%%%%%%%%%%%%%%%% IN-MEMORY GRAPH REPRESENTATIONS %%%%%%%%%%%%%%%%%%%%%%%%%%
 \section{Graph Representations}
 \label{back:graph_rep}
-In Section~\ref{back:graph_models}, we examined the formal definition of graphs.
+In \autoref{back:graph_models}, we examined the formal definition of graphs.
 This section describes the common ways in which graphs are represented by describing the common data structures employed for storing them.
 We begin with the most common way to represent graphs and then follow that up with other, more compact layouts designed to enable sequential access to graph neighborhoods.
 
@@ -123,13 +123,13 @@ It is common to represent undirected edges between vertices $i$ and $j$ as two d
 \TLS{Real-world graphs tend to follow the power law distribution, have small diameters, and exhibit communities ~\cite[Section~2]{chakrabarti2006GraphMining}.}
 A power-law distribution of degrees leads to a few \textit{hub} nodes with very high degrees and many nodes with very low degrees (heavy tail of degree distribution).
 A direct consequence of the power law graph is that the resulting adjacency matrices are sparse and, therefore, memory inefficient.
-~\autoref{fig:back:soc_epinions} shows the adjacency matrix and the degree distribution plots for \texttt{soc-epinions1}~\cite{soc-epinions1:SNAP}, a small network with around 76000 nodes.
-The white space in the adjacency matrix visualization denotes the sparsity pattern, which translates to empty cells in a $n*n$ two-dimensional array representation of the graph.
+\autoref{fig:back:soc_epinions} shows the adjacency matrix and the degree distribution plots for \texttt{soc-epinions1}~\cite{soc-epinions1:SNAP}, a small network with around 76000 nodes.
+The white space in the adjacency matrix visualization denotes the sparsity pattern, which translates to empty cells in an $n*n$ two-dimensional array representation of the graph.
 This wasted space in an adjacency matrix leads to poor cache utilization, which is already challenging due to the random access pattern inherent in graph traversal.
 Using better data structures that are more compressed than an adjacency matrix is essential to minimize the space requirement and maximize cache utilization. 
 
 We now examine a few memory-efficient data structures commonly used in graph processing systems and the cost of creating, updating, and finding neighborhoods of a node in each representation.
-For the remainder of this discussion on graph data structures, we will use the sample graph shown in ~\autoref{fig:back:sample_graph}.
+For the remainder of this discussion on graph data structures, we will use the sample graph shown in \autoref{fig:back:sample_graph}.
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \begin{figure}
     \centering
@@ -208,9 +208,9 @@ For the remainder of this discussion on graph data structures, we will use the s
 \subsection{Adjacency Lists}
 \label{back:adjlist}
 \TLS{Adjacency lists are a natural evolution from adjacency matrices and are constructed by breaking down the graph into per-vertex neighborhood lists.}
-For instance, consider the adjacency matrix shown in ~\autoref{fig:back:sample_adj_matrix}.
+For instance, consider the adjacency matrix shown in \autoref{fig:back:sample_adj_matrix}.
 To construct the neighborhood list for each node, we construct a vector containing the column index $j$ where $a_{ij} = 1 $ in the adjacency matrix. 
-The corresponding adjacency list representation of the graph is shown in ~\autoref{fig:back:sample_adjlist}.
+The corresponding adjacency list representation of the graph is shown in \autoref{fig:back:sample_adjlist}.
 The memory requirement for the adjacency list representation is $O(|V| + |E|)$, which is superior to the $O(V^2)$ required for an adjacency matrix.
 
 \TLS{Adjacency lists allow sequential access to a node's neighborhood, however, a random seek is required to access the neighborhood (the vertex contains a pointer to the list).}
@@ -309,23 +309,23 @@ Its design demonstrates the careful considerations necessary to achieve persiste
 The persistent data layouts depend on whether the system has been designed for static or dynamic graphs, whether the system is fully out-of-core or keeps some algorithmic state or metadata in RAM, and whether the system supports property graphs.
 
 We first examine the persistent representations used by static graph processing systems that keep some state in RAM (also called semi-external systems) or no state in RAM (out-of-core systems).
-Then we examine systems that store evolving graphs; this is quite close to the design point of ~\project{} and will be referenced again when describing our evaluation strategy in Section ~\ref{chapter:architecture}.
+Then we examine systems that store evolving graphs; this is quite close to the design point of ~\project{} and will be referenced again when describing our evaluation strategy in \autoref{chapter:architecture}.
 We close the discussion of persistent data layouts by examining the cost of preprocessing the graphs to construct these data layouts and whether these costs can be amortized.
 
 \subsection{Persistent Data Layouts for Static GPS}
 The persistent layout is designed to perform efficient neighborhood scans for vertices.
-If the system is fully-external, the layout must also consider the efficiency of vertex state updates and propagation to the disk-resident structures.
+If the system is fully external, the layout must also consider the efficiency of vertex state updates and propagation to the disk-resident structures.
 
 Each GPS is unique in its layout design and update propagation strategies, so instead of examining several systems individually, we examine a generalized architecture of a fully-external graph processing system, instead.
 \PM{this is adapted from a diagram in ``Seraph: Towards Scalable and Efficient Fully-external Graph Computation via On-demand Processing''. @MIS: should I redraw this, or is this fine?}
 \begin{figure}[htbp!]
     \centering
     \includegraphics[scale=0.5, width=0.4\textwidth]{content/fig/background/general_external_gps_arch.jpeg}
-    \caption{A generalized architecture of a fully-external graph processing system. Taken from Yang et al.~\cite{yang2024seraph}.}
+    \caption{A generalized architecture of a fully external graph processing system. Taken from Yang et al.~\cite{yang2024seraph}.}
     \label{fig:back:general_external_gps_arch}
 \end{figure}
 
-A fully-external GPS essentially shards the graph into multiple subgraphs and stores them on disk, accessing them one at a time for processing.
+A fully external GPS essentially shards the graph into multiple subgraphs and stores them on disk, accessing them one at a time for processing.
 The vertex state, on the other hand, might be stored in memory depending on the memory budget of the system, but in the most generalized case, is also stored on disk.
 The vertex set is partitioned into disjoint chunks; when processing the edges between two such vertex chunks, the system only needs to store these two chunks in memory and stream the edges between them from disk.
 Out-of-core graph processing systems have different ways to create subgraphs to optimize sequential access to the graph.
@@ -404,7 +404,7 @@ The use of memory-mapped files can lead to unpredictable latency spikes due to t
         \label{fig:back:TEL_block}
     }
 
-    \caption{The data layout used by LiveGraph. Figure~\ref{fig:back:TEL_idx} shows the high level layout used by LiveGraph, indicating the indexes used to find vertex and edge blocks in LiveGraph's TEL. The edge block structure in Figure~\ref{fig:back:TEL_block} shows the format of an edge log entry and how the adjacency list is stored separately from the property blocks. Taken from Zhu et al.~\cite{zhu2019livegraph}.}
+    \caption{The data layout used by LiveGraph. \autoref{fig:back:TEL_idx} shows the high level layout used by LiveGraph, indicating the indexes used to find vertex and edge blocks in LiveGraph's TEL. The edge block structure in \autoref{fig:back:TEL_block} shows the format of an edge log entry and how the adjacency list is stored separately from the property blocks. Taken from Zhu et al.~\cite{zhu2019livegraph}.}
 \end{figure}
 
 
@@ -426,7 +426,7 @@ A more detailed discussion of these general-purpose NoSQL storage engines can be
 
 \textbf{Neo4j} is the most popular graph database system, and it follows the property graph model.
 Neo4j uses a custom storage engine that uses fixed-size records to store the graph elements.
-The data layout used by Neo4j is shown in ~\autoref{fig:back:neo4j_layout}.
+The data layout used by Neo4j is shown in \autoref{fig:back:neo4j_layout}.
 Vertices are stored in vertex records and edges are stored in edge records. 
 A vertex record contains the vertex ID, the labels associated with that vertex, the pointer to the first edge adjacent to the vertex, and some metadata flags.
 An Edge record contains the edge label, a pointer to the linked list of the edge properties, pointers to the source and destination vertex records, pointers to the adjacency lists of the source and destination vertices, and some metadata flags.
@@ -457,7 +457,7 @@ This design is useful for fast traversals and transactions that alter the edges 
 The edge collection stores, for each edge, its properties and the source and destination vertex IDs (in the$\emph{\_from}$ and $\emph{\_to}$ fields; the collection can have secondary indexes on the \emph{\_from} and \emph{\_to} fields).
 
 
-ArangoDB uses an interesting hybrid index on the edge collections that allows finding the neighborhoods of a vertex without needing to look up an index, as shown in ~\autoref{fig:back:arangodb_indexfreeadj}.
+ArangoDB uses an interesting hybrid index on the edge collections that allows finding the neighborhoods of a vertex without needing to look up an index, as shown in \autoref{fig:back:arangodb_indexfreeadj}.
 According to the documentation~\cite{ArangoDB:IndexFreeAdj}, ArangoDB ``stores all edges in a big hash table, and at the same time puts for each vertex V all those edges that are incident with V into a doubly linked list.''
 With this index, seeking the linked list to a vertex's adjacency list is an $O(1)$ operation, and if there are $k$ neighbors, the traversal is $O(k)$.
 This index is also used for speeding up single-edge modifications and deletions.
@@ -473,7 +473,7 @@ This design allows for $O(1)$ access for single-edge updates.
 \end{figure*}
 
 \textbf{JanusGraph}~\cite{janusgraph} is a distributed graph database that uses wide-column stores such as Apache Cassandra or Apache HBase as its storage engine.
-The data layout is defined in terms of rows and cells in the wide-column store, as shown in ~\autoref{fig:back:janusgraph_widecolumn}.
+The data layout is defined in terms of rows and cells in the wide-column store, as shown in \autoref{fig:back:janusgraph_widecolumn}.
 Regardless of the choice of the storage engine, each row in the wide-column store represents a vertex.
 The vertex properties are stored in the row, followed by the adjacent edges; each property and edge are stored in a separate cell.
 The rows in a wide-column store are sorted by the row key (the vertex ID), and the cells in a row are sorted by the cell key.
