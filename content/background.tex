@@ -1,13 +1,13 @@
 \chapter{Background}
 \label{chapter:background}
-\TLS{Graph data management systems can be characterized along four axes: the types of graphs they store and operate on, whether these graphs change over time, the types of algorithms they support (also known as the programming model), and the types of workloads they are designed for.}
+\TLS{Graph data management systems can be characterized along four axes: the types of graphs they store and operate on, whether these graphs change over time, the types of algorithms they support (also known as the programming model), and the types of workloads for which they are designed.}
 Flexograph sits at the intersection of graph databases and graph processing systems, making it essential to understand their design, supported workloads, and their similarities and differences.
 
-First, we will formally define graphs and discuss the Labeled Property Graph model, a common formulation that guides the design of most graph data stores. With this foundation, we will examine how individuals utilize and interact with their graph data. Specifically, we will explore access patterns, which correspond to the workloads a system is designed to support. We will delve into both graph OLTP and graph OLAP workloads, analyzing the access patterns they generate and the real-world applications they correspond to.
+First, we will formally define graphs and discuss the Labeled Property Graph model, a standard formulation that guides the design of most graph data stores. With this foundation, we will examine how individuals utilize and interact with their graph data. Specifically, we will explore access patterns corresponding to the workloads a system supports. We will delve into both graph OLTP and graph OLAP workloads, analyzing the access patterns they generate and the real-world applications they correspond to.
 
 This context sets the stage for discussing the data structures used to store graphs in memory and the challenges faced when the graph is dynamic or too large to fit in RAM. Next, we look into graph processing systems, reviewing their design considerations for storing graphs on disk and the data layouts necessary for fast sequential access to subgraphs as required by the workloads.
 
-Finally, we will briefly overview graph databases, highlighting the layouts used by two popular commercial graph databases and their optimizations for fast seeks and scans within graph neighborhoods. This comprehensive review will clarify graph data management systems design and operational nuances.
+Finally, we will briefly overview graph databases, highlighting the data layouts used by popular commercial graph databases and their optimizations for fast seeks and scans within graph neighborhoods. This comprehensive review will allow us to understand the field of graph data management, and place the ~\project{} design into perspective.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%% Basic Graph Definitions %%%%%%%%%%%%%%%%%%%%%%%%%%
 \section{Graph Models}
@@ -17,12 +17,12 @@ Finally, we will briefly overview graph databases, highlighting the layouts used
 The vertices are the entities modeled by a graph, and an edge represents a relation between the vertices to which it connects.
 % We have $|V| = n$ and $|E| = m$.
 The edges of a graph can be directed or undirected.
-In a directed graph $G$, an edge $e = (u, v) \in E$ is an ordered pair, where $u$ is called the “source” vertex and $v$ is the “destination” vertex. 
+In a directed graph $G$, an edge $e = (u, v) \in E$ is an ordered pair, where $u$ is called the "source" vertex and $v$ is the "destination" vertex. 
 On the other hand, if $G$ is undirected, then an edge $e = (u, v) \in E$ is a \emph{set} of two vertices.
-A weighted graph is defined as having an associated "weight" with each edge in the graph.
+A weighted graph has a "weight" associated with each edge.
 Formally, a weighted graph $G$ is modeled as a triple $(V, E, w)$, where $w: E \rightarrow \mathbb{R}$ maps edges to weights.
 
-\TLS{While this formulation is good for graph theoretic studies, real-world graphs have properties and labels associated with vertices and edges, and our simple formulation needs to be extended to cover these extra features.}
+\TLS{While this formulation is suitable for graph theoretic studies, real-world graphs have properties and labels associated with vertices and edges, and our simple formulation needs enhancement to cover these extra features.}
 The extended graph model that satisfies the requirement to have properties and labels associated with graph elements is called the Labeled Property Graph (or simply a Property Graph) Model~\cite{Angles_Arenas_Barceló_Hogan_Reutter_Vrgoč_2018}.
 We use the term Property Graphs (PG) to refer to these graphs in the remainder of this thesis. 
 Each vertex and edge in a PG has labels used to construct subsets of vertices and edges.
@@ -31,7 +31,7 @@ Additionally, the nodes and the edges in a PG could have an arbitrary number of 
 These properties are modeled as $(key, value)$ pairs, where \textit{key} identifies the property and the \textit{value} is the corresponding value of that property.
 A more formal definition of Property Graphs can be found in the survey papers by Angles et al.~\cite{Angles_Arenas_Barceló_Hogan_Reutter_Vrgoč_2018} and Yakovets et al.~\cite{bonifati2018querying}.
 
-However, before discussing workloads, it is important to understand that most graph databases offer some subset of the Property Graph Model.
+However, before discussing workloads, it is essential to understand that most graph databases offer some subset of the Property Graph Model.
 Neo4j~\cite{neo4j} allows the vertices in the graph to have an arbitrary number of labels, but it allows only one edge label per edge.
 ArangoDB~\cite{arangodb} allows only one label per vertex or edge in the graph.
 
@@ -47,7 +47,7 @@ ArangoDB~\cite{arangodb} allows only one label per vertex or edge in the graph.
 \section{Graph Workloads}
 \label{back:workloads}
 
-In Section 1, we briefly explored common relational database workloads: Online Transactional Processing (OLTP) and Online Analytical Processing (OLAP).
+In~\autoref{introduction}, we briefly explored typical relational database workloads: Online Transactional Processing (OLTP) and Online Analytical Processing (OLAP).
 OLTP workloads involve tasks that insert or update data in a database at high volumes using transactions.
 These systems are optimized for write operations, are latency-sensitive, and aim for short transactions that modify only a small portion of the database.
 In contrast, OLAP workloads are read-heavy and are used to analyze and aggregate data.
@@ -73,27 +73,27 @@ We now examine the types of graph queries common on property graphs.
 
     \item \textbf{Neighborhood Queries}: Neighborhood queries are used for finding the edges incident to or emanating from a vertex. This query is used to find the reachable nodes from a node (also called a neighborhood). An example of a neighborhood query is to find a user's friends in a graph. 
 
-    \item \textbf{Traversals}: Traversals on a graph involve exploring the graph layer by layer from a certain "root" node. Starting from a given source vertex, a traversal query visits all the neighbors of the root vertex first before moving on to the neighbors of those neighbors, and so on. This process continues until all reachable vertices have been visited. Often, such queries are restricted to explore nodes or edges of a certain label or having a certain desired property.
+    \item \textbf{Traversals}: Traversals on a graph involve exploring the graph layer by layer from a particular "root" node. Starting from a given source vertex, a traversal query visits all the neighbors of the root vertex first before moving on to the neighbors of those neighbors, and so on. This process continues until all reachable vertices have been visited. Often, such queries are restricted to explore nodes or edges of a particular label or having a specific desired property.
     An example of a traversal query is performing breadth-first search (BFS) or depth-first search (DFS) on the graph. 
 \end{enumerate}
 Graph databases support these queries, though their performance on these tasks varies quite a lot, as we shall see in Section\PM{add forward reference to GraphDB performance.}.
 Static graph processing systems are specialized to handle whole-graph OLAP queries.
 
-Wherever there are workloads of wide commercial interest, a benchmarking council is looking to formalize a specification; graph data management systems are no exception. 
+Wherever there are workloads of broad commercial interest, a benchmarking council is looking to formalize a specification; graph data management systems are no exception. 
 The leading benchmarking association for graph workloads is the Linked Data Benchmark Council (LDBC)~\cite{Introduc58:online}, and they have published several benchmark specifications to standardize the benchmarking practices on graph data.
 LDBC provides two popular benchmarking suites: the Social Network Benchmark (SNB)~\cite{LDBCSoci94:online} and Graphalytics~\cite{LDBCGrapalytics22:online}.
 
-LDBC-SNB defines two subclasses of transactional workloads: interactive workloads and business intelligence workloads.
-The interactive workload is centered around "complex read queries that access the neighborhoods of a given node and update operations that continuously insert new data into the graph."~\cite{LDBCSoci94:online}.
-Besta et al.~\cite{besta2020demystifying} provide a breakdown of the interactive workload into short read-only queries (neighborhood lookup for a node or short traversals), complex read-only queries (traverse a larger part of the graph and used to assess query optimizers), and transactional update queries (insert/modify/remove a node and it's incoming or outgoing edges).
+LDBC-SNB defines two subclasses of transactional workloads: interactive and business intelligence workloads.
+The interactive workload is centered around "complex read queries that access the neighborhoods of a given node and update operations that continuously insert new data into the graph." ~\cite{LDBCSoci94:online}.
+Besta et al.~\cite{besta2020demystifying} provide a breakdown of the interactive workload into short read-only queries (neighborhood lookup for a node or short traversals), complex read-only queries (traverse a more significant part of the graph and used to assess query optimizers), and transactional update queries (insert/modify/remove a node and it's incoming or outgoing edges).
 The Social Network Benchmark also provides the LDBC Business Intelligence workloads, which gauge the system's performance under more expansive reads that fetch large parts of the graph.
 Typical queries include tasks that sort, order, aggregate, and derive maximum or minimum values from the data.
 
 \subsection{Whole-Graph Analytics}
 Whole-graph analytics tasks involve computations that necessitate accessing the entire graph to determine specific properties, such as vertex centralities, shortest paths, or clustering coefficients.
 These tasks are essential for comprehending the global structure and dynamics of the graph. For instance, vertex centrality measures help identify the network's most important or influential nodes.
-Similarly, community detection algorithms analyze the graph to find clusters or groups of nodes more densely connected internally than the rest of the graph.
-This is particularly useful in social network analysis, where identifying groups of closely connected individuals can provide insights into social structures and interactions.
+Similarly, community detection algorithms analyze the graph to find clusters or groups of nodes more densely connected than the rest of the graph.
+Community detection is instrumental in social network analysis, where identifying groups of closely connected individuals can provide insights into social structures and interactions.
 Whole-graph analytics are crucial for applications requiring a comprehensive understanding of the network's topology and can inform decisions based on the overall connectivity and relationships within the graph.
 
 These analytics tasks involve repeatedly accessing the neighborhoods of every node and updating some global algorithmic state, resulting in random access to vertex data and random writes when updating the algorithmic state.
@@ -110,8 +110,8 @@ GraphMineSuite provides a framework for evaluating and a reference implementatio
 \section{Graph Representations}
 \label{back:graph_rep}
 In \autoref{back:graph_models}, we examined the formal definition of graphs.
-This section describes the common ways in which graphs are represented by describing the common data structures employed for storing them.
-We begin with the most common way to represent graphs and then follow that up with other, more compact layouts designed to enable sequential access to graph neighborhoods.
+This section describes how graphs are represented by describing the common data structures employed for storing them.
+We begin with the most common way to represent graphs and then follow up with other, more compact layouts designed to enable sequential access to graph neighborhoods.
 
 \subsection{Adjacency Matrix}
 \label{back:graph_rep:adjmat}
@@ -126,7 +126,7 @@ A direct consequence of the power law graph is that the resulting adjacency matr
 \autoref{fig:back:soc_epinions} shows the adjacency matrix and the degree distribution plots for \texttt{soc-epinions1}~\cite{soc-epinions1:SNAP}, a small network with around 76000 nodes.
 The white space in the adjacency matrix visualization denotes the sparsity pattern, which translates to empty cells in an $n*n$ two-dimensional array representation of the graph.
 This wasted space in an adjacency matrix leads to poor cache utilization, which is already challenging due to the random access pattern inherent in graph traversal.
-Using better data structures that are more compressed than an adjacency matrix is essential to minimize the space requirement and maximize cache utilization. 
+Better data structures that are more compressed than an adjacency matrix are essential to minimize the space requirement and maximize cache utilization. 
 
 We now examine a few memory-efficient data structures commonly used in graph processing systems and the cost of creating, updating, and finding neighborhoods of a node in each representation.
 For the remainder of this discussion on graph data structures, we will use the sample graph shown in \autoref{fig:back:sample_graph}.
@@ -172,7 +172,7 @@ For the remainder of this discussion on graph data structures, we will use the s
     \begin{subfigure}[b]{0.45\textwidth}
         \centering
         \includegraphics[scale=0.45]{content/fig/background/sample_graph.pdf}
-        \caption{A sample graph with 9 nodes}
+        \caption{A sample graph with nine nodes}
         \label{fig:back:sample_graph}
     \end{subfigure}
   \hfill
@@ -198,7 +198,7 @@ For the remainder of this discussion on graph data structures, we will use the s
         \caption{CSR representation}
         \label{fig:back:sample_csr}
     \end{subfigure}
-  \caption{A small directed graph with 9 nodes and 10 edges and the different representations used to store it}
+  \caption{A small directed graph with nine nodes and ten edges and the different representations used to store it}
   \label{fig:main}
 \end{figure}
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -213,53 +213,52 @@ To construct the neighborhood list for each node, we construct a vector containi
 The corresponding adjacency list representation of the graph is shown in \autoref{fig:back:sample_adjlist}.
 The memory requirement for the adjacency list representation is $O(|V| + |E|)$, which is superior to the $O(V^2)$ required for an adjacency matrix.
 
-\TLS{Adjacency lists allow sequential access to a node's neighborhood, however, a random seek is required to access the neighborhood (the vertex contains a pointer to the list).}
-This is a dynamic data structure: inserting new edges into an unsorted adjacency list representation has an amortized $O(1)$ cost, however, if the list must be kept sorted, the cost increases to $O(log(n))$.
-Typically, there are two adjacency lists maintained for a graph: one for the in-neighborhood and another for the out-neighborhood.
+\TLS{Adjacency lists allow sequential access to a node's neighborhood. However, a random seek is required to access the neighborhood (the vertex contains a pointer to the list).}
+Adjacency lists are dynamic data structures. Inserting new edges into an unsorted adjacency list representation has an amortized $O(1)$ cost; however, if the list must be kept sorted, the cost increases to $O(log(n))$.
+Typically, two adjacency lists are maintained for a graph: one for the in-neighborhood and another for the out-neighborhood.
 %~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~%~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~%
 %~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~%~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~%
 \subsection{Compressed Sparse Row}
 \label{back:CSR}
 \TLS{Compressed Sparse Row(CSR) ~\cite{saad2003iterative} is a very compact, \emph{immutable} data structure that uses two flat arrays to store the neighborhood lists for nodes in a graph.}
-Assuming we have a non-symmetric sparse matrix A, we create two integer vectors: \emph{vertices} and \emph{edges}.
+Assuming a non-symmetric sparse matrix A, we create two integer vectors: \emph{vertices} and \emph{edges}.
 For each $v_i \in V$, \emph{vertices[$v_i$]} = $idx_{v_i}$; where $idx_{v_i}$ is the index in \emph{edges} where $v$'s adjacency list begins.
 The contents of \emph{edges}[idx$_{v_i}$] to \emph{edges}[idx$_{v_i+1}$] are the sets of vertices $v_j$ such that $a_{ij} \neq 0$.
-CSR stores a graph $G = (V,E)$ in $O(|V| + |E|)$, but since it is immutable, needs reconstruction upon any changes to the graph.
-
-\TLS{CSRs are efficient for storing and traversing static graphs, however, they need to be reconstructed when the graph evolves.}
+CSR stores a graph $G = (V, E)$ in $O(|V| + |E|)$, but since it is immutable, it needs reconstruction upon any changes to the graph.
 The edge array might need reallocation to accommodate an incoming edge, and the old edges must be moved and shifted around the new edge.
-This is a pretty serious limitation for evolving graphs, and a lot of research has been done to create resizable CSRs for graphs.
+This is a pretty serious limitation for evolving graphs, and much research has been done to create resizable CSRs for graphs.
 
-Three types of insert-friendly CSRs are commonly used:
+Common variations of CSRs that are insertion-friendly include:
 \begin{enumerate}
-    \item \textbf{In-place Updates}: These data structures are created in a way that allows for in-place insertion and deletion of graph elements without needing a full expensive rebuilding of the data structure.
-    NetworKit\cite{staudt2014networkit} doubles the size of the initial array and reserves space for new edges being inserted into the graph. 
-    A variant of the CSR called the Packed CSR \cite{PackedCSR} leaves space between elements which allows for faster insertion and deletion of graph elements at the cost of a slowdown in traversals and an increase in the space overhead. 
+    \item \textbf{In-place Updates}: CSRs can be created to allow in-place insertion and deletion of graph elements without needing a full, expensive rebuilding of the data structure.
+    NetworKit\cite{staudt2014networkit} doubles the size of the initial array and reserves space for new edges. 
+    A variant of the CSR called the Packed CSR \cite{PackedCSR} leaves space between elements, allowing for faster insertion and deletion of graph elements at the cost of a slowdown in traversals and an increase in the space overhead. 
     \item \textbf{Batching updates}: Many systems batch updates and preprocess the updates to make the insertions faster.
-    Systems such as the one described by Madduri et. al. \cite{madduri2009compact} batch updates, order them by vertex ids and sort them before applying the updates.
+    Systems such as the one described by Madduri et al. \cite{madduri2009compact} batch updates, order them by vertex IDs and sort them before applying the updates.
     \item \textbf{Multi-versioning and Delta Updates}: An alternative design to support fast inserts into a graph is to store all updates in a separate structure called a Delta Map.
     This use of delta maps allows for running graph analytics on snapshots of the graph at different times in its evolution.
     LLAMA\cite{llama} is one such snapshot-based graph system that supports multi-versioning and stores the delta updates as separate concurrently accessible snapshots. 
     There are some downsides to using a snapshot-based system for analytics. 
-    A high ingestion rate leads to a lot of delta snapshots, which can degrade the performance of analytics tasks because updates get scattered over multiple snapshots, and these need to be read for running jobs.
-    This can be remedied by merging and consolidating updates into the CSR by a process called compaction. It is similar to garbage collection and is expensive and leads to latency spikes.
+    A high ingestion rate leads to many delta snapshots since the updates get fragmented over multiple snapshots.
+    An analytics job must read many snapshots, and this causes significant performance degradation.
+    It is common to merge and consolidate updates into the CSR; this process is called compaction. It is similar to garbage collection and leads to increased latency.
 \end{enumerate}
 
 \subsection{Tree-based data structures and layouts}
 \label{back:teseo}
-There are some graph processing systems that use tree-based data structures to store evolving graphs.
+Some graph processing systems use tree-based data structures to store evolving graphs.
 The system might use a B$^+$ tree or a Log-Structured Merge Tree (LSM Tree) to store the graph, and the choice is made based on the system's design goals.
-Relational databases have been using B$^+$ trees for a long time to store data, and more recent systems such as RocksDB use LSM Trees to store key-value pairs.
-While both support concurrent read-write operations, B$^+$ trees are typically used when the system needs a high read bandwidth, while LSM Trees are used when the system needs to support high-volume writes.
-While B$^+$ trees and LSM trees are more commonly used to store data on disk, there are some systems that use tree-based data structures to store graphs in memory; we examine one such system that uses a tree-based data structure to store graphs in memory.
+Relational databases have long stored data using B$ +$ trees, and more recent systems such as RocksDB use LSM Trees to store key-value pairs.
+While both LSM and B$^+$ trees support concurrent read-write operations, B$^+$ trees are typically used when the system needs a high read bandwidth, while LSM Trees are used when the system needs to support high-volume writes.
+While B$^+$ trees and LSM trees are more commonly used to store data on disk, some systems use tree-based data structures to store graphs in memory; we examine one such system.
 
 \textbf{Teseo}~\cite{teseo2021deLeo} is a dynamic graph processing system that uses an B+ Tree derivative, called a \emph{fat tree} to store the graph \emph{in memory}.
-The Fat Tree uses an Adaptive Radix Tree as the primary index and the leaf nodes of this tree are sparse arrays that are split into contiguous page-sized segments.
-The segments store inline the vertices and edges sorted lexicographically and leaves gaps for the adjacency lists to grow.
-The new element is inserted into the segment in a sorted manner, and once full, the segment is marked as Write-optimized, and new writes are appended to an unsorted buffer.
+The Fat Tree uses an Adaptive Radix Tree as the primary index. Its leaf nodes are sparse arrays split into contiguous page-sized segments.
+The segments store inline the vertices and edges sorted lexicographically, leaving gaps for the adjacency lists to grow.
+The new elements are inserted into the segment in a sorted manner. Once full, the segment is marked as Write-optimized, and new writes are appended to an unsorted buffer.
 Eventually, a service thread is triggered to sort the buffer and merge it with the sorted segment.
 Read-optimized segments are read-friendly, and the Write-optimized segments are used when the burst of writes is high.
-Teseo does some optimizations such as increasing the size of the leaf-nodes to be several MBs in size to reduce the number of random index lookups, and using hash table to store pointers to positions in the leaf nodes where the adjacency list for a vertex is stored.
+Teseo performs some optimizations, such as increasing the size of the leaf nodes to several MBs to reduce the number of random index lookups and using a hash table to store pointers to positions in the leaf nodes where the adjacency list for a vertex is stored.
 
 \begin{figure*}
     \centering
@@ -273,7 +272,7 @@ Teseo does some optimizations such as increasing the size of the leaf-nodes to b
     \begin{minipage}[b]{0.45\textwidth}
         \centering
         \includegraphics[width=\textwidth]{content/fig/background/Teseo_ROS.jpeg}
-        \caption{The segment strucure of a leaf node in Teseo.}
+        \caption{The segment structure of a leaf node in Teseo.}
         \label{fig:back:teseo_ROS}
     \end{minipage}
 
@@ -284,9 +283,9 @@ Teseo does some optimizations such as increasing the size of the leaf-nodes to b
 \section{Persistent Graph Layouts}
 \label{back:persistent_rep}
 \TLS{So far, we have only examined in-memory data structures used to store graphs.}
-In the best-case scenario, the graph is small enough to fit entirely in the main memory of a system. 
+In the best-case scenario, the graph is small enough to fit entirely in a system's main memory. 
 However, graphs can often be massive, exceeding the RAM capacity of a single machine.
-Distributed graph processing, while a potential solution, is often inefficient due to communication overheads~\cite{beamer2016understanding,mcsherry2015scalability}.
+While a potential solution, distributed graph processing is often inefficient due to communication overheads~\cite{beamer2016understanding,mcsherry2015scalability}.
 Additionally, RAM is expensive, making it critical to minimize memory usage in graph processing applications.
 When a graph does not fit in RAM, a persistent (on-disk) graph data layout that allows fast sequential neighborhood scans becomes essential.
 
@@ -317,7 +316,7 @@ The persistent layout is designed to perform efficient neighborhood scans for ve
 If the system is fully external, the layout must also consider the efficiency of vertex state updates and propagation to the disk-resident structures.
 
 Each GPS is unique in its layout design and update propagation strategies, so instead of examining several systems individually, we examine a generalized architecture of a fully-external graph processing system, instead.
-\PM{this is adapted from a diagram in ``Seraph: Towards Scalable and Efficient Fully-external Graph Computation via On-demand Processing''. @MIS: should I redraw this, or is this fine?}
+\PM{this is adapted from a diagram in "Seraph: Towards Scalable and Efficient Fully-external Graph Computation via On-demand Processing". @MIS: should I redraw this, or is this fine?}
 \begin{figure}[htbp!]
     \centering
     \includegraphics[scale=0.5, width=0.4\textwidth]{content/fig/background/general_external_gps_arch.jpeg}
@@ -341,7 +340,7 @@ The edge data is mutable in GraphChi, and gets completely overwritten several ti
 \textbf{X-Stream}~\cite{roy2013x} takes a different approach to maximize sequential access to the edge data.
 Unlike GraphChi, X-Stream streams the edges and updates the vertex states in memory, instead relying on the sheer parallelism of using RAID groups.
 X-Stream uses the notion of a \emph{streaming partition}, which is a subset of vertices and all the edges with a \emph{source vertex} in that subset. 
-The update list of a streaming partition consists of all updates whose destination vertex is in the partition’s vertex set.
+The update list of a streaming partition consists of all updates whose destination vertex is in the partition's vertex set.
 The graph is partitioned by the source vertex of the edges.
 Unlike GraphChi, X-Stream does not require a strict ordering of edges within a partition.
 The premise is that partitioning a graph by the source vertex ID is less computationally expensive than sorting the edges, as GraphChi does. 
@@ -458,7 +457,7 @@ The edge collection stores, for each edge, its properties and the source and des
 
 
 ArangoDB uses an interesting hybrid index on the edge collections that allows finding the neighborhoods of a vertex without needing to look up an index, as shown in \autoref{fig:back:arangodb_indexfreeadj}.
-According to the documentation~\cite{ArangoDB:IndexFreeAdj}, ArangoDB ``stores all edges in a big hash table, and at the same time puts for each vertex V all those edges that are incident with V into a doubly linked list.''
+According to the documentation~\cite{ArangoDB:IndexFreeAdj}, ArangoDB "stores all edges in a big hash table, and at the same time puts for each vertex V all those edges that are incident with V into a doubly linked list."
 With this index, seeking the linked list to a vertex's adjacency list is an $O(1)$ operation, and if there are $k$ neighbors, the traversal is $O(k)$.
 This index is also used for speeding up single-edge modifications and deletions.
 The vertex index is used to find the vertex's adjacency list in the optimistic case where the sought edge is the first edge in the adjacency list.
