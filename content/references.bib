@@ -1514,19 +1514,12 @@ keywords = {social networks, patterns, graphs, Generators}
   publisher = {ACM New York, NY, USA}
 }
 
-@inproceedings{GraphTau,
-  author    = {Iyer, Anand Padmanabha and Li, Li Erran and Das, Tathagata and Stoica, Ion},
-  title     = {Time-Evolving Graph Processing at Scale},
-  year      = {2016},
-  isbn      = {9781450347808},
-  publisher = {Association for Computing Machinery},
-  address   = {New York, NY, USA},
-  url       = {https://doi.org/10.1145/2960414.2960419},
-  doi       = {10.1145/2960414.2960419},
-  articleno = {5},
-  numpages  = {6},
-  location  = {Redwood Shores, California},
-  series    = {GRADES '16}
+@inproceedings{iyer2016time,
+  title={Time-evolving graph processing at scale},
+  author={Iyer, Anand Padmanabha and Li, Li Erran and Das, Tathagata and Stoica, Ion},
+  booktitle={Proceedings of the fourth international workshop on graph data management experiences and systems},
+  pages={1--6},
+  year={2016}
 }
 
 @inproceedings{kim2022blaze,
@@ -2330,4 +2323,127 @@ howpublished = {\url{https://arangodb.com/2016/04/index-free-adjacency-hybrid-in
 month = {April},
 year = {2016},
 note = {(Accessed on 05/31/2024)}
+}
+
+@inproceedings{vora2017kickstarter,
+  title={Kickstarter: Fast and accurate computations on streaming graphs via trimmed approximations},
+  author={Vora, Keval and Gupta, Rajiv and Xu, Guoqing},
+  booktitle={Proceedings of the twenty-second international conference on architectural support for programming languages and operating systems},
+  pages={237--251},
+  year={2017}
+}
+
+@inproceedings{shi2016tornado,
+  title={Tornado: A system for real-time iterative analysis over evolving data},
+  author={Shi, Xiaogang and Cui, Bin and Shao, Yingxia and Tong, Yunhai},
+  booktitle={Proceedings of the 2016 International Conference on Management of Data},
+  pages={417--430},
+  year={2016}
+}
+
+@inproceedings{rahman2021jetstream,
+  title={Jetstream: Graph analytics on streaming data with event-driven hardware accelerator},
+  author={Rahman, Shafiur and Afarin, Mahbod and Abu-Ghazaleh, Nael and Gupta, Rajiv},
+  booktitle={MICRO-54: 54th Annual IEEE/ACM International Symposium on Microarchitecture},
+  pages={1091--1105},
+  year={2021}
+}
+
+@inproceedings{mariappan2019graphbolt,
+  title={Graphbolt: Dependency-driven synchronous processing of streaming graphs},
+  author={Mariappan, Mugilan and Vora, Keval},
+  booktitle={Proceedings of the Fourteenth EuroSys Conference 2019},
+  pages={1--16},
+  year={2019}
+}
+
+@inproceedings{jiang2021tripoline,
+  title={Tripoline: generalized incremental graph processing via graph triangle inequality},
+  author={Jiang, Xiaolin and Xu, Chengshuo and Yin, Xizhe and Zhao, Zhijia and Gupta, Rajiv},
+  booktitle={Proceedings of the Sixteenth European Conference on Computer Systems},
+  pages={17--32},
+  year={2021}
+}
+
+@inproceedings{cheng2012kineograph,
+  title={Kineograph: taking the pulse of a fast-changing and connected world},
+  author={Cheng, Raymond and Hong, Ji and Kyrola, Aapo and Miao, Youshan and Weng, Xuetian and Wu, Ming and Yang, Fan and Zhou, Lidong and Zhao, Feng and Chen, Enhong},
+  booktitle={Proceedings of the 7th ACM european conference on Computer Systems},
+  pages={85--98},
+  year={2012}
+}
+
+@article{vora2016synergistic,
+  title={Synergistic analysis of evolving graphs},
+  author={Vora, Keval and Gupta, Rajiv and Xu, Guoqing},
+  journal={ACM Transactions on Architecture and Code Optimization (TACO)},
+  volume={13},
+  number={4},
+  pages={1--27},
+  year={2016},
+  publisher={ACM New York, NY, USA}
+}
+
+@inproceedings{han2014chronos,
+  title={Chronos: a graph engine for temporal graph analysis},
+  author={Han, Wentao and Miao, Youshan and Li, Kaiwei and Wu, Ming and Yang, Fan and Zhou, Lidong and Prabhakaran, Vijayan and Chen, Wenguang and Chen, Enhong},
+  booktitle={Proceedings of the Ninth European Conference on Computer Systems},
+  pages={1--14},
+  year={2014}
+}
+
+@inproceedings{iyer2021tegra,
+  title={$\{$TEGRA$\}$: Efficient $\{$Ad-Hoc$\}$ Analytics on Evolving Graphs},
+  author={Iyer, Anand Padmanabha and Pu, Qifan and Patel, Kishan and Gonzalez, Joseph E and Stoica, Ion},
+  booktitle={18th USENIX Symposium on Networked Systems Design and Implementation (NSDI 21)},
+  pages={337--355},
+  year={2021}
+}
+
+@article{Miao2015ImmortalGraph,
+author = {Miao, Youshan and Han, Wentao and Li, Kaiwei and Wu, Ming and Yang, Fan and Zhou, Lidong and Prabhakaran, Vijayan and Chen, Enhong and Chen, Wenguang},
+title = {ImmortalGraph: A System for Storage and Analysis of Temporal Graphs},
+year = {2015},
+issue_date = {July 2015},
+publisher = {Association for Computing Machinery},
+address = {New York, NY, USA},
+volume = {11},
+number = {3},
+issn = {1553-3077},
+url = {https://doi.org/10.1145/2700302},
+doi = {10.1145/2700302},
+abstract = {Temporal graphs that capture graph changes over time are attracting increasing interest from research communities, for functions such as understanding temporal characteristics of social interactions on a time-evolving social graph. ImmortalGraph is a storage and execution engine designed and optimized specifically for temporal graphs. Locality is at the center of ImmortalGraph’s design: temporal graphs are carefully laid out in both persistent storage and memory, taking into account data locality in both time and graph-structure dimensions. ImmortalGraph introduces the notion of locality-aware batch scheduling in computation, so that common “bulk” operations on temporal graphs are scheduled to maximize the benefit of in-memory data locality. The design of ImmortalGraph explores an interesting interplay among locality, parallelism, and incremental computation in supporting common mining tasks on temporal graphs. The result is a high-performance temporal-graph system that is up to 5 times more efficient than existing database solutions for graph queries. The locality optimizations in ImmortalGraph offer up to an order of magnitude speedup for temporal iterative graph mining compared to a straightforward application of existing graph engines on a series of snapshots.},
+journal = {ACM Trans. Storage},
+month = {jul},
+articleno = {14},
+numpages = {34},
+keywords = {Concurrent computing, graph algorithms, temporal graph}
+}
+
+@article{10.1145/2992784,
+author = {Vora, Keval and Gupta, Rajiv and Xu, Guoqing},
+title = {Synergistic Analysis of Evolving Graphs},
+year = {2016},
+issue_date = {December 2016},
+publisher = {Association for Computing Machinery},
+address = {New York, NY, USA},
+volume = {13},
+number = {4},
+issn = {1544-3566},
+url = {https://doi.org/10.1145/2992784},
+doi = {10.1145/2992784},
+abstract = {Evolving graph processing involves repeating analyses, which are often iterative, over multiple snapshots of the graph corresponding to different points in time. Since the snapshots of an evolving graph share a great number of vertices and edges, traditional approaches that process these snapshots one at a time without exploiting this overlap contain much wasted effort on both data loading and computation, making them extremely inefficient. In this article, we identify major sources of inefficiencies and present two optimization techniques to address them. First, we propose a technique for amortizing the fetch cost by merging fetching of values for different snapshots of the same vertex. Second, we propose a technique for amortizing the processing cost by feeding values computed by earlier snapshots into later snapshots. We have implemented these optimizations in two distributed graph processing systems, namely, GraphLab and ASPIRE. Our experiments with multiple real evolving graphs and algorithms show that, on average fetch amortization speeds up execution of GraphLab and ASPIRE by 5.2\texttimes{} and 4.1\texttimes{} , respectively. Amortizing the processing cost yields additional average speedups of 2\texttimes{} and 7.9\texttimes{}, respectively.},
+journal = {ACM Trans. Archit. Code Optim.},
+month = {oct},
+articleno = {32},
+numpages = {27},
+keywords = {temporal graphs, message aggregation, Graph processing}
+}
+
+@inproceedings{xing2015petuum,
+  title={Petuum: A new platform for distributed machine learning on big data},
+  author={Xing, Eric P and Ho, Qirong and Dai, Wei and Kim, Jin-Kyu and Wei, Jinliang and Lee, Seunghak and Zheng, Xun and Xie, Pengtao and Kumar, Abhimanu and Yu, Yaoliang},
+  booktitle={Proceedings of the 21th ACM SIGKDD International Conference on Knowledge Discovery and Data Mining},
+  pages={1335--1344},
+  year={2015}
 }

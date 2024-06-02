@@ -280,6 +280,61 @@ Teseo does some optimizations such as increasing the size of the leaf-nodes to b
 \caption{The data layout used by Teseo to store evolving graphs in memory. Taken from de Leo et al.~\cite{teseo2021deLeo}.}
 \end{figure*}
 
+%%%%%%%%%%%%%%%%%%%%%%%%%% GRAPH PROCESSING SYSTEMS %%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Graph Processing Systems}
+\label{back:scaling_gps}
+We examined the whole graph analytics tasks in \autoref{back:workloads}, and we now examine the systems designed to run these tasks.
+\TLS{Whether static or dynamic, a graph might be too large to fit in main memory.}
+In this scenario, the system designer has two options: distributing computation to multiple machines with enough aggregated RAM to store the graph or running the computation on a single machine caching part of the graph and any algorithmic state in main memory, while keeping the remainder of the graph on persistent storage (e.g., a flash drive). 
+Another layer of complexity is added when the graph evolves, and the system designer must decide how they would support incremental computing on the graph.
+We briefly examine the landscape of graph processing systems research.
+A more comprehensive classification of these systems can be found in a survey done by Heidari et al.~\cite{Heidari:2018:SGP:3212709.3199523}.
+
+\subsection{Distributed Graph Processing Systems}
+\TLS{The onset of distributed graph processing is marked by the groundbreaking Pregel~\cite{malewicz2010pregel} paper, and it set the initial state of the research landscape in graph processing.}
+In the years following Pregel, distributed graph processing systems became the dominant paradigm for processing large graphs, and several systems were designed around that paradigm.
+GraphX~\cite{gonzalez2014graphx}, Gemini~\cite{zhu2016gemini}, Petuum~\cite{xing2015petuum}, Distributed GraphLab~\cite{low2012distributed}, PowerGraph~\cite{gonzalez2012powergraph}, PowerLyra~\cite{powerlyra2019}, etc. are popular examples of distributed graph processing systems.
+Distributed graph processing allows for processing graphs that cannot fit in any one machine's main memory.
+Several optimizations have been proposed to make distributed graph computation more efficient, including batching updates, careful handling of high-degree vertices in a graph, better partitioning strategies, and several others that are summarized in the surveys ~\cite{mccune2015tlavSurvey, Heidari:2018:SGP:3212709.3199523}.
+
+\TLS{Using a large cluster for graph processing increases both the total amount of memory available and amount of processing power.
+However, it also introduces communication overhead, which reduces per-core performance ~\cite[Figure~1.1]{beamer2016understanding}.}
+This partly explains the shocking results reported by McSherry et al., which demonstrated that an optimized single-threaded implementation of the widely-used Page Rank algorithm outperformed many popular distributed systems using hundreds of cores~\cite{mcsherry2015scalability}.
+This paper underscored the need for better single-node baselines that use performant algorithms to which to compare distributed graph processing systems. \PM{this sentence does not add anything to this discussion}
+
+\subsection{Shared Memory Graph Processing Systems}
+\TLS{Compared to distributed clusters, shared-memory multiprocessors offer scalability with much lower communication overhead, typically achievingsignificantly higher per-core performance~\cite[Section~1.1]{beamer2016understanding}.}
+Thus shared-memory graph processing systems often perform orders of magnitude faster than their distributed competitors~\cite{shun2013ligra, nguyen2013lightweight, zhu2016gemini, graphmat, lakhotia2020gpop, beamer2015gap}.
+\PM{I feel like I should write more about these systems, but I don't know what}
+
+\subsection{Semi-External Graph Processing Systems}
+Out-of-core systems are designed to keep all or some parts of the graph on a slow(er) storage device such as SSDs or hard drives.
+An out-of-core system is called fully external if the RAM available to the graph processing system is severely limited and not large enough to even store the full vertex state.
+Semi-external systems, on the other hand, have a bigger memory budget and can store the full vertex state in memory, but the memory is not large enough for all the edges.
+The design of semi-external systems is aided by the fact that the number of vertices in graphs is an order of magnitude fewer than the number of edges, and therefore the vertex state can be accommodated in the main memory of a modest workstation.
+Systems such as CLIP~\cite{ai2018clip}, FlashGraph~\cite{zheng2015flashgraph}, GraphMP~\cite{sun2017graphmp}, TurboGraph~\cite{han2013turbograph} are expressly designed to be semi-external, while systems such as GraphChi~\cite{kyrola2012graphchi} and X-Stream~\cite{roy2013x} have an optional semi-external mode (depending on the memory budget).
+
+\TLS{DRAM is an expensive resource and can account for roughly 30\% of the cost of a modern datacenter~\cite[Figure~1]{weiner2022tmo}.}
+With the unrelenting growth of graph dataset sizes, keeping all the graph data in memory is increasingly untenable.
+Fortunately, fast solid-state devices, such as NVMe devices have become widely available, and they present another architectural opportunity for graph processing: semi-external graph processing systems.
+In this architecture, a small subset of the graph and some algorithmic state is maintained in memory (tunable based on the memory budget); the rest of the graph is streamed from slower external storage.
+Popular systems that are built with this architecture include GraphChi~\cite{kyrola2012graphchi}, X-Stream~\cite{roy2013x}, GridGraph~\cite{zhu2015gridgraph}, FlashGraph~\cite{zheng2015flashgraph}, Blaze~\cite{kim2022blaze}, Wonderland~\cite{zhang2018wonderland}, Mosaic~\cite{maass2017mosaic}, Garaph~\cite{ma2017garaph}, GraFBoost~\cite{jun2018grafboost}, and many more.
+These systems have democratized running graph analytics, allowing users to run computations on their trillion-edged graphs on a single machine at a fraction of the cost of doing the same on a cluster. 
+
+\subsection{Dynamic Graph Processing Systems}
+\TLS{Dynamic graphs are graphs that can evolve, and the graph processing system must be able to handle these updates.}
+There are two broad classes of dynamic graph processing systems:\\
+\textbf{(1) Streaming graph analytics systems}: maintain a single version of the evolving graph, and uses incremental algorithms to update the query results as the graph is modified.
+Using incremental algorithms avoids recomputing the query from scratch, and the cost of streaming the updates is amortized by using appropriately sized batches.
+Systems designed for this class of dynamic graph processing include Kineograph~\cite{cheng2012kineograph}, Stinger~\cite{stinger2012ediger}, Kickstarteer~\cite{vora2017kickstarter}, Tornado~\cite{shi2016tornado}, JetStream~\cite{rahman2021jetstream}, GraphBolt~\cite{mariappan2019graphbolt}, Tripoline~\cite{jiang2021tripoline}, and GraphOne~\cite{graphone2019kumar}.\\
+
+\textbf{(2) Evolving graph analytics systems}: evaluate a query on multiple snapshots of a
+graph, that can stretch over a large time window, to extract trend data or compute graph properties at discrete time points.
+Examples of such systems include Chronos~\cite{han2014chronos}, GraphTau~\cite{iyer2016time}, LLAMA~\cite{llama}, and ImmortalGraph~\cite{Miao2015ImmortalGraph}. 
+The system must be able to efficiently store and retrieve snapshots of the graph and support efficient queries over these snapshots.
+These systems typically use some optimizations for amortizing the fetch cost by merging fetching operations across snapshots and using the values computed in earlier snapshots to speed up the computation in later snapshots ~\cite{10.1145/2992784}.
+Another optimization is to execute the query on multiple snapshots in parallel and merge the results to get the final result; alternatively, the system can execute the query on one snapshot at a time and use incremental algorithms to propagate the results to the next snapshot.
+
 %%%%%%%%%%%%%%%%%%%%%%%%%% ON-DISK DATA LAYOUTS %%%%%%%%%%%%%%%%%%%%%%%%%%
 \section{Persistent Graph Layouts}
 \label{back:persistent_rep}
@@ -434,7 +489,7 @@ Adjacency lists are stored as doubly liked lists; each edge is part of two adjac
 
 \begin{figure*}[htbp!]
     \centering
-    \includegraphics[width=\textwidth]{content/fig/background/neo4j_layout.jpeg}
+    \includegraphics[scale=0.4,width=\textwidth]{content/fig/background/neo4j_layout.jpeg}
     \caption{An overview of the Neo4j vertex and edge records. Taken from Besta et al. ~\cite{besta2020demystifying}.}
     \label{fig:back:neo4j_layout}
 \end{figure*}
@@ -467,7 +522,7 @@ This design allows for $O(1)$ access for single-edge updates.
 
 \begin{figure*}[htbp!]
     \centering
-    \includegraphics[scale=0.40]{content/fig/background/arango_index_free_adjacency.png}
+    \includegraphics[scale=0.25]{content/fig/background/arango_index_free_adjacency.png}
     \caption{The hybrid index used by ArangoDB to achieve index-free adjacency. The edges are stored in a hash table, and the edges to the same vertex are linked together, allowing better traversals. Reproduced with modifications from the ArangoDB documentation~\cite{ArangoDB:IndexFreeAdj}.\PM{make this diagram more intuitive}}
     \label{fig:back:arangodb_indexfreeadj}
 \end{figure*}
@@ -482,45 +537,9 @@ The graph can be partitioned across multiple nodes in the cluster, and the parti
 
 \begin{figure*}[htbp!]
     \centering
-    \includegraphics[scale=0.40]{content/fig/background/janus_widecolumn.png}
+    \includegraphics[scale=0.25]{content/fig/background/janus_widecolumn.png}
     \caption{The data layout used by JanusGraph to store graphs in a wide-column store. The vertex properties and adjacent edges are stored in the row, each in their cells. The cells are sorted by the cell key, and the rows are sorted by the vertex ID. Taken from ~\cite{besta2020demystifying}.}
     \label{fig:back:janusgraph_widecolumn}
 \end{figure*}
 
 
-\section{Graph Processing Systems}
-\label{back:scaling_gps}
-\TLS{Whether static or dynamic, a graph might be too large to fit in main memory.}
-In this scenario, the system designer has two options: distributing computation to multiple machines with enough aggregated RAM to store the graph or running the computation on a single machine caching part of the graph and any algorithmic state in main memory, with the entire graphs on persistent storage (e.g., a flash drive). 
-% This graph processing system design must rely on fast sequential access to the graph to minimize the impact of accessing slower media such as an SSD or hard drive.
-We now examine these two different strategies for scaling graph processing systems.
-
-\subsection{Distributed Graph Processing Systems}
-\TLS{The onset of distributed graph processing is marked by the groundbreaking Pregel~\cite{malewicz2010pregel} paper, and it set the initial state of the research landscape in graph processing.} \PM{the knee-jerk reaction was to fit things to match the MapReduce paradigm}
-In the years following the publication of MapReduce\cite{dean2004mapreduce} and Pregel, MapReduce-style distributed graph processing systems became the dominant paradigm for processing large graphs, and several systems were designed around that paradigm \PM{cite papers with MR-style BSP-based graph processing.}
-Distributed graph processing allows for processinggraphs that cannot fit in any one machine's main memory.
-Several optimizations have been proposed to make distributed graph computation more efficient, including batching updates, careful handling of high-degree vertices in a graph, better partitioning strategies, and several others that are summarized in the surveys ~\cite{mccune2023_tlavSurvey, Heidari:2018:SGP:3212709.3199523}.
-
-\TLS{Using a large cluster for graph processing increases both the total amount of memory available and amount of processing power.
-However, it also introduces communication overhead, which reduces per-core performance ~\cite[Figure~1.1]{beamer2016understanding}.}
-This partly explains the shocking results reported by McSherry et al., which demonstrated that an optimized single-threaded implementation of the widely-used Page Rank algorithm outperformed many popular distributed systems using hundreds of cores~\cite{mcsherry2015scalability}.
-This paper underscored the need for better single-node baselines that use performant algorithms to which to compare distributed graph processing systems. \PM{this sentence does not add anything to this discussion}
-
-\subsection{Shared Memory Graph Processing Systems}
-\TLS{Compared to distributed clusters, shared-memory multiprocessors offer scalability with much lower communication overhead, typically achievingsignificantly higher per-core performance~\cite[Section~1.1]{beamer2016understanding}.}
-Thus shared-memory graph processing systems often perform orders of magnitude faster than their distributed competitors~\cite{shun2013ligra, nguyen2013lightweight, zhu2016gemini, graphmat, lakhotia2020gpop, beamer2015gap}.
-\PM{I feel like I should write more about these systems, but I don't know what}
-
-\subsection{Semi-External Graph Processing Systems}
-\PM{move this to GPS section}
-Out-of-core systems are designed to keep all or some parts of the graph on a slow(er) storage device such as SSDs or hard drives.
-An out-of-core system is called fully external if the RAM available to the graph processing system is severely limited and not large enough to even store the full vertex state.
-Semi-external systems, on the other hand, have a bigger memory budget and can store the full vertex state in memory, but the memory is not large enough for all the edges.
-The design of semi-external systems is aided by the fact that the number of vertices in graphs is an order of magnitude fewer than the number of edges, and therefore the vertex state can be accommodated in the main memory of a modest workstation.
-Systems such as CLIP~\cite{ai2018clip}, FlashGraph~\cite{zheng2015flashgraph}, GraphMP~\cite{sun2017graphmp}, TurboGraph~\cite{han2013turbograph} are expressly designed to be semi-external, while systems such as GraphChi~\cite{kyrola2012graphchi} and X-Stream~\cite{roy2013x} have an optional semi-external mode (depending on the memory budget).\PM{till here}
-\TLS{DRAM is an expensive resource and can account for roughly 30\% of the cost of a modern datacenter~\cite[Figure~1]{weiner2022tmo}.}
-With the unrelenting growth of graph dataset sizes, keeping all the graph data in memory is increasingly untenable.
-Fortunately, fast solid-state devices, such as NVMe devices have become widely available, and they present another architectural opportunity for graph processing: semi-external graph processing systems.
-In this architecture, a small subset of the graph and some algorithmic state is maintained in memory (tunable based on the memory budget); the rest of the graph is streamed from slower external storage.
-Popular systems that are built with this architecture include GraphChi~\cite{kyrola2012graphchi}, X-Stream~\cite{roy2013x}, GridGraph~\cite{zhu2015gridgraph}, FlashGraph~\cite{zheng2015flashgraph}, Blaze~\cite{kim2022blaze}, Wonderland~\cite{zhang2018wonderland}, Mosaic~\cite{maass2017mosaic}, Garaph~\cite{ma2017garaph}, GraFBoost~\cite{jun2018grafboost}, and many more.
-These systems have democratized running graph analytics, allowing users to run computations on their trillion-edged graphs on a single machine at a fraction of the cost of doing the same on a cluster. 
