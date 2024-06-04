@@ -1,10 +1,110 @@
 \chapter{\project{} Architecture}
 \label{chapter:architecture}
 
+We now look at the architecture of our hybrid graph analytics and transaction processing database, \project{}.
+\project{} uses \wt{} as its storage engine. 
+We examined \wt{} and its properties and data layout in ~\autoref{back:wiredtiger}.
+This section details how we use \wt{} to store graph elements, and the changes we needed to introduce to make an efficient bulk loader for inserting a new graph.
+We examine the graph representations used to store the graph in the KV Store and the API we provide to the user for interacting with the graph. 
+\PM{write more preamble}
+
 \section{Representations}
+Flexograph provides several representations to store graphs that range from the standard RDBMS style of storing graphs to explicitly materialized adjacency lists.
+These are discussed below along with an explanation of how much data needs to be fetched for each node or edge traversed.
+We follow up the discussion with a discussion of how the data gets stored in the \wt{} KV Store.
+\project{} uses 4B unsigned integers for storing the source and destination IDs.
+Flexograph uses 0 and UINT32\_MAX to identify out-of-band values for cursor traversals, and therefore these are reserved IDs not available to the user. 
+
+\subsection{Standard Graph Representation}
+\label{arch:std}
+This representation style is based on how one might store a graph in a standard RDBMS system.  
+We create two tables, one each for the nodes and the edges in the graph, and then construct indices on the edge table to enable searching for nodes and their neighborhoods. The tables used by the standard graph representation are shown in ~\autoref{fig:arch:std_graph}.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{figure}[h]
+  \centering
+  % First row: one image
+  \begin{subfigure}[b]{\textwidth}
+      \centering
+      \includegraphics[scale=0.50]{content/fig/flexograph_arch/std_graph.png}
+      \caption{Standard Graph Representation}
+      \label{fig:arch:std_graph}
+  \end{subfigure}
+  
+  \vspace{1em} % Adds space between the rows
+  
+  % Second row: one image
+  \begin{subfigure}[b]{\textwidth}
+      \centering
+      \includegraphics[scale=0.50]{content/fig/flexograph_arch/adjlist.png}
+      \caption{Adjacency List Representation}
+      \label{fig:arch:adjlist_graph}
+  \end{subfigure}
+  
+  \vspace{1em} % Adds space between the rows
+  
+  % Third row: two images side by side
+  \begin{subfigure}[b]{0.48\textwidth}
+      \centering
+      \includegraphics[scale=0.50]{content/fig/flexograph_arch/edgekey.png}
+      \caption{EdgeKey Representation}
+      \label{fig:arch:edgekey_graph}
+  \end{subfigure}
+  \hspace{-6em}
+  \begin{subfigure}[b]{0.48\textwidth}
+      \centering
+      \includegraphics[scale=0.50]{content/fig/flexograph_arch/metadata.png}
+      \caption{Metadata table used by all representations}
+      \label{fig:arch:metadata}
+  \end{subfigure}
+  
+  \caption{Graph Representations supported by Flexograph. Each representation creates a metadata table to store the graph properties.}
+  \label{fig:main_figure}
+\end{figure}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+We create three indices on the edge table:
+1. \textbf{(src)}: this index is constructed on the \texttt{src} column and is used to index into the out-neighborhood of a node. 
+2. \textbf{(dst)}: this index is constructed on the \texttt{dst} column and is used to scan a node's in-neighborhood.
+
+Like in any database, the secondary indexes are updated as the primary index changes.
+
+\subsection{EdgeKey Representation}
+This representation is designed keeping in mind that there is no obvious benefit from materializing two different tables to store the nodes and edges.
+Having all data stored in one table (hence, index and on-disk file), is more efficient than reading multiple tables.
+Therefore, the edge table is designed to store both nodes and edges.
+
+The EdgeKey design exploits the fact that \wt{} stores keys in a lexicographically sorted order.
+This means that if we have a node \texttt{x} represented as the key-pair \texttt{(x, 0)}, all outgoing edges \texttt{(x, y)} $\forall y > 0$, will be placed after the node entry in the B$^+$ tree leaf node.
+This property is also exploited when designing cursors for accessing the edges: A cursor once positioned can just zip through the leaf node without needing repositioning.
+
+The tables used by the EdgeKey representation are shown in ~\autoref{fig:arch:edgekey_graph}.
+\texttt{src\_id} and \texttt{dst\_id} together form the key to the table.
+There are two values stored, and their meaning changes depending on whether the keys indicate a node \texttt{(x, 0)} or an edge \texttt{(x,y)}:
+\begin{itemize}
+  \item When the entry represents a node and the table is created with \texttt{read\_optimized=true}, values are the \texttt{in\_degree} and \texttt{out\_degree} respectively. With \texttt{read\_optimized=false}, the value is an uninterpreted field.
+  \item For an edge, the value1 stores the edge weight, if the graph is weighted. For an unweighted graph, value 1 is set to the out-of-band value. Value 2 is always set to the out-of-band value for edges.
+\end{itemize}
+
+There is only one index created on the edge table: \texttt{(dst\_id,src\_id)}.
+This index is used for iteration over the in-neighborhood of a node.
+\PM{Should I describe here that we have two edgekey tables now?}
+
+\subsection{Adjacency List Representation}
+This representation is used to store the graph in a format that is most commonly used for graph analytics.
+The adjacency list for each node is explicitly stored in adjlist tables, and we also have tables to store the node and edge tables.
+The point of having the node and edge tables is to have a handy place to store any node and edge properties and labels. 
+
+The tables used by the Adjacency List representation are shown in ~\autoref{fig:arch:adjlist_graph}.
+The \texttt{in\_nbd} and \texttt{out\_nbd} columns in the adjacency tables above store the binary array containing the in/out neighborhood for the node in the key.
+
+Adjacency List representation does not require any secondary indexes. 
+This representation has the most number of tables that we store, and each edge insert essentially touches all 4 tables: node table is updated if the DB is read\_optimized and/or if a new node is inserted. 
+The adjlist tables are touched on each insert/delete.
+
 \section{GraphAPI}
 \section{Iterator Design}
 \section{Semi-External Processing}
+\section{Bulk loading}
 \section{Application Design}
-
 \section{Evaluation}
