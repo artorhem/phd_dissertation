@@ -1,2 +1,35 @@
 \chapter{Storing Property Graphs}
 \label{chapter:propertyGraphs}
+
+
+  \lstdefinestyle{cpp}{
+  language=C++,
+  morekeywords={constexpr, node_id, noexcept, node, edge, weight}
+}
+\lstset{style=cpp}
+\begin{table}[ht!]
+  \centering
+  \footnotesize
+  \begin{tabular}{|l|l|}
+  \hline
+  \rowcolor[HTML]{FFE135}
+  \textbf{Metadata Operations}          & \textbf{} \\ \hline
+  Create/update/delete a label          & \lstinline$void create_label (std::string label_key, std::string label_value)$ \\ \hline
+  Get label from a name                 & \lstinline$std::string get_label (std::string label_key)$ \\ \hline
+  Create/update/delete a property type  & \lstinline$void create_property (std::string property_key, std::string property_value)$ \\ \hline
+  \rowcolor[HTML]{FFE135}
+  \textbf{Label Operations}          & \textbf{} \\ \hline
+  Add/remove a label to/from a vertex    & \lstinline$void set_node_label (node_id id, std::string label)$ \\ \hline
+  Get all labels of a vertex            & \lstinline$std::vector<string> get_label (node_id id)$ \\ \hline
+  Add/update/remove property of a vertex  & \lstinline$void set_node_property (node_id id, std::string key, std::string value)$ \\ \hline
+  Get all properties of a vertex  & \lstinline$std::vector<string> get_property (node_id id, std::string key)$ \\ \hline
+  Remove all properties of a vertex  & \lstinline$void remove_node_property (node_id id, std::string key)$ \\ \hline
+  Add/remove a label to/from an edge    & \lstinline$void set_edge_label (node_id src, node_id dst, std::string label)$ \\ \hline
+  Get all labels of an edge            & \lstinline$std::vector<string> get_edge_label (node_id src, node_id dst)$ \\ \hline
+  Add/update/remove property of an edge  & \lstinline$void set_edge_property (node_id src, node_id dst, std::string key, std::string value)$ \\ \hline
+  Get all properties of an edge  & \lstinline$std::vector<string> get_edge_property (node_id src, node_id dst, std::string key)$ \\ \hline
+  Remove all properties of an edge  & \lstinline$void remove_edge_property (node_id src, node_id dst, std::string key)$ \\ \hline
+  \end{tabular}
+\caption{Graph API }
+\label{tab:graphapi}
+\end{table}

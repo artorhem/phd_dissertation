@@ -1,9 +1,74 @@
-\chapter{Supporting Materials}
+\chapter{Appendix}
 
-This would be any supporting material not central to the dissertation.
-For example:
-\begin{itemize}
-\item additional details of methodology and/or data;
-\item diagrams of specialized equipment developed.;
-\item copies of questionnaires and survey instruments.
-\end{itemize}
+\section{Iterator Classes}
+\label{sec:iterators}
+
+\definecolor{CPPLight}  {HTML} {686868}
+\definecolor{CPPSteel}  {HTML} {888888}
+\definecolor{CPPDark}   {HTML} {262626}
+\definecolor{CPPBlue}   {HTML} {4172A3}
+\definecolor{CPPGreen}  {HTML} {487818}
+\definecolor{CPPBrown}  {HTML} {A07040}
+\definecolor{CPPRed}    {HTML} {AD4D3A}
+\definecolor{CPPViolet} {HTML} {7040A0}
+\definecolor{CPPGray}  {HTML} {B8B8B8}
+\lstset{
+    basicstyle=\fontfamily{pcr}\selectfont\tiny,
+    columns=fixed,       
+    numbers=left,                                        
+    frame=none,                                          
+    backgroundcolor=\color[RGB]{245,245,244},            
+    keywordstyle=\color[RGB]{40,40,255},                 
+    numberstyle=\tiny\color{darkgray},           
+    commentstyle=\it\color[RGB]{0,96,96},                
+    stringstyle=\rmfamily\slshape\color[RGB]{128,0,0},   
+    showstringspaces=false,                              
+    language=c++,                                        
+    morekeywords={alignas,continute,friend,register,true,alignof,decltype,goto,
+    reinterpret_cast,try,asm,defult,if,return,typedef,auto,delete,inline,short,
+    typeid,bool,do,int,signed,typename,break,double,long,sizeof,union,case,
+    dynamic_cast,mutable,static,unsigned,catch,else,namespace,static_assert,using,
+    char,enum,new,static_cast,virtual,char16_t,char32_t,explict,noexcept,struct,
+    void,export,nullptr,switch,volatile,class,extern,operator,template,wchar_t,
+    const,false,private,this,while,constexpr,float,protected,thread_local,
+    const_cast,for,public,throw,std},
+    emph={map,set,multimap,multiset,unordered_map,unordered_set,
+    unordered_multiset,unordered_multimap,vector,string,list,deque,
+    array,stack,forwared_list,iostream,memory,shared_ptr,unique_ptr,
+    random,bitset,ostream,istream,cout,cin,endl,move,default_random_engine,
+    uniform_int_distribution,iterator,algorithm,functional,bing,numeric,},
+    emphstyle=\color{CPPViolet}, 
+}
+
+\begin{figure*}[h!]
+  \begin{minipage}{0.5\textwidth}
+    \begin{lstlisting}[label={lst:table_iterator},caption={Table Iterator base class}]
+      class table_iterator
+      {
+      protected:
+        WT_CURSOR *cursor = nullptr;
+        WT_SESSION *session = nullptr;
+        bool is_first = true;
+        bool has_next = true;
+      
+      public:
+      table_iterator() = default;
+      virtual ~table_iterator() = default;
+      [[nodiscard]] bool has_more() const { return has_next; };
+      virtual void reset()
+      {
+          cursor->reset(cursor);
+          is_first = true;
+          has_next = true;
+      }
+      void close() { cursor->close(cursor); }
+      };
+    \end{lstlisting}
+  \end{minipage}
+  \begin{minipage}{0.5\textwidth}
+    \centering
+    \includegraphics[scale=0.5]{content/fig/appendix/iterator_inherit_graph.pdf}
+    \caption{Inheritance diagram for the iterator classes}
+    \label{fig:iterator_diagram}
+  \end{minipage}
+\end{figure*}

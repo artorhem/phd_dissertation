@@ -1,2 +1,5 @@
 {"rule":"MORFOLOGIK_RULE_EN_US","sentence":"^\\QWhile we understand that each GPS is unique in their layout design and update propagation strategies, we examine the persistent layout used by GraphChi (the earliest, most influential out-of-core system), X-Stream (an interesting counterpoint in the design space), GridGraph (specialized for fast storage devices and their 2-D partitioning scheme has been widely adopted)\\E$"}
 {"rule":"MORFOLOGIK_RULE_EN_US","sentence":"^\\QA more comprehensive classification of these systems can be found in a survey done by Heidari et al. \\E(?:Dummy|Ina|Jimmy-)[0-9]+\\Q.\\E$"}
+{"rule":"A_INFINITIVE","sentence":"^\\QThe application must reconcile the new graph state with the persisted attributes when it is restarted, and the provides a reconcile() method to do this.\\E$"}
+{"rule":"A_INFINITIVE","sentence":"^\\QThe reconcile() method makes a few assumptions about the application's use of the transient attributes:\\E$"}
+{"rule":"MORFOLOGIK_RULE_EN_US","sentence":"^\\QKeith Bostic wrote the fast bulk loader for which is used to load the graph data into the database.\\E$"}

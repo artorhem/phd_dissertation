@@ -1,2 +1,10 @@
 \newcommand{\project}{Flexograph} %Because we don't know what to call this project.
 \newcommand{\wt}{WiredTiger} %we use this often enough to make a macro for it
+\newcommand{\api}{GraphAPI} %tedious to write out
+
+\lstdefinestyle{cpp}{
+  language=C++,
+  morekeywords={constexpr, node_id, noexcept, node, edge, weight, NodeCursor, EdgeCursor, InCursor, OutCursor, table_iterator, next, prev, search(), GraphAPI, WT_CURSOR, WT_SESSION, WT_CONNECTION, WT_CONFIG_ITEM, mmap},
+}
+\newcommand{\code}[1]{\lstinline[style=cpp]$#1$}
+\newcommand{\unix}[1]{\texttt{\footnotesize #1}}
