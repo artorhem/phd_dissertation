@@ -4,7 +4,7 @@
 \\
 \TLS{New data are being generated rapidly, and there is an ever-present and growing need to store and analyze them efficiently.}
 Much of this data has some inherent schema or structure, and relational databases are a natural choice for efficient storage.
-Relational databases(RDBMS) have been the backbone of data management for six decades and have been repeatedly extended to service new and emerging use cases~\cite{stonebraker2018c,boncz2005monetdb, HStore2008Abadi, stonebraker2013voltdb,PASE2020:pgvector}.
+Relational databases (RDBMS) have been the backbone of data management for six decades and have been repeatedly extended to service new and emerging use cases~\cite{stonebraker2018c,boncz2005monetdb, HStore2008Abadi, stonebraker2013voltdb,PASE2020:pgvector}.
 RDBMSs are well-suited for storing and querying structured or semi-structured data on workloads with high volumes of small updates and stringent consistency requirements; these tasks are called online transactional processing (OLTP) workloads.
 Larger scale data analysis frequently requires full dataset scans and extensive join processing, and these data warehouse or business intelligence (BI) workloads are called Online Analytical Processing (OLAP).
 Several relational OLAP databases and data warehousing solutions exist to enable such enterprise scale workloads~\cite{Redshift2015,boncz2005monetdb,vertica, raasveldt2019duckdb}.
@@ -48,15 +48,15 @@ This task must interact with large parts of the graph, if not the whole graph, a
 \TLS{This thesis presents the design of a scalable and efficient hybrid "best of both worlds" graph data management system that stores graphs in a database structure but can handle both analytics tasks and transactional queries using analytics-friendly formats.}
 % We draw inspiration from several state-of-the-art designs and introduce others to serve our objectives.
 % We now discuss these choices in detail.}
-Designing such a system needs close examination of the state-of-the-art to identify extant designs that are aligned with our design goals (Section~\ref{intro:whats_good}). 
-Additionally, we identify a few anti-patterns that we wish to avoid(Section~\ref{intro:what_change}) while designing our hybrid system.
+Designing such a system needs a close examination of the state-of-the-art to identify extant designs that are aligned with our design goals (Section~\ref{intro:whats_good}). 
+We also identify a few anti-patterns we wish to avoid(Section~\ref{intro:what_change}) while designing our hybrid system.
 Together with our novel contributions in graph state management, principled persistent layout design, and thread scheduling, ~\project{} can achieve performance comparable to in-memory graph processing systems while also being competitive with graph databases.
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \section{State of the Art: What's good?}
 \label{intro:whats_good}
-State-of-the-art systems typically assume that graph databases and graph processing systems typically run on a distributed collection of nodes.
+State-of-the-art systems typically assume that graph databases and graph processing systems run on a distributed collection of nodes.
 We start with the assumption that the best distributed system is built from the best single-node system.
-Based on this assumption, we identify a set of requirements for building such a single-node graph processing system.
+Based on this assumption, we identify requirements for building such a single-node graph processing system.
 \begin{enumerate}
     \item \textbf{Efficient out-of-the-box algorithms and a rich, useful API for expressing computations}: Using efficient algorithms is essential for fairly evaluating the system and establishing areas that need improvement ~\cite{mcsherry2015scalability, beamer2016understanding, mehrotra2024sok}. Additionally, it is useful to provide an intuitive and flexible API that allows users to write custom algorithms.
     \item \textbf{Using well-designed data structures that can be parallelized without incurring severe penalties from locking overheads} is critical in designing parallel graph processing systems that leverage today's multicore compute infrastructure and fast storage devices. 

@@ -282,40 +282,40 @@ Teseo performs some optimizations, such as increasing the size of the leaf nodes
 %%%%%%%%%%%%%%%%%%%%%%%%%% GRAPH PROCESSING SYSTEMS %%%%%%%%%%%%%%%%%%%%%%%%%%
 \section{Graph Processing Systems}
 \label{back:scaling_gps}
-We examined the whole graph analytics tasks in \autoref{back:workloads}, and we now examine the systems designed to run these tasks.
+We examined the whole graph analytics tasks in \autoref{back:workloads} and now examine the systems designed to run these tasks.
 \TLS{Whether static or dynamic, a graph might be too large to fit in main memory.}
-In this scenario, the system designer has two options: distributing computation to multiple machines with enough aggregated RAM to store the graph or running the computation on a single machine caching part of the graph and any algorithmic state in main memory, while keeping the remainder of the graph on persistent storage (e.g., a flash drive). 
-Another layer of complexity is added when the graph evolves, and the system designer must decide how they would support incremental computing on the graph.
+In this scenario, the system designer has two options: distributing computation to multiple machines with enough aggregated RAM to store the graph or running the computation on a single machine, caching part of the graph and any algorithmic state in main memory while keeping the remainder of the graph on persistent storage (e.g., a flash drive). 
+If the graph evolves, the system designer must decide whether and how they would support incremental computing on the graph.
 We briefly examine the landscape of graph processing systems research.
-A more comprehensive classification of these systems can be found in a survey done by Heidari et al.~\cite{Heidari:2018:SGP:3212709.3199523}.
+A more comprehensive classification of these systems can be found in a survey by Heidari et al.~\cite{Heidari:2018:SGP:3212709.3199523}.
 
 \subsection{Distributed Graph Processing Systems}
 \TLS{The onset of distributed graph processing is marked by the groundbreaking Pregel~\cite{malewicz2010pregel} paper, and it set the initial state of the research landscape in graph processing.}
 In the years following Pregel, distributed graph processing systems became the dominant paradigm for processing large graphs, and several systems were designed around that paradigm.
 GraphX~\cite{gonzalez2014graphx}, Gemini~\cite{zhu2016gemini}, Petuum~\cite{xing2015petuum}, Distributed GraphLab~\cite{low2012distributed}, PowerGraph~\cite{gonzalez2012powergraph}, PowerLyra~\cite{powerlyra2019}, etc. are popular examples of distributed graph processing systems.
-Distributed graph processing allows for processing graphs that cannot fit in any one machine's main memory.
+Distributed graph processing allows graphs to be processed that cannot fit in any one machine's main memory.
 Several optimizations have been proposed to make distributed graph computation more efficient, including batching updates, careful handling of high-degree vertices in a graph, better partitioning strategies, and several others that are summarized in the surveys ~\cite{mccune2015tlavSurvey, Heidari:2018:SGP:3212709.3199523}.
 
-\TLS{Using a large cluster for graph processing increases both the total amount of memory available and amount of processing power.
+\TLS{Using a large cluster for graph processing increases the total amount of memory available and processing power.
 However, it also introduces communication overhead, which reduces per-core performance ~\cite[Figure~1.1]{beamer2016understanding}.}
-This partly explains the shocking results reported by McSherry et al., which demonstrated that an optimized single-threaded implementation of the widely-used Page Rank algorithm outperformed many popular distributed systems using hundreds of cores~\cite{mcsherry2015scalability}.
-This paper underscored the need for better single-node baselines that use performant algorithms to which to compare distributed graph processing systems. \PM{this sentence does not add anything to this discussion}
+The increased communication overhead partly explains the shocking results reported by McSherry et al., which demonstrated that an optimized single-threaded implementation of the widely-used Page Rank algorithm outperformed many popular distributed systems using hundreds of cores~\cite{mcsherry2015scalability}.
+This paper underscored the need for better single-node baselines that use performant algorithms to compare distributed graph processing systems.
 
 \subsection{Shared Memory Graph Processing Systems}
-\TLS{Compared to distributed clusters, shared-memory multiprocessors offer scalability with much lower communication overhead, typically achievingsignificantly higher per-core performance~\cite[Section~1.1]{beamer2016understanding}.}
-Thus shared-memory graph processing systems often perform orders of magnitude faster than their distributed competitors~\cite{shun2013ligra, nguyen2013lightweight, zhu2016gemini, graphmat, lakhotia2020gpop, beamer2015gap}.
+\TLS{Compared to distributed clusters, shared-memory multiprocessors offer scalability with much lower communication overhead, typically achieving significantly higher per-core performance~\cite[Section~1.1]{beamer2016understanding}.}
+Thus, shared-memory graph processing systems often perform orders of magnitude faster than their distributed competitors~\cite{shun2013ligra, nguyen2013lightweight, zhu2016gemini, graphmat, lakhotia2020gpop, beamer2015gap}.
 \PM{I feel like I should write more about these systems, but I don't know what}
 
 \subsection{Semi-External Graph Processing Systems}
-Out-of-core systems are designed to keep all or some parts of the graph on a slow(er) storage device such as SSDs or hard drives.
-An out-of-core system is called fully external if the RAM available to the graph processing system is severely limited and not large enough to even store the full vertex state.
-Semi-external systems, on the other hand, have a bigger memory budget and can store the full vertex state in memory, but the memory is not large enough for all the edges.
-The design of semi-external systems is aided by the fact that the number of vertices in graphs is an order of magnitude fewer than the number of edges, and therefore the vertex state can be accommodated in the main memory of a modest workstation.
+Out-of-core systems are designed to keep all or some parts of the graph on a slow(er) storage device such as an SSD or hard drive.
+An out-of-core system is called fully external if the RAM available to the graph processing system is severely limited and not large enough even to store the entire vertex state.
+On the other hand, Semi-external systems have a bigger memory budget and can store the entire vertex state in memory, but the memory is not large enough for all the edges.
+The design of semi-external systems makes use of the fact that the number of vertices in graphs is an order of magnitude fewer than the number of edges. Therefore, the vertex state can be accommodated in the main memory of a modest workstation.
 Systems such as CLIP~\cite{ai2018clip}, FlashGraph~\cite{zheng2015flashgraph}, GraphMP~\cite{sun2017graphmp}, TurboGraph~\cite{han2013turbograph} are expressly designed to be semi-external, while systems such as GraphChi~\cite{kyrola2012graphchi} and X-Stream~\cite{roy2013x} have an optional semi-external mode (depending on the memory budget).
 
 \TLS{DRAM is an expensive resource and can account for roughly 30\% of the cost of a modern datacenter~\cite[Figure~1]{weiner2022tmo}.}
 With the unrelenting growth of graph dataset sizes, keeping all the graph data in memory is increasingly untenable.
-Fortunately, fast solid-state devices, such as NVMe devices have become widely available, and they present another architectural opportunity for graph processing: semi-external graph processing systems.
+Fortunately, fast solid-state devices, such as NVMe devices, have become widely available, and they present another architectural opportunity for graph processing: semi-external graph processing systems.
 In this architecture, a small subset of the graph and some algorithmic state is maintained in memory (tunable based on the memory budget); the rest of the graph is streamed from slower external storage.
 Popular systems that are built with this architecture include GraphChi~\cite{kyrola2012graphchi}, X-Stream~\cite{roy2013x}, GridGraph~\cite{zhu2015gridgraph}, FlashGraph~\cite{zheng2015flashgraph}, Blaze~\cite{kim2022blaze}, Wonderland~\cite{zhang2018wonderland}, Mosaic~\cite{maass2017mosaic}, Garaph~\cite{ma2017garaph}, GraFBoost~\cite{jun2018grafboost}, and many more.
 These systems have democratized running graph analytics, allowing users to run computations on their trillion-edged graphs on a single machine at a fraction of the cost of doing the same on a cluster. 
@@ -326,13 +326,12 @@ There are two broad classes of dynamic graph processing systems:\\
 \textbf{(1) Streaming graph analytics systems}: maintain a single version of the evolving graph, and uses incremental algorithms to update the query results as the graph is modified.
 Using incremental algorithms avoids recomputing the query from scratch, and the cost of streaming the updates is amortized by using appropriately sized batches.
 Systems designed for this class of dynamic graph processing include Kineograph~\cite{cheng2012kineograph}, Stinger~\cite{stinger2012ediger}, Kickstarteer~\cite{vora2017kickstarter}, Tornado~\cite{shi2016tornado}, JetStream~\cite{rahman2021jetstream}, GraphBolt~\cite{mariappan2019graphbolt}, Tripoline~\cite{jiang2021tripoline}, and GraphOne~\cite{graphone2019kumar}.\\
-
 \textbf{(2) Evolving graph analytics systems}: evaluate a query on multiple snapshots of a
-graph, that can stretch over a large time window, to extract trend data or compute graph properties at discrete time points.
+graph, that can stretch over a large time window to extract trend data or compute graph properties at discrete time points.
 Examples of such systems include Chronos~\cite{han2014chronos}, GraphTau~\cite{iyer2016time}, LLAMA~\cite{llama}, and ImmortalGraph~\cite{Miao2015ImmortalGraph}. 
 The system must be able to efficiently store and retrieve snapshots of the graph and support efficient queries over these snapshots.
 These systems typically use some optimizations for amortizing the fetch cost by merging fetching operations across snapshots and using the values computed in earlier snapshots to speed up the computation in later snapshots ~\cite{10.1145/2992784}.
-Another optimization is to execute the query on multiple snapshots in parallel and merge the results to get the final result; alternatively, the system can execute the query on one snapshot at a time and use incremental algorithms to propagate the results to the next snapshot.
+Another optimization is to execute the query on multiple snapshots in parallel and merge the results to get the final result; alternatively, the system can execute the query on one snapshot at a time and use incremental algorithms to propagate the results to the following snapshot.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%% ON-DISK DATA LAYOUTS %%%%%%%%%%%%%%%%%%%%%%%%%%
 \section{Persistent Graph Layouts}
@@ -341,15 +340,15 @@ Another optimization is to execute the query on multiple snapshots in parallel a
 In the best-case scenario, the graph is small enough to fit entirely in a system's main memory. 
 However, graphs can often be massive, exceeding the RAM capacity of a single machine.
 While a potential solution, distributed graph processing is often inefficient due to communication overheads~\cite{beamer2016understanding,mcsherry2015scalability}.
-Additionally, RAM is expensive, making it critical to minimize memory usage in graph processing applications.
+Additionally, RAM is expensive, making minimizing memory usage in graph processing applications critical.
 When a graph does not fit in RAM, a persistent (on-disk) graph data layout that allows fast sequential neighborhood scans becomes essential.
 
 \TLS{The in-memory data structures we have examined so far cannot be naively made persistent.}
 To illustrate, consider a persistent adjacency list design.
 A persistent adjacency list representation might start by chunking nodes and their incoming/outgoing edges.
 Each chunk would internally need metadata to identify where a given node's neighborhood begins. 
-When running graph queries, this representation would require additional metadata to efficiently find and read the correct chunk into RAM.
-If there are updates to the graph, the on-disk chunks might need resizing, and offset/chunk metadata updates; any cached metadata also needs to be kept consistent with the on-disk metadata, requiring additional I/O operations.
+When running graph queries, this representation would require additional metadata to find and read the correct chunk into RAM efficiently.
+If the graph is updated, the on-disk chunks might need resizing and offset/chunk metadata updates; any cached metadata also needs to be kept consistent with the on-disk metadata, requiring additional I/O operations.
 The increased I/O for data structure management and metadata consistency makes out-of-core adjacency lists inefficient.
 
 \TLS{An array-based Compressed Sparse Row (CSR) format can be naively persisted using memory-mapped files to store the vertex and index arrays.}
@@ -362,16 +361,16 @@ Its design demonstrates the careful considerations necessary to achieve persiste
 \TLS{Fortunately, there has been a lot of research into creating on-disk graph data layouts that provide fast sequential access to vertex neighborhoods.}
 The persistent data layouts depend on whether the system has been designed for static or dynamic graphs, whether the system is fully out-of-core or keeps some algorithmic state or metadata in RAM, and whether the system supports property graphs.
 
-We first examine the persistent representations used by static graph processing systems that keep some state in RAM (also called semi-external systems) or no state in RAM (out-of-core systems).
-Then we examine systems that store evolving graphs; this is quite close to the design point of ~\project{} and will be referenced again when describing our evaluation strategy in \autoref{chapter:architecture}.
+We first examine the persistent representations that static graph processing systems use that keep some state in RAM (semi-external systems) or no state in RAM (out-of-core systems).
+Then, we examine systems that store evolving graphs; this is quite close to the design point of ~\project{} and will be referenced again when describing our evaluation strategy in \autoref{chapter:architecture}.
 We close the discussion of persistent data layouts by examining the cost of preprocessing the graphs to construct these data layouts and whether these costs can be amortized.
 
 \subsection{Persistent Data Layouts for Static GPS}
 The persistent layout is designed to perform efficient neighborhood scans for vertices.
 If the system is fully external, the layout must also consider the efficiency of vertex state updates and propagation to the disk-resident structures.
 
-Each GPS is unique in its layout design and update propagation strategies, so instead of examining several systems individually, we examine a generalized architecture of a fully-external graph processing system, instead.
-\PM{this is adapted from a diagram in "Seraph: Towards Scalable and Efficient Fully-external Graph Computation via On-demand Processing". @MIS: should I redraw this, or is this fine?}
+Each GPS is unique in its layout design and update propagation strategies, so instead of examining several systems individually, we examine a generalized architecture of a fully external graph processing system.
+\PM{this is adapted from a diagram in "Seraph: Towards Scalable and Efficient Fully-external Graph Computation via On-demand Processing." @MIS: should I redraw this, or is this fine?}
 \begin{figure}[htbp!]
     \centering
     \includegraphics[scale=0.5, width=0.4\textwidth]{content/fig/background/general_external_gps_arch.jpeg}
@@ -380,17 +379,17 @@ Each GPS is unique in its layout design and update propagation strategies, so in
 \end{figure}
 
 A fully external GPS essentially shards the graph into multiple subgraphs and stores them on disk, accessing them one at a time for processing.
-The vertex state, on the other hand, might be stored in memory depending on the memory budget of the system, but in the most generalized case, is also stored on disk.
-The vertex set is partitioned into disjoint chunks; when processing the edges between two such vertex chunks, the system only needs to store these two chunks in memory and stream the edges between them from disk.
+The vertex state, on the other hand, might be stored in memory depending on the system's memory budget, but in the most generalized case, it is also stored on disk.
+The vertex set is partitioned into disjoint chunks; when processing the edges between two such vertex chunks, the system only needs to store them in memory and stream the edges between them from disk.
 Out-of-core graph processing systems have different ways to create subgraphs to optimize sequential access to the graph.
 With this architecture in mind, we now examine the persistent data layouts used by static graph processing systems.
 
-\textbf{GraphChi} stores the subgraphs in shards that are created such that a shard contains all edges $e = (u, v)$ where $v$ is in the vertex chunk being processed.
+\textbf{GraphChi} stores the subgraphs in shards created such that a shard contains all edges $e = (u, v)$ where $v$ is in the vertex chunk being processed.
 Within a shard, the edges are sorted by the source vertex ID.
-The execution proceeds in "execution intervals"; a vertex chunk is loaded into memory (called a memory shard), and the edges between the chunk and the rest of the graph are streamed from the disk.
-The shard format itself is fairly straightforward: it is a binary file of adjacency lists, with each vertex's adjacency list stored as a variable-sized length word (degree) followed by the list of neighbors.
-Notably, the edge data (weights and updates from computations) are stored separately from the structure of the graph itself.
-The edge data is mutable in GraphChi, and gets completely overwritten several times during the execution of a graph algorithm.
+The execution proceeds in "execution intervals"; a vertex chunk (called a memory shard) is loaded into memory, and the edges between the chunk and the rest of the graph are streamed from the disk.
+The shard format is relatively straightforward: it is a binary file of adjacency lists, with each vertex's adjacency list stored as a variable-sized length word (degree) followed by the list of neighbors.
+Notably, the edge data (weights and updates from computations) are stored separately from the graph's structure.
+The edge data is mutable in GraphChi and gets completely overwritten several times during the execution of a graph algorithm.
 
 \textbf{X-Stream}~\cite{roy2013x} takes a different approach to maximize sequential access to the edge data.
 Unlike GraphChi, X-Stream streams the edges and updates the vertex states in memory, instead relying on the sheer parallelism of using RAID groups.
@@ -402,49 +401,49 @@ The premise is that partitioning a graph by the source vertex ID is less computa
 This is why X-Stream is said to have no preprocessing step.
 
 At runtime, the graph is processed by reading the edges of a streaming partition and keeping the vertex state in memory.
-X-Stream keeps only a subset of the vertex chunk in memory by default, however, if the vertex set is small enough, the entire vertex set can be kept in memory.
-Similarly, if the updates from the scatter phase fit in memory, the updates are not synced to the disk instead being read from memory for the next gather phase.
+By default, X-Stream keeps only a subset of the vertex chunk in memory; however, if the vertex set is small enough, the entire vertex set can be kept in memory.
+Similarly, if the updates from the scatter phase fit in memory, they are not synced to the disk but read from memory for the next gather phase.
 
-\textbf{GridGraph}~\cite{zhu2015gridgraph} is a system that uses a grid-based partitioning of the graph to optimize the sequential access to the graph.
+\textbf{GridGraph}~\cite{zhu2015gridgraph} is a system that uses a grid-based graph partitioning to optimize the sequential access to the graph.
 As in other systems, the vertex set is partitioned into disjoint chunks, and the edges form a $P \times P$ grid (1-D partitioning).
 The edges are split into the grid based on the source and destination vertex IDs. 
 The edge $(u, v)$ is placed in the cell $(u\mod P, v\mod P)$, i.e. the source determines the row and the destination determines the column (2D partitioning).
-GridGraph is a fully-external GPS and stores the vertex and edge state on disk.
+GridGraph is a fully external GPS that stores the vertex and edge state on disk.
 The vertex state is stored in a file-backed memory-mapped region, and each edge block is stored in a separate file.
 The edges in any block need not be sorted.
-There is metadata that tracks the global state such as number of vertices and edges, the number of partitions, and the edge offsets.
-GridGraph is able to reduce the number of I/O operations by using selective streaming, i.e. only streaming edges for "active" vertices; this is aided by fine-grained 2D edge partitioning.
+Metadata tracks the global state, such as the number of vertices and edges, the number of partitions, and the edge offsets.
+GridGraph can reduce the number of I/O operations by using selective streaming, i.e., only streaming edges for "active" vertices; this is aided by fine-grained 2D edge partitioning.
 The preprocessing step in GridGraph reads the whole graph (pre-converted to a binary format) into memory; the binary format reduces the memory needed and time taken to read the graph from disk.
-In comparison, GraphChi reads the graph one edge at a time and therefore takes much less memory, but more time to read the graph.
+In comparison, GraphChi reads the graph one edge at a time, taking much less memory but more time to read the graph.
 This grid layout is also used in Blaze~\cite{kim2022blaze},Graphene~\cite{liu2017graphene}, FlashGraph~\cite{zheng2015flashgraph}, and others.
-\PM{I can, if needed, add more systems here. Perhaps when I know exactly which systems I am comparing against.}
+\PM{I can, if needed, add more systems here. Perhaps when I know which systems I am comparing against.}
 
 \subsection{Persistent Data Layouts for Dynamic GPS}
 \label{back:persistent_rep:dynamic}
 Several dynamic graph processing systems also use persistent graph data layouts to store evolving graphs.
 These systems are designed to handle the graph structure and properties changing over time, storing them such that the graph can be queried at any point in its evolution.
-Since the graph is now mutable, the data structures need to incorporate some form of versioning and transactional support.
+Since the graph is now mutable, the data structures must incorporate some form of versioning and transactional support.
 There are many ways to design a persistent data layout for evolving graphs, and we examine data layouts used by two systems: Teseo~\cite{teseo} and LiveGraph~\cite{zhu2019livegraph}.
 
 \textbf{Transactional Edge Log}
 \label{back:persistent_rep:TEL}
-\TLS{LiveGraph~\cite{zhu2019livegraph} is a recent graph storage system that is designed to allow purely sequential access to a graph's adjacency list.}
+\TLS{LiveGraph~\cite{zhu2019livegraph} is a recent graph storage system that allows purely sequential access to a graph's adjacency list.}
 The graph is stored in memory-mapped files, and the adjacency list is stored in a file-backed memory-mapped region.
-The vertices are arranged in vertex blocks; they contain the vertex properties and a pointer to the previous version for the vertex.
+The vertices are arranged in vertex blocks; they contain the vertex properties and a pointer to the previous vertex version.
 A vertex index is used to look up the most recent version of a vertex's vertex block; past versions can be found by following the version chain.
-The edges are stored in edge blocks, and each edge block contains the adjacency list for one source vertex; an index is used to look up the edge block for a source vertex.
+The edges are stored in edge blocks, each containing the adjacency list for one source vertex; an index is used to look up the edge block for a source vertex.
 The edge blocks have two parts - the edge log and the property entries.
-The edge properties are stored in a separate part of the edge block and contain the variable size properties of for each edge.
-The adjacency lists are stored as log entries in the edge block, and each such entry contains the destination vertex ID, creation timestamp, and invalidation timestamp, and the size of the property entry.
-The invalidation timestamps are used to determine whether the edge is still valid (and should be considered) during a sequential read.
-The log-structured design makes the insertion of new edges expensive since the previous version's invalidation timestamp needs to be set for each new edge.
-To alleviate this cost, LiveGraph uses a bloom-filter in the Edge Block to quickly determine if an edge is present in the block, and therefore whether the invalidation timestamp needs to be updated.
-The edge blocks are versioned, and versions are linked by pointers in the edge block.
+The edge properties are stored in a separate part of the edge block and contain the variable size properties of each edge.
+The adjacency lists are stored as log entries in the edge block. Each entry contains the destination vertex ID, creation, invalidation timestamps, and the size of the property entry.
+During a sequential read, the invalidation timestamps determine whether the edge is still valid (and should be considered).
+The log-structured design makes inserting new edges expensive since the previous version's invalidation timestamp needs to be set for each new edge.
+To alleviate this cost, LiveGraph uses a bloom filter in the Edge Block to quickly determine if an edge is present and whether the invalidation timestamp needs to be updated.
+The edge blocks are versioned, and pointers in the edge block link versions.
 \PM{I can add the diagram, but I don't think it is necessary.}
 
-There are many advantages to this design: the adjacency list is stored sequentially, the property blocks are stored separately, and the versioning allows for fast lookups of past versions of the graph.
-However, the use of memory-mapped files for graph storage is likely a bad design choice, as discussed in ~\cite{crotty2022you}.
-The use of memory-mapped files can lead to unpredictable latency spikes due to the operating system swapping out pages, and further complicates the design of their transaction protocol.
+This design has many advantages: the adjacency list is stored sequentially, the property blocks are stored separately, and the versioning allows for fast lookups of past graph versions.
+However, using memory-mapped files for graph storage is likely a wrong design choice, as discussed in ~\cite{crotty2022you}.
+The use of memory-mapped files can lead to unpredictable latency spikes due to the operating system swapping out pages, further complicating the design of the transaction protocol.
 
 \begin{figure}
     \centering
@@ -458,20 +457,20 @@ The use of memory-mapped files can lead to unpredictable latency spikes due to t
         \label{fig:back:TEL_block}
     }
 
-    \caption{The data layout used by LiveGraph. \autoref{fig:back:TEL_idx} shows the high level layout used by LiveGraph, indicating the indexes used to find vertex and edge blocks in LiveGraph's TEL. The edge block structure in \autoref{fig:back:TEL_block} shows the format of an edge log entry and how the adjacency list is stored separately from the property blocks. Taken from Zhu et al.~\cite{zhu2019livegraph}.}
+    \caption{The data layout used by LiveGraph. \autoref{fig:back:TEL_idx} shows the high-level layout used by LiveGraph, indicating the indexes used to find vertex and edge blocks in LiveGraph's TEL. The edge block structure in \autoref{fig:back:TEL_block} shows the format of an edge log entry and how the adjacency list is stored separately from the property blocks. Taken from Zhu et al.~\cite{zhu2019livegraph}.}
 \end{figure}
 
 
 \section{Graph Databases}
 \label{back:graphDB}
 Databases are the primary persistent store for most data, and graphs are no exception.
-The development of graph databases began with retrofitting relational databases to work with graph data, and this approach has been shown to be reasonable, but not optimal.
-The graph database landscape can be classified using the storage backends that the system uses, the data organization strategies they use, or the query language and the graph models they use to store and query the data. 
-Besta et al.~\cite{besta2020demystifying} provide a comprehensive overview of the graph database landscape, and we encourage the reader to refer to it for a more detailed discussion.
-We describe, briefly, the data layouts and optimizations that are common in graph databases, and how these are used in three commercial graph databases: Neo4j, ArangoDB, and JanusGraph.
+The development of graph databases began with retrofitting relational databases to work with graph data, and this approach is reasonable but not optimal.
+The graph database landscape can be classified using the storage backends that the system uses, the data organization strategies it uses, or the query language and graph models it uses to store and query the data. 
+Besta et al.~\cite{besta2020demystifying} provides a comprehensive overview of the graph database landscape, and we encourage the reader to refer to it for a more detailed discussion.
+We describe briefly the data layouts and optimizations common in graph databases and how these are used in three commercial graph databases: Neo4j, ArangoDB, and JanusGraph.
 
 \subsection{Data Layouts used by Graph Databases}
-A graph database can either use a general purpose storage engine, or it can use a custom data engine and layout to store the graph.
+A graph database can store graphs using a general-purpose storage engine or a custom storage engine and layout.
 Common general-purpose storage engines used by graph databases include key-value stores, column-family stores, and document stores.
 Each of these storage engines has its own data layout, and the graph database designer must instead focus on how to store the graph element in the layout provided by these storage engines.
 
@@ -481,7 +480,7 @@ A more detailed discussion of these general-purpose NoSQL storage engines can be
 \textbf{Neo4j} is the most popular graph database system, and it follows the property graph model.
 Neo4j uses a custom storage engine that uses fixed-size records to store the graph elements.
 The data layout used by Neo4j is shown in \autoref{fig:back:neo4j_layout}.
-Vertices are stored in vertex records and edges are stored in edge records. 
+Vertices are stored in vertex records, and edges are stored in edge records. 
 A vertex record contains the vertex ID, the labels associated with that vertex, the pointer to the first edge adjacent to the vertex, and some metadata flags.
 An Edge record contains the edge label, a pointer to the linked list of the edge properties, pointers to the source and destination vertex records, pointers to the adjacency lists of the source and destination vertices, and some metadata flags.
 Adjacency lists are stored as doubly liked lists; each edge is part of two adjacency lists, one for the source vertex and one for the destination vertex, and therefore has two previous pointers and two next pointers.
@@ -493,29 +492,27 @@ Adjacency lists are stored as doubly liked lists; each edge is part of two adjac
     \label{fig:back:neo4j_layout}
 \end{figure*}
 
-Storing the edge and vertex properties separately from the edge and vertex records allows for small record sizes.
-This increases access efficiency since the properties are accessed only if the query needs to access it.
-Neo4j is unique in its use of direct pointers to store the locations of the neighbors of a vertex, and this is the foundation of their claim of "index-free adjacency".
+Storing the edge and vertex properties separately from the edge and vertex records allows for small record sizes, which increases access efficiency since the properties are accessed only if the query needs to.
+Neo4j is unique in its use of direct pointers to store the locations of a vertex's neighbors, which is the foundation of its claim of "index-free adjacency."
 A traversal can be done without the need to look up any index to find the neighbors of a vertex, and this is significant since the query complexity is no longer linked to the size of the graph.
-However, due to this overreliance on direct pointers, Neo4j is not able to scale to graphs that are too large to fit in memory.
-Moreover, the query efficiency is entirely dependent on the caching and cache pre-warming strategies used by the system. 
-This can lead to unpredictable runtime behavior.
+However, due to this overreliance on direct pointers, Neo4j cannot scale to graphs too large to fit in memory.
+Moreover, query efficiency depends entirely on the system's caching and cache pre-warming strategies, which can lead to unpredictable runtime behavior.
 
 \textbf{ArangoDB} is another open-source document store multi-model database that uses RocksDB as its storage engine.
 Document stores organize documents into collections, and each document is a JSON object; each document in a collection has a unique key, \emph{\_key}, that stores the ID of the graph element being stored in that document.
 
-To represent graphs, ArangoDB uses two collections: one for the vertices and one for the edges.
+ArangoDB uses two collections to represent graphs: one for the vertices and one for the edges.
 Each collection has a primary index on the \emph{\_key} field, and the \emph{\_key} field is used to store the vertex ID or the edge ID.
-The vertex collection stores the vertex properties, but not the adjacency list.
-This design is useful for fast traversals and transactions that alter the edges but not the vertex properties.
+The vertex collection stores the vertex properties but not the adjacency list.
+This design is helpful for fast traversals and transactions that alter the edges but not the vertex properties.
 The edge collection stores, for each edge, its properties and the source and destination vertex IDs (in the$\emph{\_from}$ and $\emph{\_to}$ fields; the collection can have secondary indexes on the \emph{\_from} and \emph{\_to} fields).
 
 
 ArangoDB uses an interesting hybrid index on the edge collections that allows finding the neighborhoods of a vertex without needing to look up an index, as shown in \autoref{fig:back:arangodb_indexfreeadj}.
 According to the documentation~\cite{ArangoDB:IndexFreeAdj}, ArangoDB "stores all edges in a big hash table, and at the same time puts for each vertex V all those edges that are incident with V into a doubly linked list."
 With this index, seeking the linked list to a vertex's adjacency list is an $O(1)$ operation, and if there are $k$ neighbors, the traversal is $O(k)$.
-This index is also used for speeding up single-edge modifications and deletions.
-The vertex index is used to find the vertex's adjacency list in the optimistic case where the sought edge is the first edge in the adjacency list.
+This index is also used to speed up single-edge modifications and deletions.
+The vertex index is used to find the vertex's adjacency list in the optimistic case, where the sought edge is the first edge in the adjacency list.
 If that search fails, the system uses the hash table to find the edge.
 This design allows for $O(1)$ access for single-edge updates.
 
@@ -530,8 +527,8 @@ This design allows for $O(1)$ access for single-edge updates.
 The data layout is defined in terms of rows and cells in the wide-column store, as shown in \autoref{fig:back:janusgraph_widecolumn}.
 Regardless of the choice of the storage engine, each row in the wide-column store represents a vertex.
 The vertex properties are stored in the row, followed by the adjacent edges; each property and edge are stored in a separate cell.
-The rows in a wide-column store are sorted by the row key (the vertex ID), and the cells in a row are sorted by the cell key.
-The cell keys for the properties and edges are chosen such that the properties are stored before the edges.
+The rows in a wide-column store are sorted by the row key (the vertex ID), and the cell key sorts the cells in a row.
+The cell keys for the properties and edges are chosen so that the properties are stored before the edges.
 The graph can be partitioned across multiple nodes in the cluster, and the partitioning is done based on the vertex ID.
 
 \begin{figure*}[htbp!]
