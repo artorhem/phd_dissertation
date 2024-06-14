@@ -51,9 +51,11 @@ These tasks must interact with large parts of the graph, if not the whole graph,
 
 \MIS{Perhaps rephrase this as a thesis statement rather than a "we did X"; I hypothesize  (claim?) that it is possible to satisfy both OLTP and OLAP workloads effectively in the same system."  Then go on and explain how you prove that thesis -- i.e., we design a system that ...}
 \TLS{This thesis presents the design of a scalable and efficient hybrid "best of both worlds" graph data management system that stores graphs in a database structure but can handle both analytics tasks and transactional queries using analytics-friendly formats.}
-Designing such a system requires a close examination of the state-of-the-art to identify extant designs that are aligned with our design goals (Section~\ref{intro:whats_good}). 
-Additionally, we identify a few anti-patterns that we wish to avoid (Section~\autoref{intro:what_change}) while designing our hybrid system.
-Together with our novel contributions in graph state management, principled persistent layout design, and thread scheduling, ~\project{} can achieve performance comparable to that of in-memory graph processing systems while also providing performance competitive with that of graph databases.
+% We draw inspiration from several state-of-the-art designs and introduce others to serve our objectives.
+% We now discuss these choices in detail.}
+Designing such a system needs a close examination of the state-of-the-art to identify extant designs that are aligned with our design goals (Section~\ref{intro:whats_good}). 
+We also identify a few anti-patterns we wish to avoid(Section~\ref{intro:what_change}) while designing our hybrid system.
+Together with our novel contributions in graph state management, principled persistent layout design, and thread scheduling, ~\project{} can achieve performance comparable to in-memory graph processing systems while also being competitive with graph databases.
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \section{State of the Art: What's good?}
 \label{intro:whats_good}
