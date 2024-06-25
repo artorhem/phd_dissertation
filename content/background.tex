@@ -9,7 +9,7 @@ We conclude the chapter by examining the different data structures used to suppo
 \section{Graph Models}
 \label{back:graph_models}
 
-\TLS{A graph $G$ is defined as a pair $G = (V, E)$ of sets $V$ and $E$ such that $E \subseteq V \times V$; $V$ is the set of \textit{vertices} (also called ``nodes'') of the graph $G$, and $E$ is the set of \textit{edges} of $G$~\cite{diestel2017basics}.}
+A graph $G$ is defined as a pair $G = (V, E)$ of sets $V$ and $E$ such that $E \subseteq V \times V$; $V$ is the set of \textit{vertices} (also called ``nodes'') of the graph $G$, and $E$ is the set of \textit{edges} of $G$~\cite{diestel2017basics}.
 The vertices are the entities modeled by a graph, and an edge represents a relationship between the vertices to which it connects.
 % We have $|V| = n$ and $|E| = m$.
 The edges of a graph can be directed or undirected.
@@ -243,7 +243,7 @@ We now examine a few memory-efficient data structures commonly used in graph pro
         \caption{CSR representation}
         \label{fig:back:sample_csr}
     \end{subfigure}
-  \caption{A small directed graph with nine nodes and ten edges and the different representations used to store it}
+  \caption{The adjacency list and CSR representations of the sample graph shown in \autoref{fig:back:sample_graph}.}
   \label{fig:main}
 \end{figure}
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -252,23 +252,33 @@ We now examine a few memory-efficient data structures commonly used in graph pro
 %~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~%~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~%
 \subsection{Adjacency Lists}
 \label{back:adjlist}
-\TLS{Adjacency lists are a natural evolution from adjacency matrices and are constructed by breaking down the graph into per-vertex neighborhood lists.}
+Adjacency lists are a natural evolution from adjacency matrices and are constructed by breaking down the graph into per-vertex neighborhood lists.
 For instance, consider the adjacency matrix shown in \autoref{fig:back:sample_adj_matrix}.
 To construct the neighborhood list for each node, we construct a vector containing the column index $j$ where $a_{ij} = 1 $ in the adjacency matrix. 
 The corresponding adjacency list representation of the graph is shown in \autoref{fig:back:sample_adjlist}.
 The memory requirement for the adjacency list representation is $O(|V| + |E|)$, which is superior to the $O(V^2)$ required for an adjacency matrix.
 
-\TLS{Adjacency lists allow sequential access to a node's neighborhood. However, a random seek is required to access the neighborhood (the vertex typically contains a pointer to the list).}
+Adjacency lists allow sequential access to a node's neighborhood. However, a random seek is required to access the neighborhood (the vertex typically contains a pointer to the list).
 Adjacency lists are dynamic data structures. Inserting new edges into an unsorted adjacency list representation has an amortized $O(1)$ cost; however, if the list must be kept sorted, the cost increases to $O(log(n))$.
 Typically, two adjacency lists are maintained for a graph: one for the in-neighborhood and another for the out-neighborhood.
+
+The adjacency list representation provides O(1) seeks to a vertex, but needs a random seek to access the neighborhood (the vertex typically contains a pointer to the list).
+Once the neighborhood is accessed, the adjacency list provides sequential access to the neighborhood.
+This property makes adjacency lists an excellent choice for all workloads except ones that critically depend on sequential vertex set scans.
+Sortledton~\cite{sortledton2022Fuchs} shows that this never a problem in practice, and adjacency lists are within 40\% of the performance of CSR for most workloads.
 %~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~%~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~%
 %~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~%~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~%
 \subsection{Compressed Sparse Row}
 \label{back:CSR}
-\TLS{Compressed Sparse Row(CSR) ~\cite{saad2003iterative} is a very compact, \emph{immutable} data structure that uses two flat arrays to store the neighborhood lists for nodes in a graph.}
+Compressed Sparse Row(CSR) ~\cite{saad2003iterative} is a very compact, \emph{immutable} data structure that uses two flat arrays to store the neighborhood lists for nodes in a graph.
 Assuming a non-symmetric sparse matrix A, we create two integer vectors: \emph{vertices} and \emph{edges}.
 For each $v_i \in V$, \emph{vertices[$v_i$]} = $idx_{v_i}$; where $idx_{v_i}$ is the index in \emph{edges} where $v$'s adjacency list begins.
 The contents of \emph{edges}[idx$_{v_i}$] to \emph{edges}[idx$_{v_i+1}$] are the sets of vertices $v_j$ such that $a_{ij} \neq 0$.
+
+CSRs provide O(1) seeks to a vertex and since all nodes are stored in a single array, they provide sequential access to the vertex set.
+CSRs also provide a sequential scan of a node's neighborhood.
+These properties make CSRs an excellent choice for all workloads we discussed in \autoref{back:workloads}.
+
 CSR stores a graph $G = (V, E)$ in $O(|V| + |E|)$, but since it is immutable, as described, every modification (i.e., insert or delete) requires reconstructing the edge array.
 The edge array might need reallocation to accommodate an incoming edge, and the old edges must be moved and shifted around the new edge.
 This is a pretty serious limitation for evolving graphs, and much research has been done to create resizable CSRs for graphs.
@@ -288,4 +298,3 @@ Common variations of CSRs that are insertion-friendly include:
     An analytics job must read many snapshots, and this causes significant performance degradation.
     It is common to merge and consolidate updates into the CSR; this process is called compaction~\cite{csr++2020Firmli,llama}. It is similar to garbage collection and leads to increased latency.
 \end{enumerate}
-
