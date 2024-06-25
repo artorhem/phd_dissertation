@@ -5,7 +5,7 @@
     }
 }%%
 gantt
-    title Timeline (past)
+    %% title Timeline (past)
     dateFormat YYYY-MM-DD
     axisFormat %y-%m
     todayMarker off
@@ -24,18 +24,16 @@ section Courses
     Coursework Complete     :milestone, 2020-01-01, 2020-01-01
     CPSC 504(audit)  :c9, 2023-01-01, 2023-04-01 
     Start PhD               :milestone, c7, 2020-01-01, 2020-01-01
-
-
-section "Acts of God"
-    COVID, Act I        :covid1, 2020-03-15, 2020-12-31
-    Omicron             :covid2, 2021-12-15, 2022-02-25
+%% section "Acts of God"
+%%     COVID, Act I        :covid1, 2020-03-15, 2020-12-31
+%%     Omicron             :covid2, 2021-12-15, 2022-02-25
 
 section Implementation
     Bootstrap project and Background Reading    :impl1, 2020-08-01, 2020-12-31
-    Implement GraphAPI (v1: no iterators)    :impl2, 2021-01-01, 2021-10-31
+    GraphAPI v1(no iters)    :impl2, 2021-01-01, 2021-10-31
     RPE exam   :milestone, m4, 2021-11-04, 2
 
-    GraphAPI (Iterators)    :impl3, 2022-03-01, 2022-08-15
+    GraphAPI v2(iterators)    :impl3, 2022-03-01, 2022-08-15
     Lockless prototype    :impl4, 2022-08-15, 2023-03-01
     EdgeLog    :impl5, 2023-03-01, 2023-08-15
     GAP-BS    :impl6, 2023-12-15, 2024-04-01

@@ -366,7 +366,7 @@
     \begin{singlespace}
     \noindent The following individuals certify that they have read,
     and recommend to the Faculty of Graduate and Postdoctoral Studies
-    for acceptance, the candidacy proposal entitled entitled:\\[1em]
+    for acceptance, the candidacy proposal entitled:\\[1em]
         {\large \textbf{\@title}}\\[1em]
     submitted by 
 	\textbf{\@author}

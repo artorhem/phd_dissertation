@@ -1,1 +1,113 @@
-\chapter{timeline}
+\chapter{Timeline}
+\label{ch:timeline}
+\vspace{-4em}
+\section{Timeline: 2020 - now}
+Before listing the timeline for the remainder of the project, let us first examine the timeline of the PhD so far: 
+%include the timeline PDF image here
+\begin{figure}[h!]
+\centering
+\includegraphics[scale=0.5,width=1.0\textwidth]{content/fig/timeline/past.mmd.pdf}
+\caption{Timeline 2020 - now}
+\label{fig:past-timeline}
+\end{figure}
+
+This timeline shows the major development phases for~\project{}.
+I started my PhD in January 2020 and submitted two papers between March and April 2020: one paper on the benchmarking practices common in graph processing systems research and another on the Smooth Kronecker Generator project from Daniel Margo's thesis~\cite{margo2017}.
+The Kronecker paper was published at GRADES-NDA 2020~\cite{10.1145/3398682.3399161}, and the benchmarking paper was rejected from VLDB 2020.
+I spent the remainder of 2020 adding more papers to read for the literature review and working on the benchmarking paper, while also trying to bootstrap the \project{} project.
+Alas, it was the year of the pandemic, and I was unable to make much progress on the project.
+
+I began working on the \project{} project in earnest in January 2021 and was able to finish the first version of the project by September 2021.
+I did my Research Proficiency Evaluation in November 2021 and passed.
+Following that, I traveled to India in December 2021 and got stuck there due to the Omicron variant.
+
+Upon my return in February 2022, I started working on the second version of the \project{} project.
+The second version included the redesigned API that was explicitly transactional and used iterators to access the data.
+We also tried to implement the use of edge-centric processing in the project, and while it is relatively straightforward to implement, it is not clear whether it will be beneficial.
+In Fall 2022, I worked on another feature that prototyped the use of lock-free data structures in the project, and some performance-related improvements around integer packing.
+
+In Spring 2023, I worked on the EdgeLog feature which was a new representation that used an insert-friendly log of edges as the primary representation; we abandoned this representation in favor of the improved EdgeKey representation that used fewer indices.
+
+In Fall 2023, I worked on revising and submitting the benchmarking paper to JSys, while also working on the SMR project and paper.
+The SMR paper was pushed to Spring 2024, and the benchmarking paper was desk rejected.
+
+In January 2024, I began fixing up the GraphAPI to be more usable and efficient. I also ported the \project{} to use the GAPBS kernel implementation.
+This was completed by April 2024, and I began working on the modified EdgeKey representation that does not use any indexes to access the edges.
+I also helped Jack with his project on inline property storage.
+Sometime in late March, I submitted the benchmarking paper to Computing Surveys, and it was rejected.
+It now lives on arXiv as a technical report~\cite{mehrotra2024sok}.
+
+\section{Timeline: Now - graduation}
+
+The timeline for the remainder of the project is shown in Figure~\ref{fig:future-timeline}.
+Several tasks need to be completed before graduation.
+The first, most important task is to put together a paper on the \project{} project.
+We have already started working on this paper, and it is expected to be submitted to VLDB 2025, due on September 1st, 2024.
+
+To evaluate~\project{} we need to compare it to other dynamic graph processing systems (\autoref{chapter:evaluation}) and to do that we need to finish the Grafaree project (\autoref{eval:grafaree}).
+The Grafaree project is expected to be completed by the end of August 2024. 
+While the Grafaree project is being completed, we will also be working on introducing the storage of labels and properties in \project{}.
+The label and property storage project is expected to be completed by mid-October 2024.
+
+The specialized indexing project is completely greenfield and will require a lot of work.
+I expect to spend at least a month reading the literature and understand where to start with the implementation. 
+We expect to complete this project by the end of December 2024.
+
+I wish to graduate in time for the November 2025 convocation and to do that, I need to have my thesis ready by the end of August 2025.
+
+%include the timeline PDF image here
+\begin{figure}[ht!]
+\centering
+\includegraphics[width=1.0\textwidth]{content/fig/timeline/future.mmd.pdf}
+\caption{Timeline between now until graduation}
+\label{fig:future-timeline}
+\end{figure}
+
+
+\begin{table}[]
+  \centering
+  \resizebox{\columnwidth}{!}{%
+  \begin{tabular}{|c|c|c|c|c|}
+  \hline
+  \rowcolor[HTML]{D6E6FF} 
+  Read-Write Graphs & Transactions & Point Queries & Property Model & System or not?                                                    \\ \hline
+  \rowcolor[HTML]{CAFFBF} 
+  T                 & T            & T             & T              & GraphDB                                                           \\ \hline
+  \rowcolor[HTML]{CAFFBF} 
+  T                 & T            & T             & F              & Teseo/LiveGraph                                                   \\ \hline
+  \rowcolor[HTML]{FBE0E0} 
+  T                 & T            & F             & T              & \cellcolor[HTML]{FBE0E0}                                          \\ \cline{1-4}
+  \rowcolor[HTML]{FBE0E0} 
+  T                 & T            & F             & F              & \multirow{-2}{*}{\cellcolor[HTML]{FBE0E0}Must have Point Queries} \\ \hline
+  \rowcolor[HTML]{CAFFBF} 
+  T                 & F            & T             & T              & GraphOne                                                          \\ \hline
+  \rowcolor[HTML]{CAFFBF} 
+  T                 & F            & T             & F              & Non-TX Dynamic structural GPS                                     \\ \hline
+  \rowcolor[HTML]{FBE0E0} 
+  T                 & F            & F             & T              & \cellcolor[HTML]{FBE0E0}                                          \\ \cline{1-4}
+  \rowcolor[HTML]{FBE0E0} 
+  T                 & F            & F             & F              & \multirow{-2}{*}{\cellcolor[HTML]{FBE0E0}Must have Point Queries} \\ \hline
+  \rowcolor[HTML]{FBE0E0} 
+  F                 & T            & T             & T              & \cellcolor[HTML]{FBE0E0}                                          \\ \cline{1-4}
+  \rowcolor[HTML]{FBE0E0} 
+  F & T & T & F & \multirow{-2}{*}{\cellcolor[HTML]{FBE0E0}\begin{tabular}[c]{@{}c@{}}Does not make sense to have \\ transactions on read-only graphs\end{tabular}} \\ \hline
+  \rowcolor[HTML]{FBE0E0} 
+  F                 & T            & F             & T              & \cellcolor[HTML]{FBE0E0}                                          \\ \cline{1-4}
+  \rowcolor[HTML]{FBE0E0} 
+  F                 & T            & F             & F              & \multirow{-2}{*}{\cellcolor[HTML]{FBE0E0}Must have Point Queries} \\ \hline
+  \rowcolor[HTML]{CAFFBF} 
+  F                 & F            & T             & T              & Read-only snapshots of PropGraph?                                 \\ \hline
+  \rowcolor[HTML]{CAFFBF} 
+  F                 & F            & T             & F              & Static GPS and it's API                                           \\ \hline
+  \rowcolor[HTML]{FBE0E0} 
+  F                 & F            & F             & T              & \cellcolor[HTML]{FBE0E0}                                          \\ \cline{1-4}
+  \rowcolor[HTML]{FBE0E0} 
+  F                 & F            & F             & F              & \multirow{-2}{*}{\cellcolor[HTML]{FBE0E0}Must have Point Queries} \\ \hline
+  \end{tabular}%
+  }
+  \caption{Truth table for taxonomic classification of graph management systems.
+  The features we use are whether the system supports read-write graphs,  has transactions, supports point queries, and whether it supports a property model.
+  \textbf{Assumptions}: Transactions cannot be true without read-write graphs.
+  Point queries cannot be false because the system MUST have an API that can be used. }
+  \label{tab:my-table}
+  \end{table}

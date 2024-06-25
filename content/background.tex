@@ -325,7 +325,7 @@ These systems have democratized running graph analytics, allowing users to run c
 There are two broad classes of dynamic graph processing systems:\\
 \textbf{(1) Streaming graph analytics systems}: maintain a single version of the evolving graph, and uses incremental algorithms to update the query results as the graph is modified.
 Using incremental algorithms avoids recomputing the query from scratch, and the cost of streaming the updates is amortized by using appropriately sized batches.
-Systems designed for this class of dynamic graph processing include Kineograph~\cite{cheng2012kineograph}, Stinger~\cite{stinger2012ediger}, Kickstarteer~\cite{vora2017kickstarter}, Tornado~\cite{shi2016tornado}, JetStream~\cite{rahman2021jetstream}, GraphBolt~\cite{mariappan2019graphbolt}, Tripoline~\cite{jiang2021tripoline}, and GraphOne~\cite{graphone2019kumar}.\\
+Systems designed for this class of dynamic graph processing include Kineograph~\cite{cheng2012kineograph}, Stinger~\cite{stinger2012ediger}, Kickstarter~\cite{vora2017kickstarter}, Tornado~\cite{shi2016tornado}, JetStream~\cite{rahman2021jetstream}, GraphBolt~\cite{mariappan2019graphbolt}, Tripoline~\cite{jiang2021tripoline}, and GraphOne~\cite{graphone2019kumar}.\\
 \textbf{(2) Evolving graph analytics systems}: evaluate a query on multiple snapshots of a
 graph, that can stretch over a large time window to extract trend data or compute graph properties at discrete time points.
 Examples of such systems include Chronos~\cite{han2014chronos}, GraphTau~\cite{iyer2016time}, LLAMA~\cite{llama}, and ImmortalGraph~\cite{Miao2015ImmortalGraph}. 
