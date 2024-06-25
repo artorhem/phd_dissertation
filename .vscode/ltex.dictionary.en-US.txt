@@ -4,3 +4,4 @@ RocksDB
 ArangoDB
 WiredTiger
 microbenchmark
+OLAP
