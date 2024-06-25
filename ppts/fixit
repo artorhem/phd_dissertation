@@ -1,0 +1,30 @@
+Remove the section on Trees in the background. add a paragraph to graph databases. 
+
+Section 2.4 does not need to be int he background.  Neither does 2.5. 
+
+BG: graph models,representations,  workloads. ONLY. 
+
+Then talk about design space. 
+
+------------------------------------------------------------------------
+
+the 4 quadrants are the sweet spots for these systems. 
+
+Use itersecting circles to show "capabilities". The 2x2 system shows things they are "optimized for"
+
+remove the computational model -- we do nothing with it. 
+Use the programming model only and how we can do anything. 
+
+Use a gradient on slide 10. 
+
+Grpah strcture is a materialized view of the property graph
+
+GDB vs gPS: point queries,  query api that is aware of the graph structure(selection and projections). Multiple writers. Transactions. 
+general purpose transactions,
+
+
+Table might be best : cols are <general purpose transactions, property/query language/ multi writers>
+
+use a pinwheel with these 3 features to show on the gradient
+
+Start with the presentation on what I want to show (for future work)
