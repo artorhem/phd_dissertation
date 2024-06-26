@@ -1,5 +1,5 @@
 build/*
-*.pdf
+# *.pdf
 *.log
 *.aux
 *.cfg
@@ -311,3 +311,4 @@ TSWLatexianTemp*
 *.lpz
 
 !feedback/*
+!content/fig/*
