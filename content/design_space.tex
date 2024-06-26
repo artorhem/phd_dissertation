@@ -144,10 +144,69 @@ Any ongoing queries that are running on the graph data structure will see the up
 STINGER~\cite{stinger2012ediger} is an example of such a system that allows for fast updates to the graph data structure but does not provide any consistency guarantees.
 
 A more sophisticated approach is to construct a new version of the structural graph as the updates arrive.
+Each update to the graph has a timestamp associated with it, and a system uses these timestamps to construct a versioned graph.
+The system can then provide a consistent view of the graph at a certain point in time by selecting the appropriate versions of the graph elements.
+Examples of systems that use this approach include GraphOne~\cite{graphone2019kumar}, LLAMA~\cite{llama}, and ASPEN~\cite{10.1145/3314221.3314598}. 
 
+Another approach is to batch the updates and apply them together to maintain a single incremental view of the graph.
+The interesting challenge in these systems is to make sure that any in-progress computations are not affected by the updates, and can continue to make progress with the new data.
+These systems are designed to use incremental algorithms that can minimize redundant computations by reusing results that have been computed before the graph structure mutates.
+GraphBolt~\cite{mariappan2019graphbolt}, for instance, uses "dependency-driven incremental processing, where it first tracks dependencies to capture how intermediate values get computed, and then uses this information to incrementally propagate the impact of change across intermediate values".
+Kickstarter~\cite{vora2017kickstarter}, GraphIn~\cite{sengupta2016graphin}, and Tornado~\cite{shi2016tornado} are other systems that use a similar approach.
+
+The most sophisticated approach to handling dynamic graphs is to provide a transactional interface to the user.
+Transactions help a system provide some or all of the ACID guarantees to the user when updating the graph.
+Good examples of transactional dynamic graph processing systems include LiveGraph~\cite{zhu2019livegraph}, Sortledton~\cite{sortledton2022Fuchs}, and Teseo~\cite{teseo2021deLeo}.
+LiveGraph stores the graph out-of-core by using a mmap-based storage engine and provides a transactional interface to the user.
+Sortledton is an in-memory system that provides a fully transactional adjacency-list based graph data structure.
+Teseo is also in-memory and transactional, but uses a "fat tree" (B+ tree derived) data structure to store the graph.
 
 \section{Unification of Static and Dynamic Graph Processing Systems}
 \label{design:unification}
+In the previous sections, we have seen that the design space of graph data management systems can be split based on whether the system manages property graphs or structural graphs and whether the system is designed to handle static structural graphs or dynamic structural graphs.
+We have also seen that the design space can be split based on the programming model and the computation model used by the system.
+In this section, we discuss how these two axes can be unified to provide a comprehensive view of the design space of graph data management systems.
+
+Most in-memory graph processing systems (both static and dynamic) are designed around the data structures that we discussed in~\autoref{back:graph_rep}.
+These data structures are optimized for graph analytics tasks that need sequential access to the vertex sets and the edges in a vertex's adjacency list.
+These desirable properties of CSRs and Adjacency Lists make them the most common data structures used by graph processing systems, both static and dynamic.
+
+\begin{figure}
+    \centering
+    \includegraphics[width=0.8\textwidth]{content/fig/background/unify.pdf}
+    \caption{Unification of the design space of graph data management systems}
+    \label{fig:unified_design_space}
+\end{figure}
+
+This convergence of the design space around the data structures used by the systems is shown in~\autoref{fig:unified_design_space}.
+We take advantage of this convergence by designing \project{} to provide the users with representations that mimic the data structures used by these systems.
 
 \section{Distillation of the Design Space}
 \label{design:distillation}
+
+In the previous sections, we discussed how the design space of graph data management systems can be split based on whether the system manages property graphs or structural graphs and whether the system is designed to handle static structural graphs or dynamic structural graphs.
+We also discussed how the design space can be unified based on the data structures used by the systems to store the graphs.
+
+In this section, we provide a distilled view of the design space of graph data management systems based on the classification features we discussed in the previous sections.
+So far we have identified that the design space of graph data management systems can be split based on the following classification features:
+\begin{enumerate}
+  \item Whether the system manages property graphs or structural graphs.
+  \item Whether the system handles updates to the graph (dynamic) or not (static)
+  \item Whether the system supports transactions for updating the graph
+\end{enumerate}
+
+Based on these features, we can arrive at a grid that distills the design space of graph data management systems, as shown in~\autoref{fig:distilled_design_space}.
+The grid shows the different classes of graph data management systems based on these features.
+As can be seen in the grid, not all combinations of these features make sense to use together, for instance, a system that only works on read-only graphs has no reason to support transactions (since there are no updates to the graph).
+
+\begin{figure*}
+    \centering
+    \includegraphics[width=0.8\textwidth]{content/fig/background/design_grid.pdf}
+  \caption{Distillation of the design space of graph data management systems. Please refer to Section~\autoref{design:dynamic_structural} for an explanation of how the systems listed in the dynamic but not transactional category differ from one another.}
+    \label{fig:distilled_design_space}
+\end{figure*}
+\PM{Margo, I seem to have taken really poor notes for the changes we wanted to make for this grid. Can you please send me a matrix if this does not look right?}
+The main takeaway from this grid is that Graph Databases are the most general class of graph data management systems that can handle all types of graphs and support transactions.
+All the other categories are specialized to handle a subset of the features provided by Graph Databases.
+Each of those systems work well for the specific use cases they are designed for, but they are not as general as Graph Databases.
+\project{} is designed to be a general-purpose graph data management store that can flexibly support all the specialized use cases depicted in this grid \emph{without having to move the data} or sacrificing performance.
