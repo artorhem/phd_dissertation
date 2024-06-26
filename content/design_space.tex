@@ -1,9 +1,87 @@
 \chapter{Design Space of Graph Data Management Systems}
 \label{chap:design_space}
 
-In the previous chapter~\autoref{chapter:background}, we discussed the different models used to represent graphs -- property graphs and how they can be used to materialize a structural graph. 
+In ~\autoref{chapter:background}, we discussed the different models used to represent graphs -- property graphs and how they can be used to materialize a structural graph. 
 We also discussed the different types of workloads that can be executed on these graphs and the access patterns they exhibit.
 Based on these access patterns, we identified requirements for a data structure that can be used to store graphs and discussed the different data structures that are used by graph data management systems.
 
-In this chapter, we present a comprehensive overview of the design space of graph data management systems. We begin by discussing the different data layouts used by these systems, both in-memory and persistent. We then delve into the different workloads that these systems are designed to handle, and the different types of graph databases that are available. We also discuss the different computational models that are used by these systems. Finally, we present a detailed discussion of the different graph analytics systems that are available, and the different optimizations that they use to reduce the communication overhead.
+In this chapter, we present a comprehensive overview of the design space of graph data management systems.
+We provide a taxonomy to understand the design space of graph data management systems and discuss how different systems fit into this taxonomy.
 
+
+\section{Property Graphs vs. Structural Graphs}
+\label{design:property_vs_structural}
+Real-world entities and their relationships can be modeled as a graph.
+Since these entities have types and properties, the graph model is augmented to include these types and properties (thereby forming a schema).
+We examined the formal definitions of these graph models in ~\autoref{back:graph_models}.
+
+A structural graph can be derived from a property graph through selections and projections on the labels and properties of the graph elements.
+One could select all edges of a certain type to form a structural graph, for instance, a structural graph of follower relationships in a social network.
+The structural graph so constructed  “is homogeneous, composed simply of vertices, edges and, possibly, a weight attached to their elements”~\cite{teseo2021deLeo}.
+The structural graph is a useful abstraction for many graph algorithms and queries, as it provides a simple graph model that can be used to reason about the structure of the graph.
+For instance, the structural graph can be used to compute the connectivity of the graph or to compute the influence of a node in the graph.
+
+We assume that the property graph is the ground truth and the structural graph is derived from the property graph.
+A structural graph can be materialized as needed or periodically for analysis, as is done at Facebook~\cite{curtiss2013unicorn}.
+These materialized structural graphs are essentially snapshots of the property graph at a certain point in time.
+As such, these structural graphs are static and do not change over time.
+We refer to these as static structural graphs and describe them in more detail in~\autoref{design:static_structural}.
+
+In contrast, the property graph is dynamic and changes over time.
+Since the property graph is the ground truth, it is important to keep the structural graph up-to-date with the property graph.
+This can be done by recomputing the structural graph periodically or incrementally updating the structural graph as the property graph changes.
+This leads to the concept of dynamic structural graphs, which are updated as the property graph changes.
+We describe dynamic structural graphs in more detail in~\autoref{design:dynamic_structural}.
+
+This is the primary classification feature of the design space of graph data management systems -- whether the system manages property graphs or structural graphs.
+The second classification feature is whether the system is designed to handle static structural graphs or dynamic structural graphs.
+We discuss these classification features in more detail in the following sections.
+
+\section{Static Graph Processing Systems}
+\label{design:static_structural}
+
+Static structural graphs have been the main focus of graph processing systems research for over a decade.
+These graphs are primarily used for analytics and graph mining tasks where the focus is on uncovering statistical properties and discovering patterns.
+The static nature of these graphs implies that there is no consistency requirement between different snapshots these systems are designed to process.
+Each snapshot is produced through a batch ETL process and is (often) processed independently of other snapshots.
+% The primary goal of these systems is to provide a scalable and efficient way to process these graphs and to provide a rich set of graph algorithms that can be executed on these graphs.
+
+Once the static GPS has a snapshot to process, it must first \emph{preprocess} the graph to construct the data structures needed to execute the graph algorithms.
+The preprocessing step is often the most time-consuming in the graph processing pipeline.
+
+If the graph data structures obtained after the preprocessing are small enough, they can be stored and processed in memory.
+These systems are designed for shared-memory multi-core machines and are optimized for in-memory processing.
+Several systems have been constructed with this design point in mind, such as Gemini~\cite{zhu2016gemini}, GraphMat~\cite{graphmat}, Ligra~\cite{shun2013ligra}, Galois~\cite{pingali2011tao}, GPOP~\cite{lakhotia2020gpop}, GraphLab~\cite{low2012distributed}, etc.
+
+In case, the graph structures are too large to fit in memory on a single machine, the graph is partitioned across multiple machines.
+These two design choices lead to two different classes of graph processing systems -- in-memory graph processing systems and distributed graph processing systems.
+This is the third classification feature of the design space of graph data management systems: whether the system stores the graph in memory or on disk.
+Examples of distributed graph processing systems include GraphX~\cite{gonzalez2014graphx}, Pregel~\cite{malewicz2010pregel}, PowerGraph~\cite{gonzalez2012powergraph}, Distributed GraphLab~\cite{low2012distributed}, PowerLyra~\cite{powerlyra2019}, etc.
+For the purpose of creating a taxonomy, we collectively refer to shared-memory multi-core systems and distributed systems as \textbf{in-memory graph} processing systems.
+
+
+Over time researchers noticed that the communication overheads in distributed graph processing systems were high leading them to underperform when compared to single-threaded systems running on a commodity laptop~\cite{mcsherry2015scalability}.
+The need for building systems that can scale to large graphs that do not fit in RAM on a single machine, but the underperformance of distributed graph processing systems led to the development of out-of-core systems that store graphs on storage devices and stream them into memory as needed.
+We call these systems \textbf{out-of-core graph} processing systems.
+Out-of-core graph processing systems are built around the idea of caching the most frequently accessed data structures in memory and spilling the rest to disk.
+The on-disk data layout is such that maximizes the sequential access to the edge data to minimize the I/O overheads.
+Most systems achieve this by some form of data edge-list partitioning such that the neighbors (either in- or out- neighbors) of a vertex are stored contiguously on disk.
+Examples of out-of-core graph processing systems include GraphChi~\cite{kyrola2012graphchi}, X-Stream~\cite{roy2013x}, GridGraph~\cite{zhu2015gridgraph}, V-part~\cite{elyasi2019large}, Wonderland~\cite{zhang2018wonderland}, CLIP~\cite{ai2018clip}, FlashGraph~\cite{zheng2015flashgraph}, Blaze~\cite{kim2022blaze}, etc.
+
+The static structural graph processing systems can be seen in the bottom left corner of the design space in~\autoref{fig:design_space}.
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=0.8\textwidth]{content/fig/background/final_taxonomy_struc.pdf}
+    \caption{Design Space of Graph Data Management Systems}
+    \label{fig:design_space}
+\end{figure}
+
+\section{Dynamic Graph Processing Systems}
+\label{design:dynamic_structural}
+
+\section{Unification of Static and Dynamic Graph Processing Systems}
+\label{design:unification}
+
+\section{Distillation of the Design Space}
+\label{design:distillation}
