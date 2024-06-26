@@ -155,21 +155,6 @@ This section describes how graphs are represented by describing the common in-me
 We begin with the most common way to represent graphs and then follow up with other, more compact layouts designed to enable sequential access to graph neighborhoods.
 
 For the remainder of this section, we will use the sample graph shown in \autoref{fig:back:sample_graph} to illustrate the different graph representations.
-\begin{figure*}[ht!]
-    \centering
-        \includegraphics[scale=0.45]{content/fig/background/sample_graph.pdf}
-        \caption{A sample graph with nine nodes}
-        \label{fig:back:sample_graph}
-\end{figure*}
-
-\subsection{Adjacency Matrix}
-\label{back:graph_rep:adjmat}
-The canonical representation of a graph uses an $n \times n$ matrix $A$, where $n$ is the number of vertices in the graph; an element $a_{ij} = 1$ in $A$ indicates the presence of an edge between vertices $i$ and $j$.
-Depending on the matrix's definition, edges can be directional or non-directional (we use the term \textit{undirected graphs} to refer to these). 
-Hence, the edge $a_{ij}$ can either indicate a directed edge $i \rightarrow j$ or an undirected edge $i \leftrightarrow j$.
-It is common to represent undirected edges between vertices $i$ and $j$ as two directed edges $i \rightarrow j $ and $j \rightarrow i$.
-The adjacency matrix representation of our sample graph is shown in \autoref{fig:back:sample_adj_matrix}.
-
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \newcommand{\sampleMatrix}
 {
@@ -184,15 +169,37 @@ The adjacency matrix representation of our sample graph is shown in \autoref{fig
 0 & 0 & 0 & 1 & 0 & 0 & 0 & 0 & 0 \\
 \end{bmatrix}
 }
-\begin{figure*}   
+
+\begin{figure}[htbp!]
     \centering
-    \[
-        A = \sampleMatrix
-    \]
-    \caption{The corresponding $9\times9$ adjacency matrix of the sample graph shown in \autoref{fig:back:sample_graph}.}
-    \label{fig:back:sample_adj_matrix}
-\end{figure*}
+    \begin{subfigure}[b]{0.45\textwidth}
+        \centering
+        \includegraphics[scale=0.45]{content/fig/background/sample_graph.pdf}
+        \caption{ }
+        \label{fig:back:sample_graph}
+    \end{subfigure}
+  \hfill
+    \begin{subfigure}[b]{0.45\textwidth}
+        \centering
+        \[
+            A = \sampleMatrix
+        \]
+        \caption{  }
+        \label{fig:back:sample_adj_matrix}
+    \end{subfigure}
+\caption{A small directed graph with nine nodes and ten edges and the corresponding $9\times9$ adjacency matrix}
+  \label{fig:main}
+\end{figure}
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\subsection{Adjacency Matrix}
+\label{back:graph_rep:adjmat}
+The canonical representation of a graph uses an $n \times n$ matrix $A$, where $n$ is the number of vertices in the graph; an element $a_{ij} = 1$ in $A$ indicates the presence of an edge between vertices $i$ and $j$.
+Depending on the matrix's definition, edges can be directional or non-directional (we use the term \textit{undirected graphs} to refer to these). 
+Hence, the edge $a_{ij}$ can either indicate a directed edge $i \rightarrow j$ or an undirected edge $i \leftrightarrow j$.
+It is common to represent undirected edges between vertices $i$ and $j$ as two directed edges $i \rightarrow j $ and $j \rightarrow i$.
+The adjacency matrix representation of our sample graph is shown in \autoref{fig:back:sample_adj_matrix}.
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \begin{figure}[ht!]
     \centering
@@ -228,8 +235,6 @@ We now examine a few memory-efficient data structures commonly used in graph pro
 
 
 \begin{figure}[htbp!]
-
-  \vfill
     \begin{subfigure}[b]{0.45\textwidth}
         \centering
         \includegraphics[scale=0.5]{content/fig/background/sample_adjlist.pdf}
