@@ -303,3 +303,21 @@ Common variations of CSRs that are insertion-friendly include:
     An analytics job must read many snapshots, and this causes significant performance degradation.
     It is common to merge and consolidate updates into the CSR; this process is called compaction~\cite{csr++2020Firmli,llama}. It is similar to garbage collection and leads to increased latency.
 \end{enumerate}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\subsection{Persistent Graph Representations}
+\label{back:persistent}
+
+The data structures we have discussed so far are all in-memory representations of graphs.
+Commodity hardware has limited memory, and the size of real-world graphs can exceed the available memory.
+Moreover, the data in memory is volatile and is lost when the system is shut down or suffers a crash.
+Due to these limitations, it is essential to have persistent graph representations that can be stored on disk and analyzed efficiently.
+
+A persistent graph representation needs to be block-based; no in-memory data structures are block-based, and it is not trivial to convert them to a block-based representation.
+LLAMA~\cite{llama} uses a persistent CSR representation to store an evolving graph on disk and can demand-page the relevant blocks into memory for analytics.
+
+Out-of-core graph processing systems are designed to handle graphs that are too large to fit in memory.
+They use a combination of in-memory data structures and disk-based data layouts to process the graph.
+The key design decision in out-of-core systems is to minimize the number of disk accesses and to ensure that the disk accesses are sequential.
+A common way to achieve this is by partitioning the edges across multiple files in a way that keeps neighborhood accesses sequential.
+The details of individual systems are irrelevant to this dissertation, but it is essential to understand that out-of-core systems are a critical part of the graph processing ecosystem.
