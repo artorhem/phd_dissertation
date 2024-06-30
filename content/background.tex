@@ -19,13 +19,13 @@ A weighted graph has a "weight" associated with each edge.
 Formally, a weighted graph $G$ is modeled as a triple $(V, E, w)$, where $w: E \rightarrow \mathbb{R}$ maps edges to weights.
 
 This formulation of a graph captures only the structure of the graph; for the remainder of this dissertation, we will refer to this as a \textit{Structural Graph}.
-Structural graphs are appropriate for graph theoretic studies and analytics tasks that analyze the graph's topology and connectivity (e.g., finding shortest paths, computing centrality measures, and detecting communities).
-However, real-world graphs model entities that have a "schema", i.e. the entities have types and properties associated with them.
+Structural graphs are appropriate for graph theoretic studies and analytics tasks that study the graph's topology and connectivity (e.g., finding shortest paths, computing centrality measures, and detecting communities).
+However, real-world graphs model entities that have a "schema," i.e., they have types and properties associated with them.
 Capturing the additional information allows us to perform more complex queries on the graph, such as finding all users who are friends with a particular user or finding all users who have a particular property.
 
 The augmented graph model that satisfies the requirement to have properties and labels associated with graph elements is called the \textit{Labeled Property Graph (or simply a Property Graph)} Model~\cite{Angles_Arenas_Barceló_Hogan_Reutter_Vrgoč_2018}.
 We use the term Property Graphs (PG) to refer to these graphs in the remainder of this dissertation. 
-Each vertex and edge in a PG has labels used to construct subsets of vertices and edges and is useful for filtering queries.
+Each vertex and edge in a PG has labels, which are used to construct subsets of vertices and edges and are useful for filtering queries.
 For instance, in a social network, the nodes could be labeled "users" or "organizations," and the relationship labels could be "is friends with" or "follows."
 The concept of labels has an equivalent in the relational model: node labels are analogous to tables and the edge labels are analogous to foreign keys or join tables.
 
@@ -46,9 +46,9 @@ These properties are modeled as $(key, value)$ pairs, where \textit{key} identif
 
 
 A more formal definition of Property Graphs can be found in the survey papers by Angles et al.~\cite{Angles_Arenas_Barceló_Hogan_Reutter_Vrgoč_2018} and Yakovets et al.~\cite{bonifati2018querying}.
-It is important to note that structural graphs are a class of property graphs. 
+It is important to note that structural graphs are a subclass of property graphs. 
 Property graphs can be transformed into structural graphs by selecting nodes and edges with specific labels and removing all associated properties. 
-For example, ~\autoref{fig:back:property_graph} can be converted into a structural graph by selecting nodes labeled "user" and edges labeled "friends with," and then removing all associated properties.
+For example, ~\autoref{fig:back:property_graph} can be converted into a structural graph by selecting nodes labeled "user" and edges labeled "friends with" and then removing all associated properties.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \section{Graph Workloads}
@@ -85,15 +85,15 @@ We briefly summarize their classification here to complete our description of th
 \begin{enumerate}
     \item \textbf{Point Queries}: Point queries on a property graph involve inserting, deleting, or updating a single graph element (vertex or edge). Another typical example is to set or retrieve some associated property or to filter edges/nodes with a certain label. To run efficiently, point queries require an index on the property or label being queried.
 
-    \item \textbf{Neighborhood Queries}: Neighborhood queries are used for finding the edges incident to, or emanating from, a vertex. A neighborhood query finds nodes that are reachable from (or are part of the neighborhood of) a given node. These queries are essential for social network analysis, where finding a user's friends or followers is a common task. A common way to optimize neighborhood queries is to have direct, sequential access to a node's neighborhood.
+    \item \textbf{Neighborhood Queries}: Neighborhood queries are used for finding the edges incident to or emanating from a vertex. A neighborhood query finds nodes that are reachable from (or are part of the neighborhood of) a given node. These queries are essential for social network analysis, where finding a user's friends or followers is a common task. A common way to optimize neighborhood queries is to have direct, sequential access to a node's neighborhood.
 
-    \item \textbf{Traversals}: Graph traversals mean visiting graph elements starting from a "root" vertex and following its edges in some deterministic or random/sampling-based fashion.  Graph traversals can be thought of as a neighborhood query, but with selection criteria based on the label or property of the nodes or edges. Additionally, while neighborhood queries are typically limited to a fixed depth, traversals can be unbounded. A typical traversal query on a social network could be to find friends-of-friends or friends-of-friends-of-friends who work at a particular organization. Traversal queries are inherently random and are challenging to optimize.
+    \item \textbf{Traversals}: Graph traversals mean visiting graph elements starting from a "root" vertex and following its edges in some deterministic or random/sampling-based fashion.  Graph traversals can be thought of as a neighborhood query but with selection criteria based on the label or property of the nodes or edges. Additionally, while neighborhood queries are typically limited to a fixed depth, traversals can be unbounded. A typical traversal query on a social network could be to find friends-of-friends or friends-of-friends-of-friends who work at a particular organization. Traversal queries access have some logical locality, but they might access the physical data in random order; this makes them challenging to optimize.
     
     \item \textbf{Whole Graph Analytics}: Computations for global graph properties (such as vertex centralities, all pairs shortest paths, or clustering coefficients) that require accessing the entire graph are called whole-graph analytics. These workloads access most (often all) vertices and edges in a graph, though not necessarily all properties and labels associated with them (\ie the structural graph). These workloads benefit from having sequential access to all vertices in the graph and sequential access to all edges in each vertex's neighborhood.
     
 \end{enumerate}
 
-While graph databases support all types of queries, they are best suited for point and neighborhood queries.
+While \emph{graph databases} support all types of queries, they are best suited for point and neighborhood queries.
 Static graph processing systems are specialized to handle whole-graph OLAP workloads on structural graphs.
 A summarization of this classification is provided in \autoref{tab:back:workload_patterns}.
 
@@ -134,7 +134,7 @@ The Social Network Benchmark also provides the LDBC Business Intelligence worklo
 Typical queries include tasks that sort, order, aggregate, and derive maximum or minimum values from the data.
 
 
-The LDBC Graphalytics benchmark and the GAP Benchmark describe the most important classes of graph analytics kernels based on their frequency of use in applications and their diverse computational complexities.
+The LDBC Graphalytics benchmark and the GAP Benchmark~\cite{beamer2015gap} describe the most important classes of graph analytics kernels based on their frequency of use in applications and their diverse computational complexities.
 Graphalytics includes six kernels: Breadth-First Search (BFS), PageRank (PR), Weakly Connected Components (WCC), Label Propagation for Community Detection (CDLP), Clustering Coefficient, and Single-Source Shortest Path (SSSP).
 The GAP Benchmark Suite~\cite{beamer2016understanding},
 GAPBS, provides a specification and reference implementation for BFS, PR, Triangle Counting (TC), Betweenness Centrality (BC), and Connected Components (CC).
@@ -195,7 +195,7 @@ For the remainder of this section, we will use the sample graph shown in \autore
 \subsection{Adjacency Matrix}
 \label{back:graph_rep:adjmat}
 The canonical representation of a graph uses an $n \times n$ matrix, $A$, where $n$ is the number of vertices in the graph; an element $a_{ij} = 1$ in $A$ indicates the presence of an edge between vertices $i$ and $j$.
-Depending on the matrix's definition, edges can be directional or non-directional (we use the term \textit{undirected graphs} to refer to these). 
+Depending on the matrix's definition, edges can be directed or undirected. 
 Hence, the edge $a_{ij}$ can either indicate a directed edge $i \rightarrow j$ or an undirected edge $i \leftrightarrow j$.
 It is common to represent undirected edges between vertices $i$ and $j$ as two directed edges $i \rightarrow j $ and $j \rightarrow i$.
 The adjacency matrix representation of our sample graph is shown in \autoref{fig:back:sample_adj_matrix}.
@@ -221,8 +221,8 @@ The adjacency matrix representation of our sample graph is shown in \autoref{fig
 \end{figure}
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-Real-world graphs tend to follow the power law distribution, have small diameters, and exhibit communities ~\cite[Section~2]{chakrabarti2006GraphMining}.
-A power-law distribution of degrees leads to a few \textit{hub} nodes with high degrees and many nodes with low degrees (i.e., heavy tail of degree distribution).
+Real-world graphs tend to follow the power law distribution~\cite{newman2005power}, have small diameters, and exhibit communities ~\cite[Section~2]{chakrabarti2006GraphMining}.
+A power-law distribution of degrees leads to a few \textit{hub} nodes with high degrees and many nodes with low degrees (i.e., the heavy tail of degree distribution).
 A direct consequence of the power law is that the resulting adjacency matrices are sparse and, therefore, memory inefficient.
 \autoref{fig:back:soc_epinions} shows the adjacency matrix and the degree distribution plots for \texttt{soc-epinions1}~\cite{soc-epinions1:SNAP}, a small network with around 76,000 nodes.
 The white space in the adjacency matrix illustration denotes the sparsity pattern, which translates to empty cells in an adjacency matrix representation of the graph.
@@ -257,7 +257,8 @@ We now examine a few memory-efficient data structures commonly used in graph pro
 %~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~%~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~%
 \subsection{Adjacency Lists}
 \label{back:adjlist}
-Adjacency lists are a natural evolution from adjacency matrices. We construct adjacency lists by expressing each row in the adjacency matrix as a list of a vertex's neighbors.
+Adjacency lists are a natural solution to the sparsity problem and memory inefficiency of adjacency matrices.
+We construct adjacency lists by expressing each row in the adjacency matrix as a list of a vertex's neighbors.
 For instance, consider the adjacency matrix shown in \autoref{fig:back:sample_adj_matrix}.
 To construct the neighborhood list for each node, we construct a vector containing the column index $j$ where $a_{ij} = 1 $ in the adjacency matrix. 
 The corresponding adjacency list representation of the graph is shown in \autoref{fig:back:sample_adjlist}.
@@ -270,7 +271,7 @@ Typically, two adjacency lists are maintained for a graph: one for the in-neighb
 The adjacency list representation provides O(1) seeks to a vertex but often requires a random seek to access the neighborhood.
 Once the neighborhood is accessed, the adjacency list provides sequential access to the neighborhood.
 This property makes adjacency lists an excellent choice for all workloads except ones that critically depend on sequential vertex set scans.
-Sortledton~\cite{sortledton2022Fuchs} shows that this is never a problem in practice, and adjacency lists provide perforance within 40\% of the performance of the compressed sparse row representation for most workloads.
+Sortledton~\cite{sortledton2022Fuchs} shows that this is never a problem in practice, and adjacency lists provide performance within 40\% of the performance of the compressed sparse row representation for most workloads.
 %~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~%~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~%
 %~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~%~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~%
 \subsection{Compressed Sparse Row}
@@ -286,7 +287,7 @@ These properties make CSRs an excellent choice for all workloads we discussed in
 
 CSR stores a graph $G = (V, E)$ in $O(|V| + |E|)$, but since it is immutable, every modification (i.e., insert or delete) requires reconstructing the edge array.
 The edge array might need reallocation to accommodate an incoming edge, and the old edges must be moved and shifted around the new edge.
-This is a serious limitation for evolving graphs, and much research has been done to create resizable CSRs for graphs.
+This is a serious limitation for evolving graphs, and much research has been done to create resizable CSRs for graphs~\cite{staudt2014networkit, PackedCSR, csr++2020Firmli, llama, madduri2009compact}.
 
 Common variations of CSRs that are insertion-friendly include:
 \begin{enumerate}
@@ -320,4 +321,5 @@ Out-of-core graph processing systems are designed to handle graphs that are too 
 They use a combination of in-memory data structures and disk-based data layouts to process the graph.
 The key design decision in out-of-core systems is to minimize the number of disk accesses and to ensure that the disk accesses are sequential.
 A common way to achieve this is by partitioning the edges across multiple files in a way that keeps neighborhood accesses sequential.
-The details of individual systems are irrelevant to this dissertation, but it is essential to understand that out-of-core systems are a critical part of the graph processing ecosystem.
+As the reader will see, we adopt an existing storage engine to provide graph persistence.
+As such, we delay discussion of existing persistent representations until the Related Work section~\autoref{chapter:related-work} (which is something I plan to do after my candidacy exam). 
