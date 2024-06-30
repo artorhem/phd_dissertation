@@ -1,17 +1,15 @@
 \chapter{\project{} Architecture}
 \label{chapter:architecture}
 
-The previous chapters have described what graphs are, the graph models commonly used to represent real-world entities (property graphs), and how those can be refined to extract purely structural graphs for analyzing some particular relationships and perform statistical analysis on them. 
-We also discussed different graph workloads that are commonly used on graph data, and which data structures are most commonly used to support these workloads.
 We now introduce the \project{} Graph Database architecture. Our goal in designing \project{} is to achieve the performance of purpose-built graph-processing systems in the context of a transactional, dynamic, property-graph system.
-We developed \project{} through iterative refinement, first investigating ways to get a production storage engine to mimic state of the art in-memory structures.
-Next, we developed a programmatic API capable of implementing all the programming models cataloged in Section XXX.
+We developed \project{} through iterative refinement, first investigating ways to get a production storage engine to mimic state-of-the-art in-memory structures.
+Next, we developed a programmatic API capable of implementing all the programming models cataloged in Section~\autoref{design:programming_vs_computation}.
 Finally, we continued to refine the design to support the range of workloads described in Section~\autoref{back:workloads}.
 
 If graph processing systems are those systems specialized for analyzing graph structure, then graph databases are the general-purpose systems designed to \emph{store and manage} property graphs.
 Consequently, a graph database architecture must allow efficient storage and retrieval of both graph structural and properties while being able to support the broad range of graph workloads that we discussed in~\autoref{back:workloads}.
 Importantly, as computationally intensive analytics tasks operate on the structural graph, not the property graph, the challenge for graph databases is providing efficient analytic processing in the presence of the easier point queries and neighborhood queries that are common on property graphs.
-Therefore, we conclude thata graph database should store the graph structure independently from the properties and the labels associated with the nodes and edges.
+Therefore, we conclude that a graph database should store the graph structure independently from the properties and the labels associated with the nodes and edges.
 The layout optimizations needed by the structural graph can be different from those needed by the properties and labels, and this separation allows for more optimization opportunities.
 
 \project{} embraces this architectural decision to separate the graph structure from the properties and labels.
@@ -23,8 +21,7 @@ Although \project{} does not yet handle properties, we have spent considerable t
 The chapter breakdown of this thesis mirrors our decision to store the structure and properties of the graph independently.
 This chapter focuses on the structure of the graph, detailing our architecture for managing structural graphs.
 We build upon this architecture in ~\autoref{chapter:propertyGraphs}, where we discuss our approach to storing properties.
-There are two proposals for storing property and label information – inline with the element or separately using column stores
-We provide mechanisms to do both and perform a comparative study of how they perform under a variety of workloads
+
 
 \emph{For the rest of this chapter, we use the term graph to refer to a structural graph unless explicitly mentioned otherwise, and we use the term graph database to describe \project{}, even though it does not yet handle property graphs.}
 
@@ -43,7 +40,7 @@ A graph database, therefore should provide the following features:
 \item A GDB must provide a \textbf{framework} to support fast graph operations and traversals. Efficient iterators on the graph elements are critical for performance and should be first-class primitives in the system.
 \end{itemize}
 
-As motivation for this list of requirements, let us examine the following running use case: computing PageRank on a graph.
+Let us examine the following running use case, computing PageRank on a graph, as motivation for this list of requirements.
 The pseudocode for the PageRank algorithm is shown in Algorithm~\autoref{alg:PageRankPullGS}.
 
 \begin{algorithm}
