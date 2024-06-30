@@ -9,7 +9,7 @@ Finally, we continued to refine the design to support the range of workloads des
 If graph processing systems are those systems specialized for analyzing graph structure, then graph databases are the general-purpose systems designed to \emph{store and manage} property graphs.
 Consequently, a graph database architecture must allow efficient storage and retrieval of both graph structural and properties while being able to support the broad range of graph workloads that we discussed in~\autoref{back:workloads}.
 Importantly, as computationally intensive analytics tasks operate on the structural graph, not the property graph, the challenge for graph databases is providing efficient analytic processing in the presence of the easier point queries and neighborhood queries that are common on property graphs.
-Therefore, we conclude thata graph database should store the graph structure independently from the properties and the labels associated with the nodes and edges.
+Therefore, we conclude that a graph database should store the graph structure independently from the properties and the labels associated with the nodes and edges.
 The layout optimizations needed by the structural graph can be different from those needed by the properties and labels, and this separation allows for more optimization opportunities.
 
 \project{} embraces this architectural decision to separate the graph structure from the properties and labels.
