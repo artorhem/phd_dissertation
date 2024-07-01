@@ -36,14 +36,14 @@ In section~\autoref{back:workloads}, we discussed the different workloads that a
 We also discussed the data structures that are commonly used to support these workloads.
 A graph database, therefore should provide the following features:
 \begin{itemize}
-\item A GDB must store the graph in \textbf{formats} that facilitate high-performance analytics by supporting the workload’s access patterns 
-\item A GDB must provide a high-level \textbf{API} that abstracts the underlying data structures and provides a simple interface for the user to interact with the graph. The user does not need to know the internal representation of the graph to use and query her data.
-\item A GDB must provide a \textbf{framework} to support fast graph operations and traversals. Efficient iterators on the graph elements are critical for performance and should be first-class primitives in the system.
+\item the ability to store the graph in \textbf{formats} that facilitate high-performance analytics by providing good peformance on common access patterns 
+\item a high-level \textbf{API} that abstracts the underlying data structures and provides a simple interface for the user to interact with the graph. The user does not need to know the internal representation of the graph to use and query her data.
+\item a \textbf{framework} to permit efficient implementation of common operatations, such as neighborhood collection and  traversal. Efficient iterators on the graph elements are critical for performance and should be first-class primitives in the system.
 \end{itemize}
 
 
 As motivation for this list of requirements, let us examine the following running use case: computing PageRank on a graph.
-The pseudocode for the PageRank algorithm is shown in Algorithm~\autoref{alg:PageRankPullGS}.
+The pseudocode for the PageRank algorithm is shown in~\autoref{alg:PageRankPullGS}.
 
 \begin{algorithm}
   \begin{algorithmic}[1]
@@ -51,10 +51,10 @@ The pseudocode for the PageRank algorithm is shown in Algorithm~\autoref{alg:Pag
   \Require Damping factor $kDamp \in (0, 1)$, typically $d = 0.85$
   \Require Tolerance $\epsilon > 0$, typically $10^{-4}$
   \Ensure PageRank vector Scores
-  \State Initialize $init\_score = \frac{1.0}{|V|}$
-  \State Initialize $base\_score = \frac{1.0 - kDamp}{|V|}$
-  \State Initialize $Scores(v) = init\_score$ for all $v \in V$
-  \State Initialize $Outgoing\_vals(v) = 0$ for all $v \in V$
+  \State $init\_score = \frac{1.0}{|V|}$
+  \State $base\_score = \frac{1.0 - kDamp}{|V|}$
+  \State $Scores(v) = init\_score$ for all $v \in V$
+  \State $Outgoing\_vals(v) = 0$ for all $v \in V$
   \ForAll{\highlightP{$v \in V$}}
       \State \highlightM{$Outgoing\_vals(v) \gets \frac{init\_score}{|N^+(v)|}$}
   \EndFor
@@ -76,7 +76,7 @@ The pseudocode for the PageRank algorithm is shown in Algorithm~\autoref{alg:Pag
   \EndFor \\
   \Return $Scores$
   \end{algorithmic}
-  \caption{PageRank Algorithm as specified in GAP Benchmark. The highlighted lines indicate different accesses: \highlightP{access to the vertex set}, \highlightB{access a vertex's neighborhood}, and \highlightM{the results vector}.}
+  \caption{PageRank Algorithm as specified in GAP Benchmark. The highlighted lines indicate different accesses: \highlightP{access to the vertex set}, \highlightB{access a vertex's neighborhood}, and access the \highlightM{the results vector}.}
   \label{alg:PageRankPullGS}
   \end{algorithm}
 
@@ -88,18 +88,18 @@ To implement the PageRank algorithm in a graph database requires accessing the f
 \item We need to access the scores of each node to update the outgoing values
 \end{itemize}
 
-For a graph database to support this workload efficiently, it must provide an API that allows the user to create a vertex iterator for efficient scans over the vertex set, and a neighborhood iterator for efficiently scanning a vertex's neighborhood. 
+For a graph database to support this workload efficiently, it must provide an API that allows the user to create a vertex iterator for efficient scans over the vertex set and a neighborhood iterator for efficiently scanning a vertex's neighborhood. 
 This API is, of course, in addition to all the basic \ac{CRUD} operations that are expected from a database system.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \section{Architecture}
-With the requirements for a graph database in mind, we designed the architecture of \project{} to support the following three components: efficient graph representations, a user-facing API for interacting with the graph, and a set of internal graph operators that serve as a glue between the two.
+With the requirements for a graph database in mind, we decompose the architecture of \project{} into three components: efficient graph representations, a user-facing API for interacting with the graph, and a set of internal graph operators that serve as a glue between the two.
 
 \subsection{Graph API}
-The Graph API provides the user a means to interact with the graph that elides the underlying data structures or the storage backend being used to store the graph.
-This separation improves the portability of the application code.
+The Graph API provides the user a means to interact with the graph that hides the underlying data structures or the storage backend being used to store the graph.
+This separation improves the portability of application code.
 The GraphAPI has three main components.
-It provides a \textbf{Structural API} for manipulation and querying the graph structure. This includes methods for adding and removing nodes and edges, getting a node's neighbors, and getting the in- or out-degrees of a node. The exact methods provided by the Structural API are listed in Table~\autoref{tab:graphapi}.
+It provides a \textbf{Structural API} for manipulating and querying the graph structure. This includes methods for adding and removing nodes and edges, getting a node's neighbors, and getting the in- or out-degrees of a node. The exact methods provided by the Structural API are listed in Table~\autoref{tab:graphapi}.
 Iterator functions listed in the table are the methods that return a cursor to the graph elements: nodes, edges, in-neighbors, and out-neighbors; they can be used for efficient traversal of the graph.
 
 
@@ -167,7 +167,7 @@ The \textbf{Metadata Functions} allow the user to query information about the gr
 
 Different parts of the graph need different consistency guarantees.
 The structure of the graph can never be in an inconsistent state.
-For example, the reverse edges must be atomically created for an undirected graph, and an edge can only be created if the nodes it connects exist.
+For example, forward and reverse edges must be atomically created for an undirected graph, and an edge can only be created if its source and destinations nodes exist.
 Similarly, the properties and labels associated with the nodes and edges must be consistent with the structure of the graph; a property cannot be associated with a node that does not exist.
 However, the properties and labels can be updated independently of the structure of the graph.
 For example, the weight of an edge can be updated without affecting the structure of the graph.
@@ -186,7 +186,7 @@ The GraphAPI provides a user-facing interface for interacting with the graph.
 The internal operations that translate the intent expressed by the API into layout-specific operations are provided by the \textbf{Internal Graph Operators}.
 These operators are the glue between the API and the graph representations and leverage information about the physical layout to provide efficient implementations of key operations such as whole-graph traversal.
 
-These internal graph operators are backend-aware and can utilize any optimizations provided by the storage engine to improve the performance of the operations they implement.
+The implementations of these internal graph operators are backend-aware and can utilize any optimizations provided by the storage engine to improve the performance of the operations they implement.
 For example, the API ~\autoref{tab:graphapi} provides basic primitives for getting the in- and out-neighbors of a node.
 However, using these primitives to implement a complicated traversal, such as PageRank, would be inefficient.
 The resultant code would need to make repeated calls to the API for each vertex, which is inefficient because the API calls can be expensive, and the user would have to manage the state of the traversal themselves.
@@ -222,8 +222,8 @@ We describe how these representations are provided by~\project{} in Section~\aut
 
 \project{} is a concrete realization of the architecture we described in the previous section.
 Our discussion of the implementation begins with a discussion of the storage engine we use to store the graph and how it's design influences ours.
-Following that, we describe how the GraphAPI described in table~\autoref{tab:graphapi} can be used to implement the example application~\autoref{alg:PageRankPullGS} we discussed earlier.
-We then describe how we store the graph representations in our storage engine and how the API facilitates interaction with the data, and our design of iterators for efficient traversal of the graph.
+Following that, we describe how the GraphAPI described in table~\autoref{tab:graphapi} can be used to implement Page Rank (~\autoref{alg:PageRankPullGS}) as discussed earlier.
+We then describe how we store the graph representations in our storage engine, how the API facilitates interaction with the data, and our iterator design for efficient traversal of the graph.
 We close with a discussion of how we manage temporary properties and our bulk loader.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -234,19 +234,19 @@ Our choice of \ac{WT} is motivated by its excellent multithreaded read performan
 This is important for graph processing workloads, which are mostly read-heavy.
 \ac{WT} can handle data sets that are much larger than RAM without sacrificing performance, which is important for storing large graphs.
 It is ACID compliant and uses optimistic concurrency control to provide transactions -- transactions in one thread do not block operations in other threads, but still provide snapshot isolation guarantees.
-This property gives us clear semantics for write-write conflicts to the same object in the database: all but one concurrent writes to the same key will fail. 
+This property gives us clear semantics for write-write conflicts to the same object in the database: all but one concurrent write to the same key will fail. 
 The more attractive feature that motivates our use of \ac{WT} is that a key-value store allows us to use different graph representations easily.
 Using \ac{RDBMS}s would solve the persistence problem, but it still does not allow flexibility in representations since everything is stored in tables.
 
 The use of \ac{WT} has some implications for our implementation.
 \ac{WT} is an \textbf{embedded} key-value store, which means the database is part of the application.
 \ac{WT} databases, therefore, work on a single-process multithreaded model of parallelism.
-This means that the database is not shared across multiple processes, and there can only be one application with an open connection to the database at a time.
+This means that the database is not shared across multiple processes, and there can be only one application with an open connection to the database at a time.
 The \ac{WT} \ac{API} requires a unique connection to the database for each process, and all the threads in that process can share the connection reference -- the connection object (\code{WT\_CONNECTION} object) is thread-safe.
 The transactional context of data operations in \ac{WT} is managed by the session (\code{WT\_SESSION}) object.
-The session object is not thread-safe, and each thread must create a private session object.
-The transactional context managed by the session object includes information about the transaction's isolation level, and more importantly the position of cursor objects that are used to access the data.
-A cursor (\code{WT\_CURSOR} object) is a handle to a position in the database, and it is used to find, read and write data, and traverse over records in the database.
+The session object is not thread-safe, so each thread must create a private session object.
+The transactional context managed by the session object includes information about the transaction's isolation level, and more importantly, the position of cursor objects that are used to access the data.
+A cursor (\code{WT\_CURSOR} object) is a handle to a position in the database, and it is used to find, read, and write data and traverse over records in the database.
 \code{WT\_CURSOR} objects are not thread-safe, and each thread must create a private cursor object, but they can share the session object.
 The implication of these properties of the single-process multithreaded model is that any application that uses \ac{WT} resembles the application shown in ~\autoref{fig:wtApp}.
 \begin{figure}
@@ -256,22 +256,22 @@ The implication of these properties of the single-process multithreaded model is
   \label{fig:wtApp}
 \end{figure}
 
-Another interesting feature of \ac{WT} is that it supports both row stores and column stores.
+Another interesting feature of \ac{WT} is that it supports both emph{row stores} and \emph{column stores}.
 If we consider a table to be the logical representation of data in a database, then a row-oriented database stores the data one row after the other, while column-oriented databases store the data one column after the other.
-\ac{WT} supports column groups, which are groups of columns that are stored in a separate file.
-A column group holds the data for a set of columns in the primary key order of the table.
-An application describes the columns that are part of a column group when creating the table.
+\ac{WT} supports a generalization of a column store, called \emph{column groups}, in which multiple attributes can be stored together, indexed by the row-id, which is the WT primary key.
+%A column group holds the data for a set of columns in the primary key order of the table.
+An application describes the columns that comprise each column group when creating the table.
 
-Traditional row-based storage is inefficient when we are primarily interested only in a small subset of properties.
-If we have a table with many columns, and we are only interested in a few of them, then we have to read the entire row from disk, even if we are only interested in a few columns.
-Using column groups in this case can significantly improve cache behavior and performance by only reading \ac{WT} files containing columns needed by the query.
+Traditional row-based storage is inefficient when we are primarily interested in only a small subset of properties.
+If we have a table with many columns, and we are interested in only a few of them, then we have to read the entire row from disk, even if we are only interested in a few columns.
+Using column groups in this case can significantly improve cache behavior and performance by reading only those \ac{WT} files containing the columns needed by the query.
 This is especially critical in property graphs where nodes and edges can have an arbitrary number of properties.
 We will discuss how we use column groups to store properties in~\autoref{chapter:propertyGraphs}.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-\subsection{Writing a Flexograph Application}
+\subsection{Anatomy of a Flexograph Application}
 \label{sec:flexographApp}
-Let us consider a simple application that traverses the out-neighborhood of each node in the graph, and calls a method foo() on each neighboring edge.
+Consider a simple application that traverses the out-neighborhood of each node in the graph and calls a method foo() on each neighboring edge.
 The code sample for this application is shown in ~\autoref{lst:flexographApp}.
 
 \begin{tabular}{c}
@@ -314,18 +314,18 @@ for (int i = 0; i < THREAD_NUM; i++)
 \end{lstlisting}
 \end{tabular}
 
-To use Flexograph, an application must first create a \highlightP{\code{GraphEngine}} object.
-The \code{GraphEngine} class encapsulates the connection to the database and provides methods to create a graph handle and calculate the thread offsets.
+An application first creates a \highlightP{\code{GraphEngine}} object (line 1).
+The \code{GraphEngine} class encapsulates the connection to the database and provides methods to create a graph handle and calculate the thread offsets (line 2).
 The thread offsets are used to divide the graph into equal parts for parallel processing.
 
-An application uses a \highlightB{\code{GraphBase}} reference to interact with the graph.
+A graph handle is a reference to an object of type  \highlightB{\code{GraphBase}} with which applications interact with the graph.
 The \code{GraphBase} object is created using the \code{create\_graph\_handle()} method of the \code{GraphEngine} object, and the instantiation of this object is thread-safe.
-The \code{GraphBase} object encapsulates the session and cursor objects, and is the API end-point that the user interacts with.
-The \code{GraphBase} object provides all methods listed in ~\autoref{tab:graphapi}, including the iterator methods.
+The \code{GraphBase} object encapsulates the session and cursor objects and is the API end-point with which the user interacts.
+It provides all methods listed in ~\autoref{tab:graphapi}, including the iterator methods.
 
-The application can then use the \code{get\_outnbd\_iter()} method to get an iterator from the \code{GraphBase} object.
-In the example listed in~\autoref{lst:flexographApp}, the application requests an \highlightM{\code{OutCursor}} object that can be used to traverse the out-neighborhood of a node.
-Iterators internally manage \wt{} cursor operations and range checks, and provide a simple interface for the user to traverse the graph: the user only needs to call the \code{next()} method to get the next element in the iterator.
+The application can then use the \code{GraphBase}'s \code{get\_outnbd\_iter()} method to obtain an iterator to the outgoing edges of a vertex.
+In the example listed in~\autoref{lst:flexographApp}, the application creates an \highlightM{\code{OutCursor}} object that can be used to traverse the out-neighborhood of a node.
+Iterators internally manage \wt{} cursor operations and range checks, providing a simple interface for the user to traverse the graph: the user need only call the \code{next()} method to retrieve the next element in the iterator.
 
 This simple example is instructive in understanding how the \api{} can be used to implement more complex traversals.
 A more complete example of a PageRank implementation using the \api{} is provided in the Appendix~\autoref{appendix:pagerank_graphapi}(~\autoref{lst:pagerank_graphapi}).
@@ -339,10 +339,10 @@ It was used as a reference benchmark for early prototyping but has since been ab
 We do not discuss it further in this thesis.
 
 \project{} uses unsigned integers \footnote{currently 4B unsigned ints, but this is a compile-time directive and can be changed to 8B ints} for storing the source and destination IDs.
-\project{} uses 0 and \unix{UINT32\_MAX} to identify out-of-band values for cursor traversals, and therefore these are reserved IDs not available to the user.
+\project{} uses 0 and \unix{UINT32\_MAX} to identify out-of-band values for cursor traversals, therefore these are reserved IDs not available to the user.
 
 
-During early performance analysis, we discovered that the performance of our graph database scan was spending a significant amount of time in key comparison.
+During early performance analysis, we discovered that our graph database scan was spending a significant amount of time in key comparison.
 While the data is stored in a lexicographic order, the database needs to do some work to compare keys and determine if they are equal.
 These comparisons are easy to do on byte arrays and \unix{memcmp} is used to compare keys.
 \wt{} provides processor-specific optimizations for comparing keys (the lex compare function), and we use these optimizations to speed up the comparison process.
@@ -367,7 +367,7 @@ The keys are converted to the big-endian format by using the compiler intrinsic 
   \begin{subfigure}[b]{0.7\textwidth}
       \centering
       \includegraphics[scale=0.50]{content/fig/flexograph_arch/ekey_og.pdf}
-      \caption{Old EdgeKey Representation}
+      \caption{Original EdgeKey Representation}
       \label{fig:arch:edgekey_graph}
   \end{subfigure}
   \vspace{1em} % Adds space between the rows
@@ -389,7 +389,7 @@ The keys are converted to the big-endian format by using the compiler intrinsic 
       \label{fig:arch:metadata}
   \end{subfigure}
   
-  \caption{Graph Representations supported by Flexograph. Each representation creates a metadata table to store the graph properties. \texttt{\textbf{u}} in this diagram denotes a serialized byte array, \texttt{\textbf{I}} denotes an unsigned integer for storing degrees, and \texttt{\textbf{i}} denotes a signed integer used for edge weights.}
+  \caption{Graph Representations supported by Flexograph. Each representation also maintains a metadata table (d) to store the graph properties, such as FILLMEIN. \texttt{\textbf{u}} in this diagram denotes a serialized byte array, \texttt{\textbf{I}} denotes an unsigned integer for storing degrees, and \texttt{\textbf{i}} denotes a signed integer used for edge weights.}
   \label{fig:main_figure}
 \end{figure}
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -399,41 +399,39 @@ The keys are converted to the big-endian format by using the compiler intrinsic 
 This representation is used to store the graph in a format that is most commonly used for graph analytics.
 The adjacency list for each node is explicitly stored as the data value in the AdjList tables.
 We also have tables to store the node and edge tables.
-The point of having the node and edge tables is to have a handy place to store any node and edge properties and labels. 
-
-The tables used by the Adjacency List representation are shown in ~\autoref{fig:arch:adjlist_graph}.
-The \code{in\_nbd} and \code{out\_nbd} columns in the adjacency tables above store a binary array containing the in/out neighborhood for the node in the key.
+The point of having the node and edge tables is to have a handy place to store any node and edge properties and labels. ~\autoref{fig:arch:adjlist_graph} illustrates this layout.
+The adjacency lists themselves, i.e., the \code{in\_nbd} and \code{out\_nbd} columns, arebinary arrays containing the keys of the neighbors adjacent to the vertex on which the entry is keyed.
 
 The Adjacency List representation does not require any secondary indexes. 
-This representation has the greatest number of tables, and each edge insertion essentially updates all 4 tables: node table is updated if the DB is \code{read\_optimized} and/or if a new node is inserted. 
-The AdjList tables are updated on each insert/delete.
+Although each edge insertion requires updates to at least three tables (Edge, Out Adjist, and InAdjList), they are reasonably efficient as they are all updates via primary key.
+If the DB is \code{read-optimized}, the the Node Table contains in and out degree counts, so an edge insertion or deletion requires two updates on the Node Table as well, again accessed via primary key.
+Adding a node requires only a single add to the Node Table, while deletion requires potentially many operations: one delete from the Node Table, one delete per neighbor from the Edge Table and at least one of the Adjacency List tables. Once again, if the database is read-optimized, once again, we need additional updates to the Node Table for each neighbor.
 
 
 \subsubsection{EdgeKey Representation}
 \label{arch:edgekey}
-This representation is designed to be a CSR-like representation that can be stored in a key-value store.
-The original EdgeKey representation~\autoref{fig:arch:edgekey_graph} uses a single edge table to store both nodes and edges.
-
-The EdgeKey design exploits the fact that \wt{} stores keys in a lexicographically sorted order.
-This means that if we have a composite key \code{(a,b)}, such that $a,b > 0$, and we want to scan all keys with \code{a}, we can just position the cursor at \code{(a,0)} and then iterate over all keys with \code{a} by sequentially moving the cursor.
-
-The tables used by the EdgeKey representation are shown in ~\autoref{fig:arch:edgekey_graph}.
-\code{src\_id} and \code{dst\_id} are a composite primary key of the table.
-There are two values stored, and their meaning changes depending on whether the keys indicate a node \code{(x, 0)} or an edge \code{(x,y)}:
+The EdgeKey representation is designed to approximate CSR inside a key-value store.
+Our original EdgeKey representation~\autoref{fig:arch:edgekey_graph} used a single table to store both nodes and edges.
+It exploits the fact that \wt{} stores keys in lexicographically sorted order.
+This means that if we have a composite key \code{(a,b)}, such that $a,b > 0$, and we want to scan all keys with \code{(a,*)}, we can just position the cursor at \code{(a,0)} and then iterate over all keys  \code{(a,*)} by sequentially moving the cursor.
+~\autoref{fig:arch:edgekey_graph} shows the original EdgeKey Table.
+\code{src\_id} and \code{dst\_id} form a composite primary key of the table.
+We encode the type of object represented in the primary key: entries of the form node \code{(x, 0)} represent nodes and those of the form\code{(x,y)} represent edges. The value associated with a key is a two-entry byte array, whose meanings vary by the entry type:
 \begin{itemize}
   \item When the entry represents a node and the table is created to be \emph{read optimized}, values are the \code{in\_degree} and \code{out\_degree} respectively. The default, however, is to use a \emph{write optimized} layout, and these values are uninterpreted fields.
-  \item For an edge, value1 stores the edge weight, if the graph is weighted. For an unweighted graph, \code{val1} is set to the out-of-band value. \code{val2} is always set to the out-of-band value for edges.
+  \item For an edge, the first entry in the array contains the edge weight, if the graph is weighted. For an unweighted graph, \code{val1} is set to the out-of-band value. \code{val2} is always set to the out-of-band value for edges.
 \end{itemize}
 
 There is only one index created on the edge table: \code{(dst\_id,src\_id)}.
 This index is used for iteration over the in-neighborhood of a node.
 
-During benchmarking, we realized that the EdgeKey representation performs \emph{horribly} on random in-neighborhood seek-and-scan workloads (see ~\autoref{chapter:evaluation}).
-This is because in-neighborhood scans are based on a secondary index, and are therefore significantly slower than accessing via a primary index.
+During benchmarking, we realized that the EdgeKey representation performs \emph{horribly} on random in-neighborhood seek-and-scan workloads (see ~\autoref{chapter:evaluation}), because the adjacency lists contain only outneighbors.
+That is, finding the in-neighbors of vertex $x$ required either scanning the entire database to find vertices whose adjaceny lists contained $v$ or maintaining and using a secondary index on in-edges. 
+Both solutions were unacceptably slow.
 
 To remedy this, we introduce a new representation that materializes the in-neighborhood of a node.
 We call this representation a \emph{Split EdgeKey} representation, and it is shown in~\autoref{fig:arch:edgekey-split}.
-The Split EdgeKey representation and the basic EdgeKey representation present a classic time-space trade off: the split EdgeKey representation requires more disk space but makes it significantly faster to access the in-neighborhood of a node.
+The Split EdgeKey representation and the basic EdgeKey representation present a classic time-space trade off: the split EdgeKey representation requires more disk space but makes it significantly faster to access a node's in-neighborhood.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \subsection{Internal Graph Operators}
@@ -457,7 +455,7 @@ There are methods provided by \wt{} for doing this: the cursor must be positione
 If found, the cursor can be moved using calls to \code{next()} and \code{prev()} methods.
 While these methods are useful, it is not convenient to use them as such.
 First, the cursors must be associated with a key range that it must traverse within.
-The application must repeatedly check to see if the found key is in range for each call to \code{next()}, and this can quickly outnumber the core logic.
+The application must repeatedly check to see if the found key is in range for each call to \code{next()}, and this can quickly overwhelm the core logic.
 Second, since the API is designed to be used by applications, it is more convenient to have a higher-level abstraction that can be used to traverse the graph.
 
 We provide Iterators as a higher-level abstraction to plain cursors for graph traversals. 
@@ -508,14 +506,14 @@ void close() { cursor->close(cursor); }
 \end{figure*}
 
 
-All iterators inherit from the base class \code{table_iterator}, and must implement additional methods to set the key range and handle calls to \code{next()} and to handle the cursor going out of bounds.
+All iterators inherit from the base class \code{table_iterator} and must implement additional methods to set the key range, handle calls to \code{next()}, and handle the cursor going out of bounds.
 The inheritance diagram for the iterator classes is shown in~\autoref{fig:iterator_diagram}.
 \code{InCursor}, \code{OutCursor}, \code{NodeCursor}, and \code{EdgeCursor} are the iterator classes that are used to traverse the in-neighborhood, out-neighborhood, nodes, and edges respectively.
 Each representation provides an implementation of these iterator classes.
 The \api{} provides iterator functions (listed in ~\autoref{tab:graphapi}) that return a base class pointer (\code{InCursor*}, \code{OutCursor*}, \code{NodeCursor*}, or \code{EdgeCursor*}).
 These base class pointers are used to traverse the graph.
 
-An application might need to position the cursor but only has a partial key to do so.
+An application might need to position the cursor using a partial key.
 For example, an application might want to find all edges that have a source ID of 5.
 Since the \wt{} cursor requires a complete key to be set, the application must construct a key that has the source ID set to 5 and the destination ID set to the out-of-band value (0 in our case).
 The iterator code must then use the \wt{} \code{search_near()} method to position the cursor that is nearest to the key provided; the position of the cursor is then adjusted to the correct key.
@@ -524,12 +522,10 @@ This is a common operation and is encapsulated in the \code{set_key()} method of
 
 \subsubsection{Managing Transient Properties}
 \label{arch:transient-attrs}
-It is plausible to imagine that a user might want to store the results of an analytics task as a property of the graph.
-For instance, consider computing PageRank: as the algorithm proceeds, the PageRank values change at each iteration until they converge to a tolerance value.
-However, while the PageRank values are being computed, they are not a formal property of the node.
-They should be considered a property only once the computation is complete, \emph{if} the user decides to store them. 
-We call these \emph{Transient Properties}.
-Transient properties are usually held in memory and are lost when the application is closed.
+There exist analytics tasks, e.g., PageRank, that compute an important property using an iterative algorithm, such as that shown in FILLMEIN. When the computation completes, the computed value should be stored persistently as a property in the database.
+However, while the value is being computed, repeatedly storing the intermediate values to the property graph persistent storage is exorbitantly expensive.
+We call such values \emph{Transient Properties}.
+Transient properties are usually maintained in memory and are freed when the application is closed.
 We provide a mechanism for the application to persist the transient properties \emph{as they are being computed} and to reconcile them with the graph structure between two runs of the application.
 
 \begin{statusbar}{idea}
@@ -552,7 +548,7 @@ The \code{reconcile()} method makes a few assumptions about the application's us
 With these assumptions, the \code{reconcile()} method first opens the file containing the old transient attributes and \code{ftruncate()}s it to the size of the new transient attributes. 
 Then the file descriptor to this resized file is \unix{mmap}ed into memory and returned to the application as a pointer.
 
-This is a basic mechanism for persisting transient attributes, and it can be extended to provide more functionality.
+This is a basic mechanism for persisting transient attributes, and it can be extended to provide more functionality as needed.
 \end{statusbar}
 
 
@@ -566,7 +562,7 @@ Graph databases, in particular, must support bulk loading as the graph structure
 The interconnected nature of the graph means that the graphs might need to be inserted in a particular order: Neo4j's bulk loader requires nodes to be inserted before edges and that there not be any duplicate entries ~\cite{ImportOp75:online}.
 
 \project{} also provides a bulk loader that can be used to insert a graph into the database.
-There are two versions of the bulk loader that we provide: one that uses the standard transactional insertions and another, more optimized, version that is built using the \wt{} bulk loading infrastructure~\cite{WiredTig13:online}.
+We provide two versions of the bulk loader: one that uses the standard transactional insertions and another, more optimized, version that is built using the \wt{} bulk loading infrastructure~\cite{WiredTig13:online}.
 
 \wt{} provides an option to bulk load data into a \emph{newly created} object. 
 The bulk loader uses a special cursor that is opened with a \texttt{bulk} configuration parameter passed to it during creation.
@@ -580,10 +576,10 @@ We detail the design of the preprocessing pipeline needed to sort the data and t
 
 \subsection{Preprocessing Graphs for Bulk Loading}
 Since the bulk loader expects pre-sorted keys, we must first sort the graph. 
-We use the \unix{sort} utility to sort the data, and provide options to \emph{numerically} sort the graph by source vertex ID and destination vertex IDs, and use the \unix{--parallel} option to sort the data in parallel.
+We use the \unix{sort} utility to sort the data including the options to \emph{numerically} sort the graph by source vertex ID and destination vertex IDs and the \unix{--parallel} option to perform the sort in parallel.
 
-Following the sort, we split the edge list into multiple files, each containing an equal number of edges.
-Since we want maximum parallelism, we use the number of cores available to determine the number of files if the user does not present an explicit value.
+Following the sort, we split the edge list into multiple files, each containing an approximately equal number of edges.
+Since we want maximum parallelism, we use the number of cores available to determine the number of files, if the user does not present an explicit value.
 
 We compute the number of nodes by replacing the delimiter (usually a tab or a comma) with a newline and then using the \unix{uniq} and \unix{wc} utilities to count the number of unique nodes.
 
@@ -593,10 +589,10 @@ The number of files created for the reverse edges is the same as the number of f
 Once the edges have been sorted and split, we construct adjacency lists for the nodes.
 Each thread reads a shard of the edge list and begins to construct an adjacency list. 
 Since the files are sorted, the adjacency list for a node can be constructed by reading the file sequentially and adding the destination vertex ID to the adjacency list.
-Once a new source ID is encountered, the adjacency list for the current node is considered complete, and written out to the adjacency list file. The thread continues doing this until the end of the file is reached.
+Once a new source ID is encountered, the adjacency list for the current node is considered complete and is written to the adjacency list file. The thread continues doing this until the end of the file is reached.
 
-At the end of this multithreaded adjacency list construction, we need to make sure that we don't have any torn adjacency lists across two files.
-To do this, we read the last adjacency list (last line) from the $i$th file and the first adjacency list (first line) from the $i+1$th file, merge them, delete the last line from the $i$th file and write the merged adjacency list to the first line of $i+1$th file.
+At the end of this multithreaded adjacency list construction, we need to make sure that we don't have adjacency lists split across two files.
+To do this, we read the last adjacency list (last line) from the $i$th file and the first adjacency list (first line) from the $i+1$th file, and, if appropriate it, merge them, delete the last line from the $i$th file and write the merged adjacency list to the first line of $i+1$th file.
 
 At the end of these preprocessing steps, the graph has been converted to an adjacency list format, and the files are ready to be bulk-loaded into the database.
 
