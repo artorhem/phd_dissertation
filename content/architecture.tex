@@ -110,52 +110,53 @@ The GraphAPI also provides a \textbf{Property and Label API} for manipulating an
 \begin{table}[ht!]
   \centering
   \footnotesize
-  \begin{tabular}{|l|l|}
+  \begin{tabularx}{\textwidth}{|>{\hsize=\dimexpr 0.35\hsize+0.1\tabcolsep+0.2\arrayrulewidth\relax}X
+    |>{\hsize=\dimexpr 0.65\hsize-0.1\tabcolsep-0.2\arrayrulewidth\relax}X|}
   \hline
   \rowcolor[HTML]{FFE135}
   \textbf{Operation}        &\textbf{Interface}                                       \\ \hline
-  Add node to graph         &\code{void add_node(node n)}                 \\ \hline
-  Add edge to graph         &\code{void add_edge(edge e)}                          \\ \hline
-  Check if node exists      &\code{bool has_node(node_id id)}                             \\ \hline
-  Check if edge exists      &\code{bool has_edge(node_id src, node_id dst)}                 \\ \hline
-  Get the edge between src and dst      & \code{edge get_edge(node_id src, node_id dst)} \\ \hline
-  Get the node identified by the ID     & \code{node get_node(node_id id)} \\ \hline
-  Get a random node from the graph      & \code{node get_random_node()} \\ \hline
-  Delete the node with the given ID     &\code{void delete_node(node_id id)} \\ \hline
-  Get in-degree for node with ID given  & \code{node_id get_in_degree(node_id id)} \\ \hline
-  Get out-degree for node with ID given & \code{node_id get_out_degree(node_id id)} \\ \hline
-  Get a list of all nodes in the graph  & \code{std::vector<node>get_nodes()} \\ \hline
-  Get a list of all edges in the graph  & \code{std::vector<edge> get_edges()} \\ \hline
-  Get a list of in-neighbors for a node & \code{std::vector<node> get_in_nodes(node_id id)} \\ \hline
-  Get a list of out-neighbors for a node & \code{std::vector<node> get_out_nodes(node_id id)} \\ \hline
-  Get a list of in-edges for a node      & \code{std::vector<edge> get_in_edges(node_id id)} \\ \hline
-  Get a list of out-edges for a node     & \code{std::vector<edge> get_out_edges(node_id id)} \\ \hline
-  Get a list of IDs of in-neighbors for a node & \code{std::vector<node_id> get_in_node_ids(node_id id)} \\ \hline
-  Get a list of IDs of out-neighbors for a node & \code{std::vector<node_id> get_out_nodes_id(node_id id)} \\ \hline
-  Delete the edge between src and dst   & \code{delete_edge (node_id src, node_id dst)} \\ \hline
-  Update edge with new weight   & \code{update_edge_weight (node_id src, node_id dst, weight w)} \\ \hline
+  Add node to graph         &\apicall{void add_node(node n)}                 \\ \hline
+  Add edge to graph         &\apicall{void add_edge(edge e)}                          \\ \hline
+  Check if node exists      &\apicall{bool has_node(node_id id)}                             \\ \hline
+  Check if edge exists      &\apicall{bool has_edge(node_id src, node_id dst)}                 \\ \hline
+  Get the edge between src and dst      & \apicall{edge get_edge(node_id src, node_id dst)} \\ \hline
+  Get the node identified by the ID     & \apicall{node get_node(node_id id)} \\ \hline
+  Get a random node from the graph      & \apicall{node get_random_node()} \\ \hline
+  Delete the node with the given ID     &\apicall{void delete_node(node_id id)} \\ \hline
+  Get in-degree for node with ID given  & \apicall{node_id get_in_degree(node_id id)} \\ \hline
+  Get out-degree for node with ID given & \apicall{node_id get_out_degree(node_id id)} \\ \hline
+  Get a list of all nodes in the graph  & \apicall{std::vector<node>get_nodes()} \\ \hline
+  Get a list of all edges in the graph  & \apicall{std::vector<edge> get_edges()} \\ \hline
+  Get a list of in-neighbors for a node & \apicall{std::vector<node> get_in_nodes(node_id id)} \\ \hline
+  Get a list of out-neighbors for a node & \apicall{std::vector<node> get_out_nodes(node_id id)} \\ \hline
+  Get a list of in-edges for a node      & \apicall{std::vector<edge> get_in_edges(node_id id)} \\ \hline
+  Get a list of out-edges for a node     & \apicall{std::vector<edge> get_out_edges(node_id id)} \\ \hline
+  Get a list of IDs of in-neighbors for a node & \apicall{std::vector<node_id> get_in_node_ids(node_id id)} \\ \hline
+  Get a list of IDs of out-neighbors for a node & \apicall{std::vector<node_id> get_out_nodes_id(node_id id)} \\ \hline
+  Delete the edge between src and dst   & \apicall{delete_edge (node_id src, node_id dst)} \\ \hline
+  Update edge with new weight   & \apicall{update_edge_weight (node_id src, node_id dst, weight w)} \\ \hline
   \rowcolor[HTML]{FFE135}
   \textbf{Iterator Functions}     &\textbf{}\\ \hline
-  Get a cursor to the out-neighborhood    &\code{OutCursor *get_outnbd_iter()} \\ \hline
-  Get a cursor to the in-neighborhood     &\code{InCursor *get_innbd_iter()} \\ \hline
-  Get a cursor to the nodes               &\code{NodeCursor *get_node_iter()} \\ \hline
-  Get a cursor to the edges               &\code{NodeCursor *get_edge_iter()} \\ \hline
+  Get a cursor to the out-neighborhood    &\apicall{OutCursor *get_outnbd_iter()} \\ \hline
+  Get a cursor to the in-neighborhood     &\apicall{InCursor *get_innbd_iter()} \\ \hline
+  Get a cursor to the nodes               &\apicall{NodeCursor *get_node_iter()} \\ \hline
+  Get a cursor to the edges               &\apicall{NodeCursor *get_edge_iter()} \\ \hline
   \rowcolor[HTML]{FFE135}
   \textbf{Metadata Functions}     &\textbf{}\\ \hline
-  Get the max node ID in the graph & \code{node_id get_max_node_id()} \\ \hline
-  Get the min node ID in the graph & \code{node_id get_min_node_id()} \\ \hline
-  Get the number of nodes in the Graph  & \code{node_id get_num_nodes()} \\ \hline
-  Get the number of edges in the graph  & \code{node_id get_num_edges()} \\ \hline
-  Is the graph directed? & \code{bool is_directed()} \\ \hline
-  Is the graph weighted? & \code{bool is_weighted()} \\ \hline
-  Sync metadata to the table & \code{void sync_metadata()} \\ \hline
+  Get the max node ID in the graph & \apicall{node_id get_max_node_id()} \\ \hline
+  Get the min node ID in the graph & \apicall{node_id get_min_node_id()} \\ \hline
+  Get the number of nodes in the Graph  & \apicall{node_id get_num_nodes()} \\ \hline
+  Get the number of edges in the graph  & \apicall{node_id get_num_edges()} \\ \hline
+  Is the graph directed? & \apicall{bool is_directed()} \\ \hline
+  Is the graph weighted? & \apicall{bool is_weighted()} \\ \hline
+  Sync metadata to the table & \apicall{void sync_metadata()} \\ \hline
   \rowcolor[HTML]{FFE135}
   \textbf{Management Functions}     &\textbf{}\\ \hline
-  Create new snapshot of the graph  & \code{void create_snapshot()} \\ \hline
-  Close the graph database & \code{void close()} \\ \hline
-  Close all cursors & \code{void close_all_cursors()} \\ \hline
+  Create new snapshot of the graph  & \apicall{void create_snapshot()} \\ \hline
+  Close the graph database & \apicall{void close()} \\ \hline
+  Close all cursors & \apicall{void close_all_cursors()} \\ \hline
 
-  \end{tabular}
+  \end{tabularx}
 \caption{Graph API interfaces that are implemented by each representation in \project{}. These interfaces handle the structure of the graph; interfaces for metadata and property updates are introduced in~\autoref{chapter:propertyGraphs}.}
 \label{tab:graphapi}
 \end{table}

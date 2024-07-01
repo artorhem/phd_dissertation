@@ -2,34 +2,35 @@
 \label{chapter:propertyGraphs}
 
 
-  \lstdefinestyle{cpp}{
-  language=C++,
-  morekeywords={constexpr, node_id, noexcept, node, edge, weight}
+\lstdefinestyle{cpp}{  
+language=C++,
+morekeywords={constexpr, node_id, noexcept, node, edge, weight, string}
 }
-\lstset{style=cpp}
+\lstset{style=cpp,basicstyle=\small\ttfamily}
 \begin{table}[ht!]
   \centering
   \footnotesize
-  \begin{tabular}{|l|l|}
+  \begin{tabularx}{\textwidth}{|>{\hsize=\dimexpr 0.3\hsize+0.1\tabcolsep+0.2\arrayrulewidth\relax}X
+    |>{\hsize=\dimexpr 0.7\hsize-0.1\tabcolsep-0.2\arrayrulewidth\relax}X|}
   \hline
   \rowcolor[HTML]{FFE135}
   \textbf{Metadata Operations}          & \textbf{} \\ \hline
-  Create/update/delete a label          & \lstinline$void create_label (std::string label_key, std::string label_value)$ \\ \hline
-  Get label from a name                 & \lstinline$std::string get_label (std::string label_key)$ \\ \hline
-  Create/update/delete a property type  & \lstinline$void create_property (std::string property_key, std::string property_value)$ \\ \hline
+  Create/update/delete a label          & \apicall{void create_label (string label_key, string label_value)} \\ \hline
+  Get label from a name                 & \apicall{string get_label (string label_key)} \\ \hline
+  Create/update/delete a property type  & \apicall{void create_property (string property_key, string property_value} \\ \hline
   \rowcolor[HTML]{FFE135}
   \textbf{Label Operations}          & \textbf{} \\ \hline
-  Add/remove a label to/from a vertex    & \lstinline$void set_node_label (node_id id, std::string label)$ \\ \hline
-  Get all labels of a vertex            & \lstinline$std::vector<string> get_label (node_id id)$ \\ \hline
-  Add/update/remove property of a vertex  & \lstinline$void set_node_property (node_id id, std::string key, std::string value)$ \\ \hline
-  Get all properties of a vertex  & \lstinline$std::vector<string> get_property (node_id id, std::string key)$ \\ \hline
-  Remove all properties of a vertex  & \lstinline$void remove_node_property (node_id id, std::string key)$ \\ \hline
-  Add/remove a label to/from an edge    & \lstinline$void set_edge_label (node_id src, node_id dst, std::string label)$ \\ \hline
-  Get all labels of an edge            & \lstinline$std::vector<string> get_edge_label (node_id src, node_id dst)$ \\ \hline
-  Add/update/remove property of an edge  & \lstinline$void set_edge_property (node_id src, node_id dst, std::string key, std::string value)$ \\ \hline
-  Get all properties of an edge  & \lstinline$std::vector<string> get_edge_property (node_id src, node_id dst, std::string key)$ \\ \hline
-  Remove all properties of an edge  & \lstinline$void remove_edge_property (node_id src, node_id dst, std::string key)$ \\ \hline
-  \end{tabular}
+  Add/remove a label to/from a vertex    &  \apicall{void set_node_label (node_id id, string label)} \\ \hline
+  Get all labels of a vertex            & \apicall{std::vector<string> get_label (node_id id)} \\ \hline
+  Add/update/remove property of a vertex  & \apicall{void set_node_property (node_id id, string key, string value)} \\ \hline
+  Get all properties of a vertex  & \apicall{std::vector<string> get_property (node_id id, string key)} \\ \hline
+  Remove all properties of a vertex  & \apicall{void remove_node_property (node_id id, string key)} \\ \hline
+  Add/remove a label to/from an edge    & \apicall{void set_edge_label (node_id src, node_id dst, string label)} \\ \hline
+  Get all labels of an edge            & \apicall{std::vector<string> get_edge_label (node_id src, node_id dst)} \\ \hline
+  Add/update/remove property of an edge  & \apicall{void set_edge_property (node_id src, node_id dst, string key, string value)} \\ \hline
+  Get all properties of an edge  & \apicall{std::vector<string> get_edge_property (node_id src, node_id dst, string key)} \\ \hline
+  Remove all properties of an edge  & \apicall{void remove_edge_property (node_id src, node_id dst, string key)} \\ \hline
+  \end{tabularx}
 \caption{Graph API }
 \label{tab:graphapi}
 \end{table}
@@ -37,3 +38,56 @@
 \PM{{from Margo Overleaf comments:}}
 There are two proposals for storing property and label information – inline with the element or separately using column stores
 We provide mechanisms to do both and perform a comparative study of how they perform under a variety of workloads
+
+\begin{figure}[htbp]
+  \centering
+  \begin{subfigure}[b]{0.4\textwidth}
+      \centering
+      \includegraphics[scale=0.70]{content/fig/prop_store/adjlist_vertex_inline.pdf}
+      \caption{Inline vertex properties in adjacency list}
+      \label{fig:adj_vertex_inline}
+  \end{subfigure}
+  \hspace{0.03\textwidth}
+  \begin{subfigure}[b]{0.53\textwidth}
+      \centering
+      \includegraphics[width=\textwidth]{content/fig/prop_store/adjlist_out_inline.pdf}
+      \caption{Inline out-edge properties in adjacency list representation}
+      \label{fig:adj_out_inline}
+  \end{subfigure}
+  
+  \vspace{0.05\textwidth}
+  
+  \begin{subfigure}[b]{0.4\textwidth}
+      \centering
+      \includegraphics[width=\textwidth, scale=0.50]{content/fig/prop_store/adjlist_vertex_colgroup.pdf}
+      \caption{Vertex properties using column groups in adjacency list representation}
+      \label{fig:adj_vertex_colgroup}
+  \end{subfigure}
+  \hspace{0.03\textwidth}
+  \begin{subfigure}[b]{0.53\textwidth}
+      \centering
+      \includegraphics[scale=0.50]{content/fig/prop_store/adjlist_out_colgroup.pdf}
+      \caption{Out-edge properties using column groups in adjacency list representation}
+      \label{fig:adj_out_colgroup}
+  \end{subfigure}
+  \caption{Two strategies for property storage in the Adjacency List representation. The first strategy stores properties inline with the vertex or edge (\autoref{fig:adj_vertex_inline} and \autoref{fig:adj_out_inline}), while the second strategy stores properties in separate column groups (\autoref{fig:adj_vertex_colgroup} and \autoref{fig:adj_out_colgroup}).}
+\end{figure}
+
+\begin{figure}[htbp]
+  \centering
+  \begin{subfigure}[b]{0.45\textwidth}
+      \centering
+      \includegraphics[width=\textwidth, scale=0.50]{content/fig/prop_store/Ekey_inline.pdf}
+      \caption{Inline properties in EdgeKey}
+      \label{fig:ekey_inline}
+  \end{subfigure}
+  \hspace{0.05\textwidth}
+  \begin{subfigure}[b]{0.45\textwidth}
+      \centering
+      \includegraphics[scale=0.60]{content/fig/prop_store/Ekey_colgroup.pdf}
+      \caption{Out-edge properties using column groups in EdgeKey representation}
+      \label{fig:ekey_colgroup}
+  \end{subfigure}
+  \caption{Two strategies for property storage in the EdgeKey representation. The first strategy stores properties inline with the vertex or edge (\autoref{fig:ekey_inline}), while the second strategy stores properties in separate column groups (\autoref{fig:ekey_colgroup}).}
+  \label{fig:prop_store_adjlist}
+\end{figure}
