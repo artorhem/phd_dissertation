@@ -73,3 +73,25 @@
     return dst;
 }
 \end{lstlisting}
+
+Let us examine, for instance, our modifications to the \ac{GAPBS} PageRank implementation to 
+use ~\api{}, as shown in~\autoref{lst:pagerank_graphapi}.
+The basic structure of the PageRank implementation is unchanged from the original \ac{GAPBS}, but with changes introduced to use the iterator classes and the \api{}.
+To use OpenMP construct \unix{parallel for}, usually one can just add a pragma directive before the loop, and the compiler will automatically parallelize the loop.
+However, automatic parallelization based on the loop construct is not possible in our system because we need each thread to construct its private graph handle and iterator.
+Additionally, automatic parallelization does not allow us to statically assign iterator ranges to the threads as we do in the \code{calculate_thread_offsets()} method.
+
+To remedy this, we have to manually parallelize the loop and assign each thread a range of nodes to work on.
+We use the \code{calculate_thread_offsets()} method to calculate the key range for each thread during GraphEngine instantiation. 
+In the OpenMP parallel block, each thread uses the \code{get_key_range()} method to get the key range for itself.
+
+\ac{GAPBS} uses a few utility classes that it uses to store algorithm state and updates.
+The \code{pvector} is a modified vector class that allows parallel initializations and resizing.
+C++ standard library's \code{std::vector} is not thread-safe and always serially initializes the elements when resizing. 
+\code{pvector}, on the other hand, initializes a new vector in parallel but does not initialize the elements when resizing.
+\code{sliding\_queue} is a double-buffered queue class that allows atomic appends to a buffer that are not visible until the \code{SlideWindow()} method is called.
+
+These utility classes are memory-based and are destroyed when the application is closed.
+\project{}, however,  does not wish to lose any algorithmic state that is stored in these utility classes, and strives to provide a mechanism to persist this state to disk for future use.
+To do so, we modified the \code{pvector} and \code{sliding_queue} classes to use an \unix{mmap} region as their internal buffer for storing the state.
+The basic functionality remains unchanged, however, the destructor of these classes now calls the \code{msync()} system call to persist the state to disk.
