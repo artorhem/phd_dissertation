@@ -1,20 +1,47 @@
 \chapter{Storing Property Graphs}
 \label{chapter:propertyGraphs}
 
-We now discuss our future work to store property graphs
-\section{additional API calls for property and label management}
+We now discuss our future work to store property graphs in \project{} and the design decisions that we need to make.
+There are two proposals for storing property and label information – inline with the element or separately using column stores.
+We provide mechanisms to do both and perform a comparative study of how they perform under a variety of workloads.
 
-\section{Property Storage: Embedded vs. Split}
+\section{Example Property Graph Schema}
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[scale=0.5,width=\textwidth]{content/fig/prop_store/ldbc_finbench_schema.jpeg}
+  \caption{The data schema used in the LDBC Financial Benchmark. The schema consists of 5 vertex types and 9 edge types. Each vertex type has a set of properties, and each edge type has a set of properties. The schema is a property graph schema that defines the types of vertices and edges and the properties associated with them.}
+  \label{fig:property_graph_schema}
+\end{figure}
 
-\section{Label Storage: managing duplication}
+We use the LDBC Financial Benchmark~\cite{qi2023ldbcfinancialbenchmark} schema to aid our discussion of property and label storage in \project{}.
+As shown in \autoref{fig:property_graph_schema}, the schema consists of 5 vertex types and 9 edge types.
+Each vertex type has a set of properties, and each edge type has a set of properties.
 
-\section{Research Questions}
+Translating this schema into a~\project{} compatible schema, we have to make the following decisions:
+\begin{enumerate}
+  \item How should we store \textbf{vertex properties} in our representations? Should we store them inline with the vertex or separately using column stores?
+  \item How should we store \textbf{edge properties} in our representations? This too can be stored inline with the edge or separately using column stores.
+  \item How should we handle the case of \textbf{non-unique vertex IDs across different vertex types}? Should we use a single vertex ID space or separate vertex ID spaces for each vertex type to ensure uniqueness?
+  \item How should we handle the case where \textbf{edges of different types have \emph{exactly} the same source and destination vertices}? Should we use a single edge ID space or separate edge ID spaces for each edge type to ensure uniqueness? For example, in the LDBC Financial Benchmark, the edge types \texttt{transfer} and \texttt{withdraw} connect the same vertex types \texttt{account} and \texttt{person}. We need to ensure that we can distinguish different edges connecting the same nodes \texttt{transfer} and \texttt{withdraw}.
+  \item How should we index the graph such that we can quickly access vertices and edges based on their labels and properties? 
+  \item How can we make the index creation schema-agnostic so that it can be used with any property graph schema?
+\end{enumerate}
+
+We have identified strategies for items 1 - 4 and will discuss them in the following sections. Indexing the graph based on labels and properties is a future work item that we will discuss in \autoref{chap:specialized_indexing}.
+
+\section{Additional API calls for property and label management}
+In addition to the existing API calls for graph traversal~\autoref{tab:graphapi}, we need to add API calls to manage properties and labels.
+We propose the API calls in ~\autoref{tab:propertyAPI} to manage properties and labels in the graph.
+
+This API will allow users to manage properties and labels in the graph.
+These API calls will have similar semantics to the existing API calls for graph traversal, and follow the same design principles we outlined in \autoref{arch:graphAPI}.
+
 \lstdefinestyle{cpp}{  
 language=C++,
 morekeywords={constexpr, node_id, noexcept, node, edge, weight, string}
 }
 \lstset{style=cpp,basicstyle=\small\ttfamily}
-\begin{table}[ht!]
+\begin{table}[htbp!]
   \centering
   \footnotesize
   \begin{tabularx}{\textwidth}{|>{\hsize=\dimexpr 0.3\hsize+0.1\tabcolsep+0.2\arrayrulewidth\relax}X
@@ -38,13 +65,33 @@ morekeywords={constexpr, node_id, noexcept, node, edge, weight, string}
   Get all properties of an edge  & \apicall{std::vector<string> get_edge_property (node_id src, node_id dst, string key)} \\ \hline
   Remove all properties of an edge  & \apicall{void remove_edge_property (node_id src, node_id dst, string key)} \\ \hline
   \end{tabularx}
-\caption{Graph API }
-\label{tab:graphapi}
+\caption{Graph API extensions to manage properties and labels in the graph.}
+\label{tab:propertyAPI}
 \end{table}
 
-\PM{{from Margo Overleaf comments:}}
-There are two proposals for storing property and label information – inline with the element or separately using column stores
-We provide mechanisms to do both and perform a comparative study of how they perform under a variety of workloads
+
+\section{Property Storage: Embedded vs. Split}
+We can store properties in two ways: embedded with the vertex or edge, or separately using column stores.
+We hypothesize that the embedded approach is more efficient for small graphs or graphs with few properties.
+On the other hand, the split approach is likely more efficient for large graphs or graphs with many properties.
+We will implement both approaches in \project{} and compare their performance under the LDBC Financial Benchmark workload.
+Different queries access different and varying numbers of properties, and we will study how the two approaches perform under these workloads.
+We will also study how the two approaches perform under different graph sizes and property sizes.
+
+Supporting attributes in the \textit{Edge Key} representation is straightforward.
+We can store the attributes inline with the vertex/edge (shown in ~\autoref{fig:ekey_inline}) or separately using column stores (shown in ~\autoref{fig:ekey_colgroup}).
+Essentially, we need to add a new column to each row to hold the vertex/edge attributes as a raw byte array.
+Let's examine how to store properties in the adjacency list representation.
+We can store the vertex properties inline with the vertex (shown in ~\autoref{fig:adj_vertex_inline}) or separately using column stores (shown in ~\autoref{fig:adj_vertex_colgroup}).
+Similarly, we can store the edge properties inline with the out neighbor array(shown in ~\autoref{fig:adj_out_inline}) or separately using column stores (shown in ~\autoref{fig:adj_out_colgroup}).
+If we store properties separately, we need to store additional metadata to map which property belongs to which edge.
+We call this the offset array, which stores the starting index of each property for each edge.
+This allows us to have a variable number of properties for each edge.
+
+Regardless of the storage format, each individual edge or vertex's properties are stored as a raw byte array.
+We assume a serialization format like Protocol Buffers~\cite{protobufs} or FlatBuffers~\cite{FlatBuff57:online} to serialize and deserialize the properties to and from the byte array.
+
+\section{Label Storage: managing duplication}
 
 \begin{figure}[htbp]
   \centering
@@ -98,3 +145,5 @@ We provide mechanisms to do both and perform a comparative study of how they per
   \caption{Two strategies for property storage in the EdgeKey representation. The first strategy stores properties inline with the vertex or edge (\autoref{fig:ekey_inline}), while the second strategy stores properties in separate column groups (\autoref{fig:ekey_colgroup}).}
   \label{fig:prop_store_adjlist}
 \end{figure}
+
+\section{Research Questions}

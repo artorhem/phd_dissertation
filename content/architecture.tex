@@ -96,6 +96,7 @@ This API is, of course, in addition to all the basic \ac{CRUD} operations that a
 With the requirements for a graph database in mind, we decompose the architecture of \project{} into three components: efficient graph representations, a user-facing API for interacting with the graph, and a set of internal graph operators that serve as a glue between the two.
 
 \subsection{Graph API}
+\label{arch:graphAPI}
 The Graph API provides the user a means to interact with the graph that hides the underlying data structures or the storage backend being used to store the graph.
 This separation improves the portability of application code.
 The GraphAPI has three main components.
