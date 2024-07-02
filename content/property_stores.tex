@@ -23,7 +23,7 @@ Translating this schema into a~\project{} compatible schema, we have to make the
   \item How should we store \textbf{edge properties} in our representations? This too can be stored inline with the edge or separately using column stores.
   \item How should we handle the case of \textbf{non-unique vertex IDs across different vertex types}? Should we use a single vertex ID space or separate vertex ID spaces for each vertex type to ensure uniqueness?
   \item How should we handle the case where \textbf{edges of different types have \emph{exactly} the same source and destination vertices}? Should we use a single edge ID space or separate edge ID spaces for each edge type to ensure uniqueness? For example, in the LDBC Financial Benchmark, the edge types \texttt{transfer} and \texttt{withdraw} connect the same vertex types \texttt{account} and \texttt{person}. We need to ensure that we can distinguish different edges connecting the same nodes \texttt{transfer} and \texttt{withdraw}.
-  \item How should we index the graph such that we can quickly access vertices and edges based on their labels and properties? 
+  \item How should we index the graph such that we can quickly access vertices and edges based on their labels and properties? There has been prior work in this space~\cite{graphflowdb2021Gupta} to identify how to best use columnar storage for graph data. We will build on this work to create an index that can be used with any property graph schema.
   \item How can we make the index creation schema-agnostic so that it can be used with any property graph schema?
 \end{enumerate}
 
