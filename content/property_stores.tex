@@ -71,27 +71,29 @@ morekeywords={constexpr, node_id, noexcept, node, edge, weight, string}
 
 
 \section{Property Storage: Embedded vs. Split}
+\newmdenv[
+  backgroundcolor=yellow,
+  linecolor=yellow,
+  innertopmargin=0pt,
+  innerbottommargin=0pt,
+  innerleftmargin=0pt,
+  innerrightmargin=0pt,
+  leftmargin=0pt,
+  rightmargin=0pt
+]{highlight}
+\begin{highlight}
+The following sections have been taken from Haotian "Jack" Gong's undergraduate thesis.
+He worked on storing labels and properties in \project{} for his thesis.
+I have made some modifications to the text to fit the context of this document.
+I will be using his work as a starting point for the implementation of property storage in \project{}.
+\end{highlight}
+
 We can store properties in two ways: embedded with the vertex or edge, or separately using column stores.
 We hypothesize that the embedded approach is more efficient for small graphs or graphs with few properties.
 On the other hand, the split approach is likely more efficient for large graphs or graphs with many properties.
 We will implement both approaches in \project{} and compare their performance under the LDBC Financial Benchmark workload.
 Different queries access different and varying numbers of properties, and we will study how the two approaches perform under these workloads.
 We will also study how the two approaches perform under different graph sizes and property sizes.
-
-Supporting attributes in the \textit{Edge Key} representation is straightforward.
-We can store the attributes inline with the vertex/edge (shown in ~\autoref{fig:ekey_inline}) or separately using column stores (shown in ~\autoref{fig:ekey_colgroup}).
-Essentially, we need to add a new column to each row to hold the vertex/edge attributes as a raw byte array.
-Let's examine how to store properties in the adjacency list representation.
-We can store the vertex properties inline with the vertex (shown in ~\autoref{fig:adj_vertex_inline}) or separately using column stores (shown in ~\autoref{fig:adj_vertex_colgroup}).
-Similarly, we can store the edge properties inline with the out neighbor array(shown in ~\autoref{fig:adj_out_inline}) or separately using column stores (shown in ~\autoref{fig:adj_out_colgroup}).
-If we store properties separately, we need to store additional metadata to map which property belongs to which edge.
-We call this the offset array, which stores the starting index of each property for each edge.
-This allows us to have a variable number of properties for each edge.
-
-Regardless of the storage format, each individual edge or vertex's properties are stored as a raw byte array.
-We assume a serialization format like Protocol Buffers~\cite{protobufs} or FlatBuffers~\cite{FlatBuff57:online} to serialize and deserialize the properties to and from the byte array.
-
-\section{Label Storage: managing duplication}
 
 \begin{figure}[htbp]
   \centering
@@ -146,4 +148,104 @@ We assume a serialization format like Protocol Buffers~\cite{protobufs} or FlatB
   \label{fig:prop_store_adjlist}
 \end{figure}
 
+
+Supporting attributes in the \textit{Edge Key} representation is straightforward.
+We can store the attributes inline with the vertex/edge (shown in ~\autoref{fig:ekey_inline}) or separately using column stores (shown in ~\autoref{fig:ekey_colgroup}).
+Essentially, we need to add a new column to each row to hold the vertex/edge attributes as a raw byte array.
+Let's examine how to store properties in the adjacency list representation.
+We can store the vertex properties inline with the vertex (shown in ~\autoref{fig:adj_vertex_inline}) or separately using column stores (shown in ~\autoref{fig:adj_vertex_colgroup}).
+Similarly, we can store the edge properties inline with the out neighbor array(shown in ~\autoref{fig:adj_out_inline}) or separately using column stores (shown in ~\autoref{fig:adj_out_colgroup}).
+If we store properties separately, we need to store additional metadata to map which property belongs to which edge.
+We call this the offset array, which stores the starting index of each property for each edge.
+This allows us to have a variable number of properties for each edge.
+
+Regardless of the storage format, each individual edge or vertex's properties are stored as a raw byte array.
+We assume a serialization format like Protocol Buffers~\cite{protobufs} or FlatBuffers~\cite{FlatBuff57:online} to serialize and deserialize the properties to and from the byte array.
+
+\section{Label Storage}
+Our system also needs to support the notion of different vertex labels for realistic graph workloads from LDBC~\cite{qi2023ldbcfinancialbenchmark}.
+The LDBC Financial Benchmark schema allows there to be two types of edges connecting nodes of \texttt{account} type -- \texttt{transfer} and \texttt{withdraw}.
+
+There are a few options to accomplish this: duplicate our Adjacency List and Edge Key representation for each type (label) of vertex.
+This implies that we are grouping each different type of vertex as a separate graph, with edges possibly going between these ``layers" of graphs.
+Alternatively, we can place vertices of different types within a single representation overall and associate a ``label" attribute with each of the vertices. Both approaches could attain the same functionality, but each has its associated problems.
+
+\subsection{Duplicating Representations}
+Storing each label in a separate representation is the most straightforward approach.
+This approach is very similar to materializing different views of the graph for each label.
+However, this approach is not scalable as it complicates our code and is more expensive to query.
+
+Consider the scenario where we have two vertex types: \texttt{account} and \texttt{business}, and an edge type \texttt{transfer} connecting the two.
+An account can transfer money to a business, and we want to produce the sum of all the \texttt{transfer} values to a business from an account with ID $x$.
+To do this, we need to query the \texttt{transfer} edge table for all edges with source vertex ID $x$.
+Then for each edge, we need to query the destination vertex's label to determine if it is a business.
+This requires at least one access to another representation's table which stores the vertex information.
+This scenario is illustrated in Figure \ref{fig:RelationalScenario1}.
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[scale=0.5]{content/fig/prop_store/two_reps.pdf}
+    \caption{Assume that we are maintaining two Edge Key representations, one for Accounts and the other for Businesses. While iterating through the neighborhood of the Account Edge Key table, we have to repeatedly query into the Business Edge Key table. The Adjacency List case is similar.}
+    \label{fig:RelationalScenario1}
+\end{figure}
+
+\subsection{Embedding Attributes}
+
+To avoid the added complexity, another option is to store a ``type" attribute in our representations. Associating a ``type" with the vertex table still requires an extra lookup of the attribute while we are querying from an edge. Instead, associating a new attribute in the form of ``source type - destination type" with each in-/out-neighborhood table in the Adjacency List representation, and the edge table in Edge Key representation can effectively eliminate the extra lookup. 
+
+However, having multiple ``source type - destination type" pairs requires us to scan the entire neighborhood of a vertex.
+This situation is shown in \autoref{fig:RelationalScenario2}.
+
+\begin{figure}[htbp]
+  \centering
+  
+  \begin{subfigure}[b]{0.23\textwidth}
+    \centering
+    \includegraphics[width=\linewidth]{content/fig/prop_store/relational_scenario_2a.pdf}
+    \caption{Edge Key representation}
+    \label{fig:relational2a}
+  \end{subfigure}
+  \hfill
+  \begin{subfigure}[b]{0.73\textwidth}
+    \centering
+    \includegraphics[width=\linewidth]{content/fig/prop_store/relational_scenario_2b.pdf}
+    \caption{Adjacency List representation}
+    \label{fig:subfigure2a}
+  \end{subfigure}
+  
+  \caption{Using the ``source type - destination type" attribute eliminates the jumping between tables but creates non-sequential accesses in both representations.}
+  \label{fig:RelationalScenario2}
+\end{figure}
+
+\subsection{Vertex Re-labelling}
+
+Having realized the issues underlying these two approaches, we devise a simple method to handle typed node queries: partitioning the vertex ID space according to node type and re-mapping the original vertex IDs.
+We divide the entire vertex ID space up before all insertions.
+The vertex ID space is large: from 0 to $2^{32}$\footnote{can easily be changed to $2^{64}$ by using 64-bit integers to store IDs}, so we assume that insertions for vertices of each type will not exceed that partitioned limit.
+
+This not only gives us sequential access when we traverse neighboring vertices of a certain type but also allows us to store no additional columns in the data tables.
+We only need to maintain a 1-1 mapping between the original vertex IDs and the new vertex IDs that implicitly embeds type information.
+We present a diagram of this model in figure \ref{fig:RelationalScenario3}.
+
+\begin{figure}[h]
+    \centering
+    \makebox[\textwidth][c]{\includegraphics[width=\textwidth]{content/fig/prop_store/relational_scenario_3.pdf}}
+    \caption{Paritioning and re-assigning the vertex id space according to vertex types gives us sequential access without having to scan extra entries in the neighbourhood.}
+    \label{fig:RelationalScenario3}   % label should change
+\end{figure}
+
+This change is currently implemented outside \project{} as a user-space framework on top of the Graph API.
+We pass the re-labeled vertex IDs into the database and map them back to the original vertex IDs when we obtain vertex ID results.
+Additionally, we pass partitioned vertex ID ranges to the iterators for them to determine when to pause iteration when we query for specific typed nodes.
+We assume vertex membership changes are rare -- to do so we will need to delete and re-insert the vertex with all its related edges so that it is associated with a newly mapped vertex ID.
+
+
+
 \section{Research Questions}
+
+We will evaluate the two property storage strategies under different workloads to answer the following research questions:
+\begin{enumerate}
+\item How does the performance of the two property storage strategies compare under different queries in LDBC Financial Benchmark? Different queries access different and varying numbers of properties, and we will study how the two approaches perform under these workloads. 
+\item How does the performance of the two property storage strategies compare under different graph sizes and property sizes? We will study how the two approaches perform under different graph sizes and property sizes.
+\item What is the slowdown of the two property storage strategies compared to a graph without properties? This lets us determine whether avoiding materializing the structure of the graph is worth the cost of storing properties and the slowdown in query performance.
+\end{enumerate}
