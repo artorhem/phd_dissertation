@@ -22,7 +22,7 @@ In this chapter, we evaluate the performance of ~\project{} on structural graphs
   \item How does ~\project{} perform compared to other \textbf{dynamic graph processing systems} on specialized graph analytics workloads? This corresponds to the case where the graph is updated frequently, and the graph processing is done in memory. We will assess the number of transactions that ~\project{} can handle per second. We will also evaluate the strong scaling of ~\project{} by increasing the number of threads and measuring the throughput.
   \item We need to assess the \textbf{overhead of storing graphs in our KV-store-compatible representations}. can we represent graphs in ~\project{} compared to other graph databases and out-of-core graph processing systems? If we enable compression, how does it affect the performance?
   \item How does the performance of ~\project{} change with \textbf{different graph sizes and types}? We know that the performance of graph processing systems is highly dependent on the graph structure. We want to understand how ~\project{} performs on different types of graphs (e.g., social networks, web graphs, uniform random graphs, and low-degree high-diameter graphs such as road networks).
-  \item Can we use ~\project{}'s \api{} to write \textbf{edge-centric and vertex-centric algorithms}? Does one representation perform better than the other for these algorithms? We are not interested in measuring the performance of these algorithms, but rather in understanding how the \api{} can be used to implement them\footnote{Margo's dancing elephant analogy: "It's not about how well the elephant dances, but that it dances at all."}.
+  \item Can we use ~\project{}'s \api{} to write \textbf{edge-centric and vertex-centric algorithms}? Does one representation perform better than the other for these algorithms? We are not interested in measuring the performance of these algorithms, but rather in understanding how the \api{} can be used to implement them\footnote{Margo's dancing elephant analogy: "It's not about how well the bear dances, but that it dances at all."}.
 \end{enumerate}
 
 \section{Datasets and Benchmarks}
@@ -95,7 +95,7 @@ In particular, we compare ~\project{} against the systems mentioned in~\autoref{
 The Grafaree project mentioned in~\autoref{tab:competitors} is an in-house dynamic graph processing system benchmark framework that has been designed by Milad Rezaei, a former M.Sc. student at UBC.
 It uses a custom read-write workload generator to evaluate the performance of dynamic graph processing systems under varying degrees of randomness of access.
 Like Teseo, Grafaree also uses \ac{GAPBS} kernels to evaluate the analytics performance of dynamic graph processing systems.
-We plan to use Grafaree to evaluate the performance of ~\project{} on dynamic graph processing workloads, and there is still some work to be done to get the \project{} driver ready for Grafaree (the timeline for this is discussed in Section~\autoref{sec:future-timeline}).
+We plan to use Grafaree to evaluate the performance of ~\project{} on dynamic graph processing workloads, and there is still some work to be done to get the \project{} driver ready for Grafaree (the timeline for this is discussed in ~\autoref{sec:future-timeline}).
 
 \begin{table}[]
   \centering
