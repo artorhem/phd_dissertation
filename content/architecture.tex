@@ -42,13 +42,12 @@ A graph database, therefore should provide the following features:
 \end{itemize}
 
 
-As motivation for this list of requirements, let us examine the following running use case: computing PageRank on a graph.
+To illustrate how these requirements combine in the context of a real application, for this list of requirements, let us examine the following running use case: computing PageRank on a graph.
 The pseudocode for the PageRank algorithm is shown in~\autoref{alg:PageRankPullGS}.
-
 \begin{algorithm}
   \begin{algorithmic}[1]
   \Require Graph $G = (V,E)$ where $V$ is the set of nodes and $E$ is the set of edges
-  \Require Damping factor $kDamp \in (0, 1)$, typically $d = 0.85$
+  \Require Damping factor $kDamp \in (0, 1)$, typically $kDamp = 0.85$
   \Require Tolerance $\epsilon > 0$, typically $10^{-4}$
   \Ensure PageRank vector Scores
   \State $init\_score = \frac{1.0}{|V|}$
@@ -76,16 +75,16 @@ The pseudocode for the PageRank algorithm is shown in~\autoref{alg:PageRankPullG
   \EndFor \\
   \Return $Scores$
   \end{algorithmic}
-  \caption{PageRank Algorithm as specified in GAP Benchmark. The highlighted lines indicate different accesses: \highlightP{access to the vertex set}, \highlightB{access a vertex's neighborhood}, and access the \highlightM{the results vector}.}
+  \caption{PageRank Algorithm as specified in GAP Benchmark~\cite{beamer2015gap}: this PR algorithm allows new values to be immediately visible (like Gauss-Seidel method). The highlighted lines indicate different accesses: \highlightP{access to the vertex set}, \highlightB{access a vertex's neighborhood}, and access the \highlightM{the results vector}. For a vertex $v$, $N^+(v)$ denotes its out-neighborhood, and $N^-(v)$ is the node's in-neighborhood.}
   \label{alg:PageRankPullGS}
   \end{algorithm}
 
 
 To implement the PageRank algorithm in a graph database requires accessing the following distinct parts of the graph:
 \begin{itemize}
-\item We need to access the vertex set to initialize the scores and the outgoing values.
-\item For each node, we need to access the incoming neighbors to compute the incoming total and update scores
-\item We need to access the scores of each node to update the outgoing values
+\item We need to access the vertex set to initialize the scores and the outgoing values (\highlightP{lines 5, 10} in ).
+\item For each node, we need to access the incoming neighbors to compute the incoming total (\highlightB{line 12}) %and update scores
+\item As we process each vertex, we need to read and write \highlightM{(lines 15 and 16 respectively}) its own score and then compute its outgoing value \highlightM{(line 18)}.
 \end{itemize}
 
 For a graph database to support this workload efficiently, it must provide an API that allows the user to create a vertex iterator for efficient scans over the vertex set and a neighborhood iterator for efficiently scanning a vertex's neighborhood. 
@@ -237,8 +236,10 @@ This is important for graph processing workloads, which are mostly read-heavy.
 \ac{WT} can handle data sets that are much larger than RAM without sacrificing performance, which is important for storing large graphs.
 It is ACID compliant and uses optimistic concurrency control to provide transactions -- transactions in one thread do not block operations in other threads, but still provide snapshot isolation guarantees.
 This property gives us clear semantics for write-write conflicts to the same object in the database: all but one concurrent write to the same key will fail. 
-The more attractive feature that motivates our use of \ac{WT} is that a key-value store allows us to use different graph representations easily.
-Using \ac{RDBMS}s would solve the persistence problem, but it still does not allow flexibility in representations since everything is stored in tables.
+% The more attractive feature that motivates our use of \ac{WT} is that a key-value store allows us to use different graph representations easily.
+% Using \ac{RDBMS}s would solve the allow us to have persistent graph , but fails to give the kind of control we need to experiment with graph-friendly layouts..
+An attractive feature that motivates our use of a key-value store is that it allows us to use different graph representations easily. 
+The use of a KV store rather than a conventional database allows us to have persistent graphs while providing the control we need to experiment with graph-friendly layouts.
 
 The use of \ac{WT} has some implications for our implementation.
 \ac{WT} is an \textbf{embedded} key-value store, which means the database is part of the application.
@@ -259,7 +260,8 @@ The implication of these properties of the single-process multithreaded model is
 \end{figure}
 
 Another interesting feature of \ac{WT} is that it supports both emph{row stores} and \emph{column stores}.
-If we consider a table to be the logical representation of data in a database, then a row-oriented database stores the data one row after the other, while column-oriented databases store the data one column after the other.
+In a conventional relational database, each row in a table represents a specific entity, and each columns of the table stores an attribute of the entity represented by the row.
+In a row store, each entity is stored contigulously with all of its attributes; in a column store, all the values for a specific attribute are stored together, indexed by a row ID.
 \ac{WT} supports a generalization of a column store, called \emph{column groups}, in which multiple attributes can be stored together, indexed by the row-id, which is the WT primary key.
 %A column group holds the data for a set of columns in the primary key order of the table.
 An application describes the columns that comprise each column group when creating the table.
@@ -317,11 +319,12 @@ for (int i = 0; i < THREAD_NUM; i++)
 \end{tabular}
 
 An application first creates a \highlightP{\code{GraphEngine}} object (line 1).
-The \code{GraphEngine} class encapsulates the connection to the database and provides methods to create a graph handle and calculate the thread offsets (line 2).
+The \code{GraphEngine} class encapsulates the connection to the database.
+An application then calls the GraphEngine methods to create a graph handle (which encapsulates the session and associated cursors) and calculate the thread offsets (line 2).
 The thread offsets are used to divide the graph into equal parts for parallel processing.
 
 A graph handle is a reference to an object of type  \highlightB{\code{GraphBase}} with which applications interact with the graph.
-The \code{GraphBase} object is created using the \code{create\_graph\_handle()} method of the \code{GraphEngine} object, and the instantiation of this object is thread-safe.
+The \code{GraphBase} object is created using the \code{create\_graph\_handle()} method of the \code{GraphEngine} object.
 The \code{GraphBase} object encapsulates the session and cursor objects and is the API end-point with which the user interacts.
 It provides all methods listed in ~\autoref{tab:graphapi}, including the iterator methods.
 
@@ -344,13 +347,13 @@ We do not discuss it further in this thesis.
 \project{} uses 0 and \unix{UINT32\_MAX} to identify out-of-band values for cursor traversals, therefore these are reserved IDs not available to the user.
 
 
-During early performance analysis, we discovered that our graph database scan was spending a significant amount of time in key comparison.
-While the data is stored in a lexicographic order, the database needs to do some work to compare keys and determine if they are equal.
-These comparisons are easy to do on byte arrays and \unix{memcmp} is used to compare keys.
-\wt{} provides processor-specific optimizations for comparing keys (the lex compare function), and we use these optimizations to speed up the comparison process.
-To make the comparison process even faster, we store the keys in a big-endian format.
-Lexicographic comparison works by moving from most significant to least significant which means that storing the data in big-endian format would make the comparison faster.
-The keys are converted to the big-endian format by using the compiler intrinsic \unix{\_\_builtin\_bswap32} before being handed off to \wt{}.
+% During early performance analysis, we discovered that our graph database scan was spending a significant amount of time in key comparison.
+% While the data is stored in a lexicographic order, the database needs to do some work to compare keys and determine if they are equal.
+% These comparisons are easy to do on byte arrays and \unix{memcmp} is used to compare keys.
+% \wt{} provides processor-specific optimizations for comparing keys (the lex compare function), and we use these optimizations to speed up the comparison process.
+% To make the comparison process even faster, we store the keys in a big-endian format.
+% Lexicographic comparison works by moving from most significant to least significant which means that storing the data in big-endian format would make the comparison faster.
+% The keys are converted to the big-endian format by using the compiler intrinsic \unix{\_\_builtin\_bswap32} before being handed off to \wt{}.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \begin{figure}[h]
@@ -391,17 +394,17 @@ The keys are converted to the big-endian format by using the compiler intrinsic 
       \label{fig:arch:metadata}
   \end{subfigure}
   
-  \caption{Graph Representations supported by Flexograph. Each representation also maintains a metadata table (d) to store the graph properties, such as FILLMEIN. \texttt{\textbf{u}} in this diagram denotes a serialized byte array, \texttt{\textbf{I}} denotes an unsigned integer for storing degrees, and \texttt{\textbf{i}} denotes a signed integer used for edge weights.}
+  \caption{Graph Representations supported by Flexograph. Each representation also maintains a metadata table (d) to store the graph properties, such as maximum and minimum vertex ID, number of vertices and edges, and whether the graph is directed or weighted. \texttt{\textbf{u}} in this diagram denotes a serialized byte array, \texttt{\textbf{I}} denotes an unsigned integer for storing degrees, and \texttt{\textbf{i}} denotes a signed integer used for edge weights.}
   \label{fig:main_figure}
 \end{figure}
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 \subsubsection{Adjacency List Representation}
 \label{arch:adjlist}
-This representation is used to store the graph in a format that is most commonly used for graph analytics.
-The adjacency list for each node is explicitly stored as the data value in the AdjList tables.
-We also have tables to store the node and edge tables.
-The point of having the node and edge tables is to have a handy place to store any node and edge properties and labels. ~\autoref{fig:arch:adjlist_graph} illustrates this layout.
+% This representation is used to store the graph in a format that is commonly used for graph analytics.
+The primary storage for adjency lists are a pair of tables whose primary keys are vertex IDs and whose data values are the inbound/outbound adjacency list. 
+In addition, we maintain vertex and edge tables to store the properties and labels associated with each vertex/edge.
+~\autoref{fig:arch:adjlist_graph} illustrates this layout.
 The adjacency lists themselves, i.e., the \code{in\_nbd} and \code{out\_nbd} columns, arebinary arrays containing the keys of the neighbors adjacent to the vertex on which the entry is keyed.
 
 The Adjacency List representation does not require any secondary indexes. 
@@ -418,7 +421,7 @@ It exploits the fact that \wt{} stores keys in lexicographically sorted order.
 This means that if we have a composite key \code{(a,b)}, such that $a,b > 0$, and we want to scan all keys with \code{(a,*)}, we can just position the cursor at \code{(a,0)} and then iterate over all keys  \code{(a,*)} by sequentially moving the cursor.
 ~\autoref{fig:arch:edgekey_graph} shows the original EdgeKey Table.
 \code{src\_id} and \code{dst\_id} form a composite primary key of the table.
-We encode the type of object represented in the primary key: entries of the form node \code{(x, 0)} represent nodes and those of the form\code{(x,y)} represent edges. The value associated with a key is a two-entry byte array, whose meanings vary by the entry type:
+We encode the type of object represented in the primary key: entries of the form node \code{(x, 0)} represent nodes and those of the form\code{(x,y)} represent edges. The value associated with a key are two unsigned ints, whose meanings vary by the entry type:
 \begin{itemize}
   \item When the entry represents a node and the table is created to be \emph{read optimized}, values are the \code{in\_degree} and \code{out\_degree} respectively. The default, however, is to use a \emph{write optimized} layout, and these values are uninterpreted fields.
   \item For an edge, the first entry in the array contains the edge weight, if the graph is weighted. For an unweighted graph, \code{val1} is set to the out-of-band value. \code{val2} is always set to the out-of-band value for edges.
@@ -475,7 +478,7 @@ The basic interface for an iterator is shown in ~\autoref{fig:iterator_diagram} 
 }
 
 \begin{figure*}[h!]
-\begin{minipage}{0.5\textwidth}
+\begin{minipage}{0.50\textwidth}
 \begin{lstlisting}[label={lst:table_iterator},caption={Table Iterator base class},captionpos=b]
 class table_iterator
 {
@@ -499,7 +502,7 @@ void close() { cursor->close(cursor); }
 };
 \end{lstlisting}
 \end{minipage}
-\begin{minipage}{0.5\textwidth}
+\begin{minipage}{0.60\textwidth}
 \centering
 \includegraphics[scale=0.6]{content/fig/appendix/iterator_inherit_graph.pdf}
 \caption{Inheritance diagram for the iterator classes}
@@ -524,7 +527,7 @@ This is a common operation and is encapsulated in the \code{set_key()} method of
 
 \subsubsection{Managing Transient Properties}
 \label{arch:transient-attrs}
-There exist analytics tasks, e.g., PageRank, that compute an important property using an iterative algorithm, such as that shown in FILLMEIN. When the computation completes, the computed value should be stored persistently as a property in the database.
+There exist analytics tasks, e.g., PageRank, that compute an important property using an iterative algorithm, such as that shown in ~\autoref{alg:PageRankPullGS}. When the computation completes, the computed value should be stored persistently as a property in the database.
 However, while the value is being computed, repeatedly storing the intermediate values to the property graph persistent storage is exorbitantly expensive.
 We call such values \emph{Transient Properties}.
 Transient properties are usually maintained in memory and are freed when the application is closed.
@@ -578,7 +581,7 @@ We detail the design of the preprocessing pipeline needed to sort the data and t
 
 \subsection{Preprocessing Graphs for Bulk Loading}
 Since the bulk loader expects pre-sorted keys, we must first sort the graph. 
-We use the \unix{sort} utility to sort the data including the options to \emph{numerically} sort the graph by source vertex ID and destination vertex IDs and the \unix{--parallel} option to perform the sort in parallel.
+We use the \unix{UNIX sort}\cite{GNUsort} utility to sort the data including the options to \emph{numerically} sort the graph by source vertex ID and destination vertex IDs and the \unix{--parallel} option to perform the sort in parallel.
 
 Following the sort, we split the edge list into multiple files, each containing an approximately equal number of edges.
 Since we want maximum parallelism, we use the number of cores available to determine the number of files, if the user does not present an explicit value.

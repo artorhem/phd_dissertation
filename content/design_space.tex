@@ -1,9 +1,9 @@
 \chapter{Design Space of Graph Data Management Systems}
 \label{chap:design_space}
 
-In ~\autoref{chapter:background}, we discussed the different models used to represent graphs -- property graphs and how they can be used to materialize a structural graph. 
+In ~\autoref{chapter:background}, we discussed the different models used to represent graphs -- property graphs and structural graphs. 
 We also discussed the different types of workloads that can be executed on these graphs and the access patterns they exhibit.
-Based on these access patterns, we identified requirements for a data structure that can be used to store graphs and discussed the different data structures that are used by graph data management systems.
+Based on these access patterns, we identified requirements for a data structure that can store graphs and discussed the different data structures used by graph data management systems.
 
 We use our understanding of graph models (property and structural), workloads, and in-memory representations to derive a comprehensive overview of the design space of graph data management systems.
 We introduce a taxonomy of the design space and discuss how existing systems fit into this taxonomy.
@@ -11,66 +11,65 @@ We introduce a taxonomy of the design space and discuss how existing systems fit
 
 \section{Property Graphs vs. Structural Graphs}
 \label{design:property_vs_structural}
-Real-world entities and their relationships can be modeled as a graph.
-Since these entities have types and properties, the graph model is augmented to include these types and properties (thereby forming a schema).
-We examined the formal definitions of these graph models in ~\autoref{back:graph_models}.
-
-Recall that a structural graph is the result of selections and projections on the labels and properties of an underlying property graph.
+Our overarching characterization of the design space is defined by two features: when the system manages property graphs or structural graphs and whether the graphs under management are static or dynamic.
+Recall that a structural graph results from selections and projections on the labels and properties of an underlying property graph~\cite{RodriguezNeubauer2010}.
 One might select edges of a certain type to form a structural graph, for instance, a structural graph of follower relationships in a social network.
 The structural graph so constructed ``is homogeneous, composed simply of vertices, edges and, possibly, a weight attached to their elements''~\cite{teseo2021deLeo}.
-The structural graph is a useful abstraction for many graph algorithms and queries, as it provides a simple graph model that can be used to reason about the structure of the graph.
+The structural graph is a useful abstraction for many graph algorithms and queries. It provides a simple graph model that can be used to reason about the graph's structure.
 For instance, the structural graph can be used to compute the connectivity of the graph or to compute the influence of a node in the graph.
 
 We assume that the property graph represents ground truth and that the structural graph is derived from the property graph.
 A structural graph can be materialized as needed or periodically, as is done at Facebook~\cite{curtiss2013unicorn}.
 These materialized structural graphs are essentially snapshots of the property graph at a certain point in time.
-As such, these structural graphs are static, so
-refer to them as \emph{static structural graphs} and describe them in more detail in~\autoref{design:static_structural}.
+We describe these \emph{static structural graphs} in more detail in~\autoref{design:static_structural}.
 
 In contrast, the property graph changes over time.
 Since the property graph is the ground truth, it is important to keep the structural graph up-to-date with the property graph.
-This can be done by recomputing the structural graph periodically or incrementally updating the structural graph as the property graph changes.
+This can be done by periodically recomputing the structural graph or incrementally updating it as the property graph changes.
 This leads to the concept of \emph{dynamic structural graphs}, which are updated as the property graph changes.
 We describe dynamic structural graphs in more detail in~\autoref{design:dynamic_structural}.
 
-This is the primary classification feature of the design space of graph data management systems -- whether the system manages property graphs or structural graphs.
-The second classification feature is whether the system is designed to handle static structural graphs or dynamic structural graphs.
-We discuss these classification features in more detail in the following sections.
+% This is the primary classification feature of the design space of graph data management systems -- whether the system manages property graphs or structural graphs.
+% The second classification feature is whether the system is designed to handle static structural graphs or dynamic structural graphs.
+% We discuss these classification features in more detail in the following sections.
 
 \section{Static Graph Processing Systems}
 \label{design:static_structural}
 
-Static structural graphs have been the main focus of graph processing systems research for over a decade.
-These graphs are primarily used for analytics and graph mining tasks where the focus is on uncovering statistical properties and discovering patterns.
+Static structural graphs have been the main focus of graph processing systems research for over a decade (~\cite{malewicz2010pregel,gonzalez2014graphx, zhu2016gemini, xing2015petuum, low2012distributed,gonzalez2012powergraph, powerlyra2019,shun2013ligra, nguyen2013lightweight, zhu2016gemini, graphmat, lakhotia2020gpop, beamer2015gap, kim2022blaze, ai2018clip,zheng2015flashgraph}).
+These graphs are primarily used for analytics and graph mining tasks focusing on uncovering statistical properties and discovering patterns.
 The static nature of these graphs implies that there is no consistency requirement between different snapshots that these systems are designed to process.
-Each snapshot is produced through a batch ETL process and is (often) processed independently of other snapshots.
+Each snapshot is produced through a batch \ac{ETL} process and is (often) processed independently of other snapshots.
+On the other hand, in a graph database, the graph is materialized from the property graph, and that is the "extract" step when creating structural graphs.
 % The primary goal of these systems is to provide a scalable and efficient way to process these graphs and to provide a rich set of graph algorithms that can be executed on these graphs.
 
 Once the static GPS has a snapshot to process, it must first \emph{preprocess} the graph to construct the data structures needed to execute the graph algorithms.
 The preprocessing step is often the most time-consuming in the graph processing pipeline.
+The preprocessing step involves reading a graph in a data exchange format (often a CSV file) and using that to construct and populate a suitable data structure to hold the graph.
+This requires a pass over the graph and can take significantly longer to finish than the analytics task itself (For example, GraphChi takes longer to preprocess the graph than it takes to run Triangle Counting or PageRank~\autoref{tab:eval:structural_inmem}).
 
 If the graph data structures obtained after the preprocessing are small enough, they can be stored and processed in memory.
 Graph processing systems designed for shared-memory, multi-core machines are usually optimized for in-memory processing.
-Several systems have been optimized for this design point, for example,Gemini~\cite{zhu2016gemini}, GraphMat~\cite{graphmat}, Ligra~\cite{shun2013ligra}, Galois~\cite{pingali2011tao}, GPOP~\cite{lakhotia2020gpop},and GraphLab~\cite{low2012distributed}.
+Several systems have been optimized for this design point, for example, Gemini~\cite{zhu2016gemini}, GraphMat~\cite{graphmat}, Ligra~\cite{shun2013ligra}, Galois~\cite{pingali2011tao}, GPOP~\cite{lakhotia2020gpop}, and GraphLab~\cite{low2012distributed}.
 
 If the graph structures are too large to fit in memory on a single machine, they are partitioned across multiple machines.
-These two classes of graph processing systems -- in-memory graph processing systems and distributed graph processing systems comprise the
-third classification feature of out design space of graph data management systems.
-Examples of distributed graph processing systems include GraphX~\cite{gonzalez2014graphx}, Pregel~\cite{malewicz2010pregel}, PowerGraph~\cite{gonzalez2012powergraph}, Distributed GraphLab~\cite{low2012distributed}, and PowerLyra~\cite{powerlyra2019}, etc.
-For the purpose of our taxonomy, we collectively refer to shared-memory multi-core systems and distributed systems as \textbf{in-memory graph} processing systems.
-
+Examples of distributed graph processing systems include GraphX~\cite{gonzalez2014graphx}, Pregel~\cite{malewicz2010pregel}, PowerGraph~\cite{gonzalez2012powergraph}, Distributed GraphLab~\cite{low2012distributed}, and PowerLyra~\cite{powerlyra2019}.
+For the purpose of our taxonomy, we collectively refer to shared-memory multi-core systems and distributed (in-memory) systems as \textbf{in-memory graph} processing systems.
 
 Over time, researchers noticed that the communication overheads in distributed graph processing systems were high, leading them to underperform when compared to single-threaded systems running on a commodity laptop~\cite{mcsherry2015scalability}.
-The need for building systems that can scale to large graphs that do not fit in RAM on a single machine coupled with the underperformance of distributed graph processing systems led to the development of out-of-core systems.
-These systems store graphs on storage devices and 
-stream them into memory as needed.
+The need to build systems that can scale to large graphs that do not fit in RAM on a single machine, coupled with the underperformance of distributed graph processing systems, led to the development of out-of-core systems.
+These systems are designed around the idea of caching the most frequently accessed data structures in memory and spilling the rest to disk.
 We call these systems \textbf{out-of-core graph} processing systems.
-Out-of-core graph processing systems are designed around the idea of caching the most frequently accessed data structures in memory and spilling the rest to disk.
-The on-disk data layout is designed to leverage  sequential access to edge data to minimize I/O overheads.
+% Out-of-core graph processing systems are designed around the idea of caching the most frequently accessed data structures in memory and spilling the rest to disk.
+The on-disk data layout is designed to leverage sequential access to edge data to minimize I/O overheads.
 Most systems achieve this by some form of edge-list partitioning such that the neighbors (either in- or out-neighbors) of a vertex are stored contiguously on disk.
 Examples of out-of-core graph processing systems include GraphChi~\cite{kyrola2012graphchi}, X-Stream~\cite{roy2013x}, GridGraph~\cite{zhu2015gridgraph}, V-part~\cite{elyasi2019large}, Wonderland~\cite{zhang2018wonderland}, CLIP~\cite{ai2018clip}, FlashGraph~\cite{zheng2015flashgraph}, and Blaze~\cite{kim2022blaze}.
+These two classes of graph processing systems -- in-memory graph processing systems and out-of-core graph processing systems comprise the
+\textit{third classification feature} of out design space of graph data management systems.
 
 The static structural graph processing systems can be seen in the bottom left corner of the design space in~\autoref{fig:design_space}.
+\autoref{fig:design_space} shows the memory-based/out-of-core axis as a gradient, where the out-of-core systems are shown in yellow shades, while the in-memory systems are shades of red.
+This classification is based on the observation that most out-of-core systems can act like an in-memory system when the graph is small. 
 
 \begin{figure}[h]
     \centering
@@ -81,7 +80,7 @@ The static structural graph processing systems can be seen in the bottom left co
 
 \subsection{Programming Models vs Computation Models}
 \label{design:programming_vs_computation}
-The design space of static graph processing systems can be further subdivided based on the programming  and computation models for which they are designed.
+The design space of static graph processing systems can be further subdivided based on the programming and computation models for which they are designed.
 Several survey papers~\cite{mccune2015tlavSurvey, Heidari:2018:SGP:3212709.3199523} discuss this classification in far more detail; we present a brief overview here for completeness.
 
 Graph processing systems are designed to execute iterative algorithms in distinct phases.
@@ -89,14 +88,14 @@ A \textbf{Computation Model} defines these phases and the sequence in which they
 The user typically writes the algorithm in terms of these phases, and the system executes the algorithm by running these phases in sequence.
 The computing model is independent of the system's scheduling model, which determines which vertices are selected for computation (i.e., remain active) in each phase.
 
-The most basic computation model is the \textbf{Bulk Synchronous Parallel (BSP)} model~\cite{valiant1990bridging}.
+The most well-known computation model is the \textbf{Bulk Synchronous Parallel (BSP)} model~\cite{valiant1990bridging}.
 This model is based on the idea of supersteps, where the computation is divided into a sequence of supersteps, each consisting of a computation phase and a communication phase.
 The computation phase is where a user-defined function executes on each of the graph's vertices, and the communication phase is where the vertices exchange messages.
 The BSP model \textit{{pushes}} updates the vertices at the end of each superstep and applies these updates to the graph at the beginning of the next superstep.
 Examples of systems that use this model include Pregel~\cite{malewicz2010pregel} and Giraph~\cite{giraph}.
 
-The \textbf{Asynchronous} model is another computation model where the computation is not divided into supersteps. 
-Since this model has no communication barrier, updates are immediately visible for the next iteration.
+The \textbf{Asynchronous} model is a computation model where the computation is not divided into supersteps. 
+In the Asynchronous model, vertices make updates visible immediately; there is no clear delineation between supersteps.
 These systems need a consistency model for updating the edges and vertices.
 Examples of these systems include GRACE, ASPIRE, Giraph Unchained, CoRAL, and GraphChi~\cite{kyrola2012graphchi}.
 
@@ -124,7 +123,7 @@ The design space of static graph processing systems can be split based on these 
 \begin{figure}
     \centering
     \includegraphics[width=0.8\textwidth]{content/fig/background/vc_ec.pdf}
-    \caption{Splitting the space of static graph processing systems based on the programming model (x-axis) and the computation model (y-axis). }
+    \caption{Splitting the space of static graph processing systems based on the programming model (x-axis) and the computation model (y-axis). The systems marked with a blue X are hybrid: Mosaic~\cite{maass2017mosaic} is a hybrid vertex-centric/edge-centric system, while GraphLab~\cite{low2014graphlab} and Hsync~\cite{Xie2015Hsync} are hybrid in their computation model and switch between synchronous and asynchronous modes of computation.}
     \label{fig:static_ec_vc}
 \end{figure}
 
@@ -135,13 +134,13 @@ The more interesting thing to note here is that if the system provides a flexibl
 
 \section{Dynamic Graph Processing Systems}
 \label{design:dynamic_structural}
-Structural graphs are derived from property graphs, and since the property graph is dynamic, the structural graph must be updated as the property graph changes; this leads to the concept of dynamic structural graphs, which are updated as the property graph changes.
+Structural graphs are derived from property graphs, and since the property graph is dynamic, the structural graph must be updated as the property graph changes; this leads to the concept of dynamic structural graphs.
 The dynamic nature of these graphs requires some form of consistency.
-The structural graph must be updated in a manner consistent with the updates  applied to the property graph while while simultaneously ensuring that concurrent queries on the structural graph are not affected by the updates.
+The structural graph must be updated in a manner consistent with the updates applied to the property graph while simultaneously ensuring that concurrent queries on the structural graph are not affected by the updates.
 
 A dynamic system can apply updates to the structural graph directly without considering ongoing queries.
 When such a system applies an update (adding a new edge, for instance), it applies the update to the live graph data structure without creating any new versions.
-Any ongoing queries running on the graph data structure will see the update immediately, which can lead to incorrect or inconsistenc results, query failures, or delayed convergence of iterative algorithms.
+Any ongoing queries running on the graph data structure will see the update immediately, which can lead to incorrect or inconsistent results, query failures, or delayed convergence of iterative algorithms.
 STINGER~\cite{stinger2012ediger} is an example of such a system that allows for fast updates to the graph data structure but does not provide any consistency guarantees.
 
 A more sophisticated approach is to construct a new version of the structural graph as the updates arrive.
@@ -162,32 +161,32 @@ LiveGraph stores the graph out-of-core by using a mmap-based storage engine and 
 Sortledton is an in-memory system that provides a fully transactional adjacency-list based graph data structure.
 Teseo is also in-memory and transactional, but uses a "fat tree" (B+ tree derived) data structure to store the graph.
 
-\section{Unification of Static and Dynamic Graph Processing Systems}
-\label{design:unification}
-In the previous sections, we have seen that the design space of graph data management systems can be split based on whether the system manages property graphs or structural graphs and whether the system is designed to handle static structural graphs or dynamic structural graphs.
-We have also seen that the design space can be split based on the programming model and the computation model used by the system.
-We now discuss how these two axes can be unified to provide a comprehensive view of the design space of graph data management systems.
+Clearly, the consistency model used by these systems falls along a spectrum (the left-right axis in the right branch of~\autoref{fig:design_space} points in the direction of diminisihing consistency guarantees).
+To construct a taxonomy, we use a simple binary feature to characterize this consistency axis: does the system support transactions or not?
+Graph Databases and a few systems (LiveGraph, Teseo, and Sortledton) support transactions which allow for fine-grained guarantees for individual updates to the graph; the remaining systems provide some form of batch-dynamism: isolation is coarse grained and therefore weaker.
 
-Most in-memory graph processing systems (both static and dynamic) are designed around the data structures discussed in~\autoref{back:graph_rep}.
-These data structures are optimized for graph analytics tasks that need sequential access to the vertex sets and the edges in a vertex's adjacency list.
-These desirable properties of CSRs and Adjacency Lists make them the most common data structures used by both static and dynamic graph processing systems.
+% \section{Unification of Static and Dynamic Graph Processing Systems}
+% \label{design:unification}
+% In the previous sections, we have seen that the design space of graph data management systems can be split based on whether the system manages property graphs or structural graphs and whether the system is designed to handle static structural graphs or dynamic structural graphs.
+% We have also seen that the design space can be split based on the programming model and the computation model used by the system.
+% We now discuss how these two axes can be unified to provide a comprehensive view of the design space of graph data management systems.
 
-\begin{figure}
-    \centering
-    \includegraphics[width=0.8\textwidth]{content/fig/background/unify.pdf}
-    \caption{Unification of the design space of graph data management systems}
-    \label{fig:unified_design_space}
-\end{figure}
+% Most in-memory graph processing systems (both static and dynamic) are designed around the data structures discussed in~\autoref{back:graph_rep}.
+% These data structures are optimized for graph analytics tasks that need sequential access to the vertex sets and the edges in a vertex's adjacency list.
+% These desirable properties of CSRs and Adjacency Lists make them the most common data structures used by both static and dynamic graph processing systems.
 
-This design space described in terms of the data structures used is shown in~\autoref{fig:unified_design_space}.
-This convergence greatly invluded our design of  \project{}, which provides users with representations that mimic these data structures.
+% \begin{figure}
+%     \centering
+%     \includegraphics[width=0.8\textwidth]{content/fig/background/unify.pdf}
+%     \caption{Unification of the design space of graph data management systems}
+%     \label{fig:unified_design_space}
+% \end{figure}
+
+% This design space described in terms of the data structures used is shown in~\autoref{fig:unified_design_space}.
+% This convergence greatly influenced our design of  \project{}, which provides users with representations that mimic these data structures.
 
 \section{Distillation of the Design Space}
 \label{design:distillation}
-
-In the previous sections, we discussed how the design space of graph data management systems can be split based on whether the system manages property graphs or structural graphs and whether the system is designed to handle static structural graphs or dynamic structural graphs.
-We also discussed how the design space can be unified based on the data structures used by the systems to store the graphs.
-
 In this section, we provide a unified view of the design space that we discussed in the previous sections.
 So far we have identified that the design space of graph data management systems can be split based on the following classification features:
 \begin{enumerate}
@@ -199,15 +198,18 @@ So far we have identified that the design space of graph data management systems
 Based on these features, we can arrive at a grid that distills the design space of graph data management systems, as shown in~\autoref{fig:distilled_design_space}.
 The grid shows the different classes of graph data management systems based on these features.
 As can be seen in the grid, not all combinations of these features make sense to use together, for instance, a system that works only on static (read-only) graphs has no consistency requirement and therefore no need for transactions.
+As we saw in section~\autoref{design:dynamic_structural}, consistency becomes an issue only in the presence of updates.
+Therefore, the three axes flatten into the grid shown in~\autoref{fig:distilled_design_space}, since static (i.e., read-only) systems are agnostic with respect to transactions.
 
 \begin{figure*}
     \centering
-    \includegraphics[width=0.8\textwidth]{content/fig/background/design_grid.pdf}
+    \includegraphics[scale=0.45]{content/fig/background/design_grid.pdf}
   \caption{Distillation of the design space of graph data management systems. Please refer to Section~\autoref{design:dynamic_structural} for an explanation of how the systems listed in the dynamic but not transactional category differ from one another.}
     \label{fig:distilled_design_space}
 \end{figure*}
-\PM{Margo, I seem to have taken really poor notes for the changes we wanted to make for this grid. Can you please send me a matrix if this does not look right?}
+% \PM{Margo, I seem to have taken really poor notes for the changes we wanted to make for this grid. Can you please send me a matrix if this does not look right?}
 The main takeaway from this grid is that Graph Databases are the most general class of graph data management systems, because they are based on property graphs, structural graphs are merely a subset of these property graphs, and they support transactions to ensure consistency of updates.
+
 All the other categories are specialized to handle a subset of the features provided by Graph Databases.
 Each of those systems work well for the specific use cases for which they are designed, but they are not as general as Graph Databases.
 \project{} is designed to be a general-purpose graph data management system that can flexibly support all the specialized use cases depicted in this grid \emph{without having to move the data} or sacrificing performance.
