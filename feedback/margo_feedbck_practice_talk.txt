@@ -1,0 +1,150 @@
+4:05
+
+slide 4: nice
+Slide 5 -- I agree that there is a dichotomy, but you didn't make that
+	point in slide 4 -- so I think the transition is something like:
+
+	But this collection is really the union of two very different
+	kinds of systems (this is the transition from 4 and then on
+	5 you say) We have GDB, which are ... and GPS which are ...
+
+	Here -- emphasize persistence!
+
+	The two ideas here:
+	1. Graph databases are persistent
+	2. Graph databases contain properties about edges and nodes (example)
+	3. Graph processing systems are all about analytics
+
+Slide 6: My thesis statement is:
+	We can build a graph database that produces performance comparable
+	to graph processing systems when the data fit in main memory.
+
+	Why is this great?
+	If the data are big, you still can run everything you want to run
+	No more extraction/preprocessing to do analytics
+
+
+Slide 7:	The left are often writes; the rest are read-mostly
+
+	I think it's worth using that picture to give a peak towards
+	the taxonomy of systems:
+
+	As we move from OLTP to Whole graph analytics, we also move
+	from writes to read-only
+
+	As you move from writes to read-only, issues of persistence
+	become less important.
+
+	And the community has responded by using GDB on the left and
+	(for the most part) and GPS on the right
+
+Slide 8
+	I think the key idea here is that performance has largely
+	been relegated to the analytics domain.
+
+	And then I think you need to tell the story that what this
+	means is that you have the whole property graph that does updates,
+	then you have to extract the structural graph for the fast
+	analytics and in this domain, in-memory representation is the
+
+	--- you are doing a lot of this on Slide 12 ---
+
+	key to fast performance
+
+Slide 10:
+	This is where you told the story that I describe in 8 I think
+
+	This may not be a slide but simply makes the point that our goal
+	in Flexograph is to realize persistent representations of these
+	in-memory structures in a way that will provide outstanding
+	analytics in the context of a property graph
+
+13 intro to Flexograph (4:14)
+
+	I might somehow say EdgeKey = ~CSR (sort of a persistent CSR)
+
+
+17	The key idea of the middle part is all about neighborhoods -- the 
+	details are all part of that, so emphasize neighborhoos first;
+	then say neighborhoods require 1, 2, 3 ...
+
+	Semantically meaningful graph iteration
+
+
+19	What in particularly made WT attractive for this project:
+	1. Optimized for multi-core (not distribution)
+	2. Specifically parallel read performance
+	3. Reads never block on writes
+	4. Provides both transactions and snapshots
+	5. Row and Column store
+	6. Low level interface that allows us to experiment with persistent layouts
+		that try to mimic Adj-lists, CSR
+
+20	You don't explain that the structure is inherently parallel; we
+	partition by nodes and make threads responsible for sets of nodes
+
+21
+	I feel like you have to show the detail needed to use raw curors;
+	and the more semantically matched interface of the graph iterators
+
+	[I.e., the key idea does not come across well]
+
+4:22 (17 minutes in)
+
+22-23	Introduce these relative to their in-memory counterparts.  That is,
+	we are explicitly trying to materialize AdjList and EdgeKey to
+	produce performance comparable to GPS, once we've read things into
+	memory
+
+	For EdgeKey -- I don't think you need to talk about the val1/val2, but
+	focus on the fact that the keys are created to mimic EdgeKey
+
+	The discussion about in- out-neighborhoods was confusing
+
+4:23	Research Questions
+
+	1. Don't we care about representation relative to workload?
+
+	2 and 3 are really the same question right?  Maybe presenting
+	these questions as a table 
+
+Eval 26
+	I think I would explain that we've done a lot of iterative evaluation
+	as Flexograph evolved and we are now in the process of doing a
+	large-scale evaluation, but that is work in progress (collaborating
+	with Milad to use a good framework to assess dynamic performance)
+
+	This needs ot be a bar chart (perhaps stacked w/preprocessing and alg?)
+	Tables are just too difficult to read
+
+	The question is:
+
+	Are we able to achieve close to in-memory performance with a persistent
+	GDB-based system?
+
+	[We assume we can do better than a persistent system designed for
+	fast analytics -- and we do]
+
+29	You need more story telling here about why it is OK to not have
+	done this yet
+
+
+30	The duplicate vertex IDS is not hypothetical -- introduce this
+	in the context of LDBC
+
+	4:29 (at 25 minutes)
+
+31	You pointed to something labeled "Vertex ID Space" and said, "what type
+	of edge"
+
+	I think you need to explain this in a more step wise fashion --
+	difficult to figure out how the different pictures fit together.
+
+32	THIS IS THE QUESTION:
+
+	Can we support everything we need in a property graph without
+	negatively impacting the analystics tasks
+
+34 Timeline 4:32 (Nearing 30 minutes ...)
+
+4:33	DONE

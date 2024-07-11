@@ -1,0 +1,195 @@
+July 10, 2024
+
+2:02
+
+I love the opening and story telling -- absolutely wonderful opening
+
+Great job of focusing on the "three key points" for each slide.
+
+Slide 7: Just brilliant!
+
+After presenting slide 9: might have been a nice time to ask for questions.
+
+=-=-=-
+
+2:11 Flexograph
+
+--- I'm just super impressed with how smoothly you are delivering this
+    achieving a nice balance between key points and conversational discussion
+
+15: Nice transition into the underlying storage system (slide 15)
+
+16: I like "outstanding" over "incredible" -- it's totally believable; it's just
+	really good ;-)
+
+2:15 -- slide 16 -- timing is looking really good
+
+Slide 17: Could have said that we try to balance load even though we do
+	static vertex partitioning (e.g., we can balance by edge even if
+	we are vertex partitioning (hmmmm -- I wonder if we should use 
+	Cuttana?  Probably not actually ...)
+
+Slide 20:
+	It's not hat we don't need ANY indices.
+	We do not have to have any SECONDARY indices, because the
+		tables are automatically keyed by a primary key and our
+		vertex IDs are just peachy as primary keys.
+
+	In other words, a primary key IS an index; it's just the
+	data are stored according to the order of this particular index
+
+23: 2:20 (great timing)
+
+24: "Gathering more data on the latest and greatest version of Flexograph"
+
+
+
+Question on slide 24:
+	We are comparing out-of-cache to in-memory for GAP-BS (I think)
+
+26: 2:23 
+	You called this "future work" but it's kind of already ongoing..
+
+	Nice discussion about identifying the problem
+
+
+28: Would have been a nice place to talk about how column store should
+	improve cache behavior on analytic workloads
+
+
+29: Loved the "benchmarking council" in air quotes!
+	In introducinv the unique ID problem, the explanation is that
+	in an RDBMS (or graph DB I think), you just materialize different
+		tables, BUT, that makes analytics queries much harder.
+		AND it makes most queries joins; we don't want that.
+
+31: 2:28 (26 minutes; great timing)
+
+	Ah -- could have color coded collaborative projects with solo
+	projects
+
+2:30 -- BRILLIANT TIMING
+
+=-=-=-=
+
+Questions:
+
+Thomas -- are they separate or do they talk?
+	Facebook is a great example (data is in MySQL; structure is in Tao)
+	It sounds like the hybrid systems still have two representations
+
+Sasha -- very well written proposal "pleasure to read"
+	Goal was to compare the different representations:
+		Where is the evaluation of the AdjList v CSR?
+
+		EdgeKey does really well on insertions (no serialization ohead)
+		Adjacency list: in-neighborhood is not currently materialized
+	No time yet to benchmark the Split EdgeKey
+	Short answer: Yes, I'm going to compare them
+
+	What is in the preprocessing time? What are you really doing.
+	[As the eval came late, we can do a much better job in explaining
+	experiments in the written document; we'll get to a lot of this when
+	we write the paper.]
+
+Thomas:
+	Is preprocessing comparison fair?
+
+	Answer: GAPBS requires that you start with an edge-list file -- reading
+	that in is the pre-processing time -- that is, you have to construct
+	the in-memory structure.
+
+	GraphCHI is designed to work out of core, so it stores things in
+	a sorted sharding structure -- BUT -- you can use that persistent
+	representation for the same algorithms, so it is time that can
+	amortized across different analytics tasks, even if you do them
+	days apart; GAPBS doesn't really let you do that.
+
+	I think there are three different kinds of time:
+	1. one-time cost (loading WT), warming a cache (amortized across
+		multiple loads), running the algorithm
+
+	TODO: Compare to Swanson system
+
+=-=-=-
+
+I think the way to think about benchmarking:
+
+1. Assume that the entire property graph lives in a Database
+	This requires a 1-time ingest cost -- whether to WT or to MySQL
+	We can assume that this is relatively constant.
+
+2. Now let's say that you want to run a single analytic benchmark:
+	WT: Warm the cache (this is your current pre-processing time)
+
+	GPS: Create edge list (extract data from an RDBMS)
+		We are currently not measuring this, but we could --
+			that might be a 1-time cost; it's comparable
+			to the WT snapshot time.
+		Create the in-memory representation (this is what you
+			currently call preprocessing)
+
+	Now you run the benchmark (algo time)
+
+3. Now what if we want to run N analytic things, e.g., compute PR,
+	compute CC, compute APSP
+
+	WT warm: one-time cost
+	GPS: Create in-memory rep: one-time cost
+
+Short answer: I think there are one-time costs, every time costs; and
+	"every time you restart a test"
+
+Alex question:
+	If we remap vertices that's a huge overhead on every query
+
+	Are we not balancing the vertices by the number of edges?
+
+	size of ID space -- if you use 64 bit IDs, you aren't going to
+	run out.
+
+Thomas:
+	In the property graph model, what happens if you get a new type?
+	With 64 bits, you can allocate trillions of slots to each type
+	and STILL support lots of types
+
+2:55 Phase 2
+
+Thomas:	different queries might be run on different kinds of machines
+	Does it make sense to benchmark systems on the LHS on big machines?
+
+	[Ans: Databases typically run on large machines]
+
+	On benchmark: many of the systems have different and weird APIs
+	and have lots of idiosyncracies -- how are you going to deal with that?
+
+	How do you decide if your query is not designed for the particular
+	system?
+
+	Ans: Basically using GAPBS -- people seem to be agreeing that GAPBS
+	is a reasonable general purpose structure
+
+
+	What is GAPBS ingest format? Edge list
+
+	(You let Thomas say "way worse" than GAPBS -- that's not true)
+
+	You can quantify the overhead of the API - that's exactly the
+	right thing to do.
+
+Profiling is useful, but it's not the big picture. Quantifying overheads
+is good (don't want to discourage you, but you need to think of the big
+picture)
+
+Thomas:
+	Why not compare to distributed (because those systems are dumb!)
+	MIS: Might be interesting to do price-performance comparison to just
+		get the distributed people out of the way.
+
+
+Phase 2:
+
+Feedback:
+	Distinguish the contributions more clearly -- not popping out enough
+		
+
