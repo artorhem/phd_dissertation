@@ -26,7 +26,7 @@ LATEXMK_OPTS=\
 ###############################################################################
 # The paper targets
 ###############################################################################
-PAPER_DRAFT=$(PAPER)-draft
+PAPER_DRAFT=$(PAPER)
 PAPER_DRAFT_MAIN=diss.tex
 PAPER_DRAFT_PDF=$(BUILD_DIR)/$(PAPER_DRAFT).pdf
 

@@ -19,8 +19,8 @@
 %%   oneside, twoside
 %%       whether to format for single-sided or double-sided printing
 %%   balanced
-%%       when double-sided, ensure page content is centred
-%%       rather than slightly offset (the default)
+%%       uses wider margins (via geometry package in ubcdiss.cls)
+%%       with more compact spacing than the GPS default
 %%   singlespacing, onehalfspacing, doublespacing
 %%       set default inter-line text spacing; the ubcdiss class
 %%       provides \textspacing to revert to this configured spacing
@@ -32,7 +32,10 @@
 % For submission to GPS
 % \documentclass[gpscopy,onehalfspacing,11pt]{ubcdiss}
 
-% For your own copies (looks nicer)
+% For your own copies: wider margins and compact single spacing.
+% The `balanced' option triggers custom geometry in ubcdiss.cls
+% (wider margins, more text per page). Switching to gpscopy
+% disables this and uses standard GPS margins.
 \documentclass[balanced,oneside,singlespacing,11pt]{ubcdiss}
 \input{env/packages.tex}
 %% And include some of our own useful macros
@@ -60,24 +63,28 @@
 
 \begin{document}
 
+% Print page geometry diagram when draft mode is enabled
+% (use \documentclass[draft,...]{ubcdiss} to activate)
+\ifdraft{\layout}{}
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% From Thesis Components: Tradtional Thesis
 %% <http://www.grad.ubc.ca/current-students/dissertation-thesis-preparation/order-components>
 
 % Preliminary Pages (numbered in lower case Roman numerals)
 %    1. Title page (mandatory)
+%    2. Committee page (mandatory)
+% NOTE: \frontmatter is called internally by \maketitle/\makecandidacytitle,
+% so we do not call it explicitly here.
+% When gpscopy is set, we use the standard GPS title and committee pages.
+% Otherwise, we use the candidacy proposal variants (defined in ubcdiss.cls).
 \ifgpscopy
   \maketitle
-\else
-  \makecandidacytitle
-\fi
-%    2. Committee page (mandatory): lists supervisory committee and,
-%    if applicable, the examining committee
-\ifgpscopy
   \makecommitteepage
 \else
+  \makecandidacytitle
   \makecandidacypage
-\fi 
+\fi
 
 %    3. Abstract (mandatory - maximum 350 words)
 \include{content/abstract_thesis}
@@ -118,7 +125,7 @@
 \textspacing		% begin one-half or double spacing
 
 %   12. Acknowledgements (optional)
-% \include{content/ack}
+\include{content/ack}
 
 %   13. Dedication (optional)
 
@@ -151,7 +158,7 @@
 \bibliography{content/references}
 \end{singlespace}
 
-% \appendix
+\appendix
 %    6. Appendices (including copies of all required UBC Research
 %       Ethics Board's Certificates of Approval)
 %\include{reb-coa}	% pdfpages is useful here
