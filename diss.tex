@@ -87,7 +87,7 @@
 \fi
 
 %    3. Abstract (mandatory - maximum 350 words)
-\include{content/abstract_thesis}
+\include{content/abstract}
 \cleardoublepage
 
 %    4. Lay Summary (Effective May 2017, mandatory - maximum 150 words)
@@ -135,18 +135,15 @@
 \acresetall	% reset all acronyms used so far
 
 %    1. Introduction
-
-
 %    2. Main body
-% Generally recommended to put each chapter into a separate file
-\include{content/intro_outline}
-% \include{content/bg_outline}
+% SIGMOD content files — each uses \section; convert to \chapter for thesis
+\include{content/intro_mod}
 \include{content/background}
 \include{content/design_space}
 \include{content/architecture}
-\include{content/eval}
-\include{content/property_stores}
-\include{content/future_future_work}
+\include{content/related}
+\include{content/evaluation}
+\include{content/conclusion}
 %    3. Notes
 %    4. Footnotes
 
@@ -161,7 +158,7 @@
 %    6. Appendices (including copies of all required UBC Research
 %       Ethics Board's Certificates of Approval)
 %\include{reb-coa}	% pdfpages is useful here
-\include{content/appendix}
+% TODO: add appendices
 
 \backmatter
 %    7. Index

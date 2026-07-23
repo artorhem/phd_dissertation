@@ -1,4 +1,4 @@
-\subsection{Dynamic Structural Graph Operations}
+\section{Dynamic Structural Graph Operations}
 \label{sec:eval:dynamic}
 
 % TODO: Update spider chart — merge Insert Tput / Update Tput into a single
@@ -49,7 +49,7 @@ update log,
 \end{figure*}
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-\subsubsection{Insertion Scalability}
+\section{Insertion Scalability}
 
 We insert the edges of graph500-24 while varying the number of writer threads from 1 to 72 to identify each system's optimal concurrency (\autoref{fig:dynamic-scaling}a).
 GraphOne peaks at 6.3\,M~edges/s with 40~threads but degrades beyond that point as cross-socket contention on its single ring buffer increases.
@@ -58,7 +58,7 @@ LiveGraph plateaus near 0.49\,M~edges/s at 32--40~threads.
 \project{} EdgeKey reaches 1.7\,M~edges/s at 72~threads; Adjacency List peaks at 0.77\,M~edges/s with 48~threads.
 Based on these results, we fix GraphOne and LiveGraph at 40~threads and Teseo and both \project{} configurations at 72~threads for all subsequent experiments.
 
-\subsubsection{Ingest and Update Throughput}
+\section{Ingest and Update Throughput}
 
 Having identified optimal thread counts, we next examine ingest and sustained update performance.
 \autoref{fig:dynamic-scaling}b reports insertion-only throughput across six datasets (51\,M to 1.05\,B edges).
@@ -83,7 +83,7 @@ EdgeKey stores one B-tree row per edge; inserts are independent, carry no read-m
 Adjacency List stores one record per vertex, so every edge insert appends to the source vertex's record.
 Under power-law degree distributions, concurrent writers issue conflicting modifications to the records of high-degree vertices, producing a high rollback rate that caps throughput at ${\sim}$48 threads and ${\sim}$0.8\,M~edges/s.
 
-\subsubsection{Post-Ingestion Analytics}
+\section{Post-Ingestion Analytics}
 We next examine how well each system performs after ingest on graph analytic workloads.
 After completing insertion, we run BFS, PageRank~(PR), and weakly connected components~(WCC) in parallel across all physical cores; no updates run during the analytics phase.
 The results are in \autoref{tab:analytics-main}.

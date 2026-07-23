@@ -1,6 +1,5 @@
-\newcommand{\project}{Flexograph} %Because we don't know what to call this project.
-\newcommand{\wt}{WiredTiger} %we use this often enough to make a macro for it
-\newcommand{\api}{GraphAPI} %tedious to write out
+% Macros shared with env/commands.tex are defined there.
+% This file contains only thesis-specific definitions.
 
 \lstdefinestyle{cpp}{
   language=C++,
@@ -8,19 +7,3 @@
   breaklines=true,
   postbreak=\mbox{\textcolor{red}{$\hookrightarrow$}\space},
 }
-\newcommand{\code}[1]{\lstinline[style=cpp,basicstyle=\normalsize\ttfamily]$#1$}
-\newcommand{\apicall}[1]{\lstinline[style=cpp,basicstyle=\footnotesize\ttfamily]$#1$}
-\newcommand{\unix}[1]{\texttt{\footnotesize #1}}
-
-%for highlighting a line in the pseudocode
-\definecolor{algopink}{rgb}{0.9, 0.56, 0.67}
-\definecolor{algoblue}{rgb}{0.45, 0.66, 0.76}
-\definecolor{algomid}{rgb}{0.98, 0.81, 0.69}
-
-\newcommand{\highlightP}[1]{\colorbox{algopink}{#1}} % Define a command for highlighting
-\newcommand{\highlightB}[1]{\colorbox{algoblue}{#1}} % Define a command for highlighting
-\newcommand{\highlightM}[1]{\colorbox{algomid}{#1}} % Define a command for highlighting
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% to make autoref work with algorithms
-\providecommand*{\algorithmautorefname}{Algorithm}

@@ -1,8 +1,8 @@
-\section{Background}
+\chapter{Background}
 \label{sec:bg}
 We formally define graphs and the Property Graph Model, then discuss graph workloads, and the data structures used to support them.
 
-\subsection{Graph Models}
+\section{Graph Models}
 \label{sec:bg:model}
 A graph $G$ is a pair $G = (V, E)$ where $V$ is the set of \textit{vertices} (or ``nodes'') and $E \subseteq V \times V$ is the set of \textit{edges}~\cite{diestel2017basics}.
 Edges can be directed or undirected.
@@ -19,7 +19,7 @@ Real-world graphs model entities that have labels and properties.
 The \emph{Property Graph} (PG) model extends the structural graph to represent real-world entities \cite{Angles_Arenas_Barceló_Hogan_Reutter_Vrgoč_2018, bonifati2018querying}: vertices and edges may carry \emph{labels} that assign them a type (e.g., ``User'' or ``follows'') and \emph{properties} modeled as key-value pairs (e.g., \texttt{name}, \texttt{age}).
 A \emph{structural graph} can be derived from a property graph by selecting elements with specific labels and discarding their properties.
 
-\subsection{Graph Workloads}
+\section{Graph Workloads}
 \label{sec:bg:workloads}
 Graph databases handle graph OLTP and graph OLAP workloads.
 Graph OLTP queries, such as finding a node's neighborhood (e.g., finding a user’s friends in a social network), access a small subset of the graph.
@@ -54,11 +54,11 @@ Regardless of the workload, using data structures that provide sequential access
   \label{tab:bg:workload_patterns}
 \end{table}
 
-\subsection{Graph Representations}
+\section{Graph Representations}
 \label{sec:bg:reps}
 %Since the ultimate goal of~\project{} is to provide robust data management for property graphs, the initial focus has been on developing analytics-friendly storage solutions for structural graphs (see ~\autoref{sec:architecture}).
 We now describe the in-memory data structures that yield sequential access for common graph processing access patterns.
-% \subsubsection{Adjacency Matrices}
+% \subsection{Adjacency Matrices}
 % \label{sec:bg:adj_mat}
 % The canonical representation of a graph uses an $n \times n$ matrix, $A$, where $n$ is the number of vertices in the graph; an element $a_{ij} = 1$ in $A$ indicates the presence of an edge between vertices $i$ and $j$.
 % Depending on the matrix's definition, edges can be directed or undirected. 
@@ -66,7 +66,7 @@ We now describe the in-memory data structures that yield sequential access for c
 % Real-world graphs tend to follow the power law distribution~\cite{newman2005power}, have small diameters, and exhibit communities ~\cite[Section~2]{chakrabarti2006GraphMining}.
 % A power-law distribution of degrees leads to a few \textit{hub} nodes with high degrees and many nodes with low degrees (i.e., the heavy tail of degree distribution).
 % A direct consequence of the power law is that the resulting \textbf{adjacency matrices are sparse and, therefore, memory inefficient}.
-\subsubsection{Adjacency Lists}
+\subsection{Adjacency Lists}
 \label{sec:bg:reps:adj}
 % Adjacency lists are a natural solution to the sparsity problem and memory inefficiency of adjacency matrices.
 Adjacency lists represent a graph with a row for each vertex with the row containing a list of the vertex's neighbors; it consumes $O(|V| + |E|)$ memory. %, which is superior to the $O(V^2)$ required for an adjacency matrix.
@@ -78,7 +78,7 @@ Adjacency lists allow sequential access to a node's neighborhood. However, they 
 Although adjacency lists offer sequential access within a single neighborhood, full-graph scans incur pointer-chasing overhead when jumping between disjoint neighbor arrays.
 % Sortledton~\cite{sortledton2022Fuchs} shows that this is never a problem in practice, and adjacency lists provide performance within 40\% of the performance of the even more compact \emph{compressed sparse row} representation for most workloads.
 
-\subsubsection{Compressed Sparse Rows}
+\subsection{Compressed Sparse Rows}
 \label{sec:bg:reps:csr}
 Compressed Sparse Row (CSR)~\cite{saad2003iterative} is a compact, \emph{immutable} data structure that uses two flat arrays to store the neighborhood lists for nodes in a graph.
 Consider the sparse square matrix A whose rows and columns both correspond to the set of vertices. We can represent a graph's edge $(v1, v2)$ by a non-zero value in $A[v1][v2]$.
@@ -94,7 +94,7 @@ CSR stores a graph $G = (V, E)$ in space $O(|V| + |E|)$, but since it is immutab
 The edge array might need reallocation to accommodate an incoming edge, and the old edges must be moved and shifted around the new edge.
 This is a serious limitation for evolving graphs, and much research has been done to create dynamic CSRs~\cite{staudt2014networkit, PackedCSR, csr++2020Firmli, llama, madduri2009compact}.
 
-\subsubsection{Persistent Graph Representations}
+\subsection{Persistent Graph Representations}
 \label{sec:bg:persistent}
 The data structures we have discussed so far are all in-memory representations of graphs.
 Real-world graphs frequently exceed available memory, and data held only in memory is volatile, lost on shutdown or crash.

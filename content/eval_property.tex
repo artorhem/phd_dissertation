@@ -1,5 +1,5 @@
 %% --------------------------------------------------------------------------
-\subsection{Property Graph Queries}
+\section{Property Graph Queries}
 \label{sec:eval:property}
 
 We integrate \project{} into the AsterDB evaluation artifact~\cite{moAsterEnhancingLSMstructures2025}, which provides a reproducible Docker-based benchmark suite that compares seven graph storage systems: Neo4j, ArangoDB, JanusGraph, OrientDB, PostgreSQL (via SQLG), NebulaGraph, and AsterDB on structural and property graph workloads.
@@ -13,7 +13,7 @@ We compare four \project{} configurations (Adjacency List and EdgeKey, each with
 We exclude AsterDB from the LDBC comparison: although its RocksDB backend persists properties, the Gremlin bridge reads vertex properties from an in-memory map that is never populated from storage, so property lookups return null; additionally, all edges are stored under a single default label, preventing label-filtered traversals.
 % AsterDB's property write path and indexed \code{has()} lookups are fully wired, so it participates in the CRUD microbenchmarks.
 
-\subsubsection{Graph algorithms.}
+\section{Graph algorithms.}
 \label{sec:eval:property-graphalytics}
 \autoref{tab:graph-algorithms} reports algorithm runtimes on cit-Patents (3.77\,M vertices, 16.5\,M edges).
 PageRank (PR), community detection (CDLP), and weakly-connected components (WCC) are full-graph iterative algorithms; BFS and shortest path (SP) are single-pair traversals matching the Gremlin baselines.
@@ -104,7 +104,7 @@ Even if this overhead were entirely eliminated, \project{} remains $\approx700\t
 \end{table}
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-\subsubsection{LDBC SNB Query Performance}
+\section{LDBC SNB Query Performance}
 \label{sec:eval:property-ldbc}
 % We run 10~queries derived from the LDBC SNB specification, organized into four categories (\autoref{tab:ldbc-queries}).
 % \emph{Point queries} (R1, X1) fetch all properties of a single vertex.
@@ -211,7 +211,7 @@ ArangoDB and Neo4j dominate W1--W3 ($21$--$68$\,$\mu$s) because their write path
 X4 (single edge insert with no vertex creation) favors \project{} at $11$\,$\mu$s, where the cost reduces to a single cursor insert.
 NeuG is $1{,}000\times$ slower on all writes ($190$\,ms) because each mutation parses and plans a full Cypher \texttt{CREATE} statement.
 
-\subsubsection{Embedded vs.\ Columnar Trade-off}
+\section{Embedded vs.\ Columnar Trade-off}
 
 The two property storage modes offer a clear, query-dependent trade-off (\autoref{tab:ldbc-queries}, Emb vs.\ Col columns).
 For point queries and single-hop reads, both modes perform similarly (R1: $7$\,$\mu$s embedded, $14$\,$\mu$s columnar), because the dominant cost is the structural cursor seek, not the property read.
