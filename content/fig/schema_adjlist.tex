@@ -1,0 +1,75 @@
+% AdjList representation schema + example data
+% Example graph: nodes {1,2,3,4}, edges {1->2, 1->3, 2->3, 3->4}
+\begin{figure}[t]
+  \centering
+  \begin{subfigure}[b]{0.40\columnwidth}
+    \centering
+    \input{content/fig/example_graph}
+    \caption{Example directed graph}
+    \label{fig:schema:example-graph}
+  \end{subfigure}%
+  \hfill
+  \begin{subfigure}[b]{0.5\columnwidth}
+    \centering
+    \footnotesize
+    \begin{tabular}{|c|c|c|}
+      \hline
+      \textbf{node\_id} & \textbf{in\_deg} & \textbf{out\_deg} \\
+      \hline
+      1 & 0 & 2 \\
+      2 & 1 & 1 \\
+      3 & 2 & 1 \\
+      4 & 1 & 0 \\
+      \hline
+    \end{tabular}
+    \caption{\texttt{table:node} (read-optimized)}
+    \label{fig:schema:adjlist-node}
+  \end{subfigure}
+
+  \vspace{0.3em}
+
+  \begin{subfigure}[b]{0.45\columnwidth}
+    \centering
+    \footnotesize
+    \begin{tabular}{|c|c|}
+      \hline
+      \textbf{node\_id} & \textbf{out\_nbd} \\
+      \hline
+      1 & \texttt{[2\;|\;2, 3]} \\
+      2 & \texttt{[1\;|\;3]} \\
+      3 & \texttt{[1\;|\;4]} \\
+      4 & \texttt{[0\;|\;]} \\
+      \hline
+    \end{tabular}
+    \caption{\texttt{table:adjlistout}}
+    \label{fig:schema:adjlist-out}
+  \end{subfigure}%
+  \hfill
+  \begin{subfigure}[b]{0.55\columnwidth}
+    \centering
+    \footnotesize
+    \begin{tabular}{|c|c|}
+      \hline
+      \textbf{node\_id} & \textbf{in\_nbd} \\
+      \hline
+      1 & \texttt{[0\;|\;]} \\
+      2 & \texttt{[1\;|\;1]} \\
+      3 & \texttt{[2\;|\;1, 2]} \\
+      4 & \texttt{[1\;|\;3]} \\
+      \hline
+    \end{tabular}
+    \caption{\texttt{table:adjlistin} (directed only)}
+    \label{fig:schema:adjlist-in}
+  \end{subfigure}
+
+  % \caption{Adjacency List representation for the example graph in~(a).
+  %   % Keys are byte-swapped for lexicographic ordering (\autoref{arch:key-encoding}).
+  %   The \texttt{out\_nbd} and \texttt{in\_nbd} columns store a byte array: the degree followed by the neighbor IDs.
+  %   For undirected graphs, both directions are stored in \texttt{adjlistout} and the \texttt{adjlistin} table is omitted.
+  %   The node table~(b) is optional.
+  %   For weighted graphs, \texttt{table:edge} with composite key \texttt{(src, dst)} and value \texttt{weight} is maintained.
+  %   Format codes: \texttt{u}\,=\,raw byte array, \texttt{I}\,=\,unsigned 32-bit integer.}
+  \caption{Adjacency List representation for the example graph in~(a). Each adjacency table stores a byte array: the degree followed by neighbor IDs. The node table~(b) is optional. For undirected graphs, \texttt{adjlistin}~(d) is omitted.
+  Format codes: \texttt{u},=,raw byte array, \texttt{I},=,unsigned 32-bit integer.}
+  \label{fig:schema:adjlist}
+\end{figure}

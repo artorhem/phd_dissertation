@@ -1,7 +1,3 @@
-% !TEX root = ../main-draft.tex
-
-% !TEX root = ../main-draft.tex
-
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Common Commands and Settings
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -11,11 +7,6 @@
 \renewcommand{\subsectionautorefname}{Section}
 \renewcommand{\subsubsectionautorefname}{Section}
 
-% % Change autoref names
-% \renewcommand*\sectionautorefname{Section}
-% \renewcommand*\subsectionautorefname{Section}
-% \renewcommand*\subsubsectionautorefname{Section}
-
 % The below commands color the "Figure", "Algorithm", and "Table" caption prefixes
 \definecolor{figurecolor}{RGB}{22,90,220}
 \definecolor{citecolor}{RGB}{198,81,19}
@@ -24,83 +15,32 @@
 \captionsetup[table]{labelfont={color=figurecolor}}
 \captionsetup[algorithm]{labelfont={color=figurecolor}}
 
-\def\Snospace~{\S{}}
-\def\sectionautorefname{\Snospace}
-\def\subsectionautorefname{\Snospace}
-\def\subsubsectionautorefname{\Snospace}
-
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% Lists
+% Color definitons and useful macros
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\newcommand{\project}{Flexograph} %Because we don't know what to call this project.
+\newcommand{\wt}{WiredTiger} %we use this often enough to make a macro for it
+\newcommand{\api}{GraphAPI} %tedious to write out
 
-\newcommand{\ei}{\emph{i)}}
-\newcommand{\eii}{\emph{ii)}}
-\newcommand{\eiii}{\emph{iii)}}
-\newcommand{\eiv}{\emph{iv)}}
-\newcommand{\ev}{\emph{v)}}
+% \newcommand{\code}[1]{\lstinline[style=cpp,basicstyle=\normalsize\ttfamily]$#1$}
+\newcommand{\code}[1]{\lstinline[basicstyle=\small\ttfamily]$#1$}
+\newcommand{\apicall}[1]{\lstinline[style=cpp,basicstyle=\tiny\ttfamily]$#1$}
+\newcommand{\unix}[1]{\texttt{\footnotesize #1}}
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% From UBC Diss
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% This file provides examples of some useful macros for typesetting
-% dissertations.  None of the macros defined here are necessary beyond
-% for the template documentation, so feel free to change, remove, and add
-% your own definitions.
-%
-% We recommend that you define macros to separate the semantics
-% of the things you write from how they are presented.  For example,
-% you'll see definitions below for a macro \file{}: by using
-% \file{} consistently in the text, we can change how filenames
-% are typeset simply by changing the definition of \file{} in
-% this file.
-% 
-%% The following is a directive for TeXShop to indicate the main file
-%%!TEX root = diss.tex
+%for highlighting a line in the pseudocode
+\definecolor{algopink}{rgb}{0.9, 0.56, 0.67}
+\definecolor{algoblue}{rgb}{0.45, 0.66, 0.76}
+\definecolor{algomid}{rgb}{0.98, 0.81, 0.69}
 
-\newcommand{\NA}{\textsc{n/a}}	% for "not applicable"
-\newcommand{\eg}{e.g.,\ }	% proper form of examples (\eg a, b, c)
-\newcommand{\ie}{i.e.,\ }	% proper form for that is (\ie a, b, c)
-\newcommand{\etal}{\emph{et al.}}
+\newcommand{\highlightP}[1]{\colorbox{algopink}{#1}} % Define a command for highlighting
+\newcommand{\highlightB}[1]{\colorbox{algoblue}{#1}} % Define a command for highlighting
+\newcommand{\highlightM}[1]{\colorbox{algomid}{#1}} % Define a command for highlighting
 
-% Some useful macros for typesetting terms.
-\newcommand{\file}[1]{\texttt{#1}}
-\newcommand{\class}[1]{\texttt{#1}}
-\newcommand{\latexpackage}[1]{\href{http://www.ctan.org/macros/latex/contrib/#1}{\texttt{#1}}}
-\newcommand{\latexmiscpackage}[1]{\href{http://www.ctan.org/macros/latex/contrib/misc/#1.sty}{\texttt{#1}}}
-\newcommand{\env}[1]{\texttt{#1}}
-\newcommand{\BibTeX}{Bib\TeX}
+\newcommand{\preliminary}[1]{\textbf{\textcolor{red}{#1}}}
 
-% Define a command \doi{} to typeset a digital object identifier (DOI).
-% Note: if the following definition raise an error, then you likely
-% have an ancient version of url.sty.  Either find a more recent version
-% (3.1 or later work fine) and simply copy it into this directory,  or
-% comment out the following two lines and uncomment the third.
-\DeclareUrlCommand\DOI{}
-\newcommand{\doi}[1]{\href{http://dx.doi.org/#1}{\DOI{doi:#1}}}
-%\newcommand{\doi}[1]{\href{http://dx.doi.org/#1}{doi:#1}}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% to make autoref work with algorithms
+\providecommand*{\algorithmautorefname}{Algorithm}
 
-% Useful macro to reference an online document with a hyperlink
-% as well with the URL explicitly listed in a footnote
-% #1: the URL
-% #2: the anchoring text
-\newcommand{\webref}[2]{\href{#1}{#2}\footnote{\url{#1}}}
-
-% epigraph is a nice environment for typesetting quotations
-\makeatletter
-\newenvironment{epigraph}{%
-	\begin{flushright}
-	\begin{minipage}{\columnwidth-0.75in}
-	\begin{flushright}
-	\@ifundefined{singlespacing}{}{\singlespacing}%
-    }{
-	\end{flushright}
-	\end{minipage}
-	\end{flushright}}
-\makeatother
-
-% \FIXME{} is a useful macro for noting things needing to be changed.
-% The following definition will also output a warning to the console
-\newcommand{\FIXME}[1]{\typeout{**FIXME** #1}\textbf{[FIXME: #1]}}
-
-% END
+\linepenalty=1000

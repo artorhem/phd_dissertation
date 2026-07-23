@@ -1,0 +1,26 @@
+% Metadata table schema — shared by all representations
+\begin{figure}[t]
+  \centering
+  \footnotesize
+  \begin{tabular}{|c|c|}
+    \hline
+    \textbf{meta\_key} & \textbf{meta\_value} \\
+    \texttt{I} & \texttt{u} \\
+    \hline
+    \texttt{DB\_NAME}       & \texttt{"mydb"} \\
+    \texttt{DB\_DIR}        & \texttt{"/path/to/db"} \\
+    \texttt{IS\_WEIGHTED}   & \texttt{false} \\
+    \texttt{IS\_DIRECTED}   & \texttt{true} \\
+    \texttt{READ\_OPTIMIZE} & \texttt{true} \\
+    \texttt{NUM\_NODES}     & \texttt{4} \\
+    \texttt{NUM\_EDGES}     & \texttt{4} \\
+    \texttt{MAX\_NODE\_ID}  & \texttt{4} \\
+    \texttt{MIN\_NODE\_ID}  & \texttt{1} \\
+    \hline
+  \end{tabular}
+  \caption{The \texttt{table:metadata} stores graph configuration and statistics.
+    The key is an integer enum and the value is a raw byte array interpreted per key.
+    Node and edge counts are maintained as atomic counters in memory and synced to the metadata table on checkpoint or connection close.
+    Format codes: \texttt{I}\,=\,unsigned 32-bit integer, \texttt{u}\,=\,raw byte array.}
+  \label{fig:schema:metadata}
+\end{figure}

@@ -1,0 +1,210 @@
+% Embedded vs. Columnar property storage — full-width figure
+\begin{figure*}[t]
+  \centering
+  \resizebox{\textwidth}{!}{%
+  \begin{tikzpicture}[
+    font=\footnotesize,
+    cell/.style={minimum height=4.2mm, inner sep=1pt, anchor=west},
+    hdr/.style={cell, font=\footnotesize\bfseries},
+    lbl/.style={font=\footnotesize\bfseries, anchor=south},
+    ann/.style={font=\scriptsize, text=black!60},
+    every node/.append style={font=\footnotesize},
+  ]
+
+  %% ===== LEFT PANEL: EMBEDDED MODE =====
+  \node[lbl] at (3.0, 0.7) {(a) Embedded Mode};
+
+  % Column X positions
+  \def\Lx{0}        % table left edge
+  \def\Cx{0.4}      % src column
+  \def\Dx{1.3}      % dst column
+  \def\Dgx{2.2}     % degree start
+  \def\Dge{3.0}     % degree end / blob start
+  \def\Ve{7.2}      % right edge
+
+  % Row Y positions
+  \def\Hy{0.15}     % header y
+  \def\Ry{-0.40}    % first data row
+  \def\Rs{0.42}     % row spacing
+  \def\Rh{0.18}     % half row height
+
+  % Header row
+  \node[hdr] at (\Cx, \Hy) {\texttt{src}};
+  \node[hdr] at (\Dx, \Hy) {\texttt{dst}};
+  \node[hdr] at (4.5, \Hy) {\texttt{value}};
+
+  % --- Row 1: P:1 sentinel (shaded) ---
+  \fill[black!8] (\Lx, \Ry+\Rh) rectangle (\Ve, \Ry-\Rh);
+  \node[cell] at (\Cx, \Ry) {P:1};
+  \node[cell] at (\Dx, \Ry) {OOB};
+  \draw[thick, black!40] (\Dgx, \Ry+\Rh) -- (\Dgx, \Ry-\Rh);
+  \node[cell, font=\scriptsize] at (\Dgx+0.05, \Ry) {0,2};
+  \draw[thick, black!40] (\Dge, \Ry+\Rh) -- (\Dge, \Ry-\Rh);
+  \fill[red!12] (\Dge, \Ry+\Rh) rectangle (\Ve, \Ry-\Rh);
+  \node[cell, font=\scriptsize, text=red!70!black] at (\Dge+0.08, \Ry)
+    {crDate\,\textbar\,bday\,\textbar\,fName\,\textbar\,lName\,\textbar\,browser\,\textbar\,locIP};
+
+  % --- Row 2: edge P:1 -> P:2 ---
+  \node[cell] at (\Cx, \Ry-\Rs) {P:1};
+  \node[cell] at (\Dx, \Ry-\Rs) {P:2};
+  \node[cell, font=\scriptsize] at (\Dgx+0.05, \Ry-\Rs) {---};
+
+  % --- Row 3: P:2 sentinel (shaded) ---
+  \fill[black!8] (\Lx, \Ry-2*\Rs+\Rh) rectangle (\Ve, \Ry-2*\Rs-\Rh);
+  \node[cell] at (\Cx, \Ry-2*\Rs) {P:2};
+  \node[cell] at (\Dx, \Ry-2*\Rs) {OOB};
+  \draw[thick, black!40] (\Dgx, \Ry-2*\Rs+\Rh) -- (\Dgx, \Ry-2*\Rs-\Rh);
+  \node[cell, font=\scriptsize] at (\Dgx+0.05, \Ry-2*\Rs) {1,1};
+  \draw[thick, black!40] (\Dge, \Ry-2*\Rs+\Rh) -- (\Dge, \Ry-2*\Rs-\Rh);
+  \fill[red!12] (\Dge, \Ry-2*\Rs+\Rh) rectangle (\Ve, \Ry-2*\Rs-\Rh);
+  \node[cell, font=\scriptsize, text=red!70!black] at (\Dge+0.08, \Ry-2*\Rs)
+    {crDate\,\textbar\,bday\,\textbar\,fName\,\textbar\,lName\,\textbar\,browser\,\textbar\,locIP};
+
+  % --- Row 4: edge P:2 -> P:1 ---
+  \node[cell] at (\Cx, \Ry-3*\Rs) {P:2};
+  \node[cell] at (\Dx, \Ry-3*\Rs) {P:1};
+  \node[cell, font=\scriptsize] at (\Dgx+0.05, \Ry-3*\Rs) {---};
+
+  % Table borders
+  \draw[thick] (\Lx, \Hy-\Rh) rectangle (\Ve, \Ry-3*\Rs-\Rh);
+  \draw[thick] (\Lx, \Hy+\Rh) -- (\Ve, \Hy+\Rh);
+
+  % Table label
+  \node[ann, anchor=north west] at (\Lx, \Ry-3*\Rs-\Rh-0.08) {\texttt{table:edge\_out}};
+
+  % Annotation: write amplification brace (right side)
+  \draw[thick, red!70!black, decorate, decoration={brace, amplitude=3pt, mirror}]
+    (\Ve+0.12, \Ry+\Rh) -- (\Ve+0.12, \Ry-\Rh)
+    node[midway, right=4pt, font=\scriptsize, text=red!70!black, align=left]
+    {153\,B rewritten\\on degree update};
+
+  % Degree brace above row 1
+  \draw[thick, black!50, decorate, decoration={brace, amplitude=2pt}]
+    (\Dgx, \Ry+\Rh+0.08) -- (\Dge, \Ry+\Rh+0.08)
+    node[midway, above=2pt, font=\tiny, text=black!60] {deg};
+
+  % Property blob brace above row 1
+  \draw[thick, red!50!black, decorate, decoration={brace, amplitude=2pt}]
+    (\Dge, \Ry+\Rh+0.08) -- (\Ve, \Ry+\Rh+0.08)
+    node[midway, above=2pt, font=\tiny, text=red!60!black] {property blob (145\,B)};
+
+
+  %% ===== RIGHT PANEL: COLUMNAR MODE =====
+  \def\Rx{10.2}
+
+  \node[lbl] at (\Rx+4.5, 0.7) {(b) Columnar Mode};
+
+  % --- Structural table ---
+  \def\Sx{\Rx}        % left edge
+  \def\Scx{\Rx+0.4}   % src column
+  \def\Sdx{\Rx+1.3}   % dst column
+  \def\Svx{\Rx+2.2}   % value column
+  \def\Sve{\Rx+3.2}   % right edge
+
+  \node[hdr] at (\Scx, \Hy) {\texttt{src}};
+  \node[hdr] at (\Sdx, \Hy) {\texttt{dst}};
+  \node[hdr] at (\Svx+0.2, \Hy) {\texttt{value}};
+
+  % Row 1
+  \fill[black!8] (\Sx, \Ry+\Rh) rectangle (\Sve, \Ry-\Rh);
+  \node[cell] at (\Scx, \Ry) {P:1};
+  \node[cell] at (\Sdx, \Ry) {OOB};
+  \node[cell, font=\scriptsize] at (\Svx+0.05, \Ry) {\textbf{[0, 2]}};
+
+  % Row 2
+  \node[cell] at (\Scx, \Ry-\Rs) {P:1};
+  \node[cell] at (\Sdx, \Ry-\Rs) {P:2};
+  \node[cell, font=\scriptsize] at (\Svx+0.05, \Ry-\Rs) {---};
+
+  % Row 3
+  \fill[black!8] (\Sx, \Ry-2*\Rs+\Rh) rectangle (\Sve, \Ry-2*\Rs-\Rh);
+  \node[cell] at (\Scx, \Ry-2*\Rs) {P:2};
+  \node[cell] at (\Sdx, \Ry-2*\Rs) {OOB};
+  \node[cell, font=\scriptsize] at (\Svx+0.05, \Ry-2*\Rs) {\textbf{[1, 1]}};
+
+  % Row 4
+  \node[cell] at (\Scx, \Ry-3*\Rs) {P:2};
+  \node[cell] at (\Sdx, \Ry-3*\Rs) {P:1};
+  \node[cell, font=\scriptsize] at (\Svx+0.05, \Ry-3*\Rs) {---};
+
+  % Structural table border
+  \draw[thick] (\Sx, \Hy-\Rh) rectangle (\Sve, \Ry-3*\Rs-\Rh);
+  \draw[thick] (\Sx, \Hy+\Rh) -- (\Sve, \Hy+\Rh);
+
+  \node[ann, anchor=north west] at (\Sx, \Ry-3*\Rs-\Rh-0.08) {\texttt{table:edge\_out}};
+  \node[ann, anchor=north east] at (\Sve, \Ry-3*\Rs-\Rh-0.08) {8\,B sentinels};
+
+  % --- Property table ---
+  \def\Px{\Rx+4.0}    % property table left edge
+  \def\Pkx{\Rx+4.4}   % key column
+
+  % Temporal column group
+  \def\Tcx{\Rx+5.4}   % crDate column
+  \def\Tbx{\Rx+6.6}   % bday column
+  \def\Tce{\Rx+7.5}   % temporal right edge
+
+  % Name column group
+  \def\Ncx{\Rx+7.8}   % fName column
+  \def\Nlx{\Rx+8.8}   % lName column
+  \def\Nce{\Rx+9.7}   % name right edge
+
+  \node[hdr] at (\Pkx, \Hy) {\texttt{key}};
+  \node[hdr] at (\Tcx+0.1, \Hy) {\texttt{crDate}};
+  \node[hdr] at (\Tbx+0.1, \Hy) {\texttt{bday}};
+  \node[hdr] at (\Ncx+0.1, \Hy) {\texttt{fName}};
+  \node[hdr] at (\Nlx+0.1, \Hy) {\texttt{lName}};
+
+  % Row 1
+  \node[cell] at (\Pkx, \Ry) {P:1};
+  \fill[blue!10] (\Tcx-0.1, \Ry+\Rh) rectangle (\Tce, \Ry-\Rh);
+  \node[cell, font=\scriptsize] at (\Tcx, \Ry) {2012-06};
+  \node[cell, font=\scriptsize] at (\Tbx, \Ry) {1990-01};
+  \fill[orange!10] (\Ncx-0.1, \Ry+\Rh) rectangle (\Nce, \Ry-\Rh);
+  \node[cell, font=\scriptsize] at (\Ncx, \Ry) {Alice};
+  \node[cell, font=\scriptsize] at (\Nlx, \Ry) {Smith};
+
+  % Row 2
+  \node[cell] at (\Pkx, \Ry-\Rs) {P:2};
+  \fill[blue!10] (\Tcx-0.1, \Ry-\Rs+\Rh) rectangle (\Tce, \Ry-\Rs-\Rh);
+  \node[cell, font=\scriptsize] at (\Tcx, \Ry-\Rs) {2013-02};
+  \node[cell, font=\scriptsize] at (\Tbx, \Ry-\Rs) {1985-07};
+  \fill[orange!10] (\Ncx-0.1, \Ry-\Rs+\Rh) rectangle (\Nce, \Ry-\Rs-\Rh);
+  \node[cell, font=\scriptsize] at (\Ncx, \Ry-\Rs) {Bob};
+  \node[cell, font=\scriptsize] at (\Nlx, \Ry-\Rs) {Jones};
+
+  % Property table border
+  \draw[thick] (\Px, \Hy-\Rh) rectangle (\Nce, \Ry-\Rs-\Rh);
+  \draw[thick] (\Px, \Hy+\Rh) -- (\Nce, \Hy+\Rh);
+
+  % Column group dividers
+  \draw[thick, black!30] (\Tcx-0.1, \Hy+\Rh) -- (\Tcx-0.1, \Ry-\Rs-\Rh);
+  \draw[thick, black!30] (\Ncx-0.1, \Hy+\Rh) -- (\Ncx-0.1, \Ry-\Rs-\Rh);
+
+  \node[ann, anchor=north west] at (\Px, \Ry-\Rs-\Rh-0.08) {\texttt{table:person\_props}};
+
+  % Column group braces below the property table
+  \def\By{\Ry-\Rs-\Rh-0.35}
+  \draw[thick, blue!60!black, decorate, decoration={brace, amplitude=3pt, mirror}]
+    (\Tcx-0.1, \By) -- (\Tce, \By)
+    node[midway, below=3pt, font=\scriptsize, text=blue!60!black] {colgroup:\texttt{temporal}};
+
+  \draw[thick, orange!70!black, decorate, decoration={brace, amplitude=3pt, mirror}]
+    (\Ncx-0.1, \By) -- (\Nce, \By)
+    node[midway, below=3pt, font=\scriptsize, text=orange!70!black] {colgroup:\texttt{name}};
+
+  % Annotation below braces
+  \node[ann, anchor=north] at ({(\Tcx-0.1+\Nce)/2}, \By-0.42)
+    {each colgroup $\rightarrow$ separate B-tree; scan reads only the groups it needs};
+
+  % Arrow from structural to property table
+  \draw[-{Stealth[length=3pt]}, thick, black!40, dashed]
+    (\Sve+0.15, \Ry) -- (\Px-0.15, \Ry)
+    node[midway, above, font=\tiny, text=black!50] {join on ID};
+
+  \end{tikzpicture}%
+  }% end resizebox
+  \caption{Embedded vs.\ columnar property storage in the EdgeKey representation (Person vertices).
+    \textbf{(a)}~Embedded mode appends the full property blob (145\,B for LDBC Person) after the degree bytes in each sentinel row; a degree update rewrites the entire value.
+    \textbf{(b)}~Columnar mode keeps sentinel values compact (degrees only) and stores properties in per-label tables with \wt{} column groups.  Each column group is a separate B-tree, so scanning a single attribute (e.g., \texttt{creationDate}) reads only that group's pages.}
+  \label{fig:schema:property}
+\end{figure*}

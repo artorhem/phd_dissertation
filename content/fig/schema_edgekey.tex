@@ -1,0 +1,58 @@
+% EdgeKey (SplitEdgeKey) representation schema + example data
+% Example graph: nodes {1,2,3,4}, edges {1->2, 1->3, 2->3, 3->4}
+% Node sentinel rows use dst=0 (OutOfBand_ID_MIN); edge keys are shifted +1 via MAKE_EKEY.
+\begin{figure}[t]
+  \centering
+  \begin{subfigure}[b]{0.48\columnwidth}
+    \centering
+    \footnotesize
+    \begin{tabular}{|c|c||c|}
+      \hline
+      \textbf{src\_id} & \textbf{dst\_id} & \textbf{attr} \\
+      \hline
+      \rowcolor{gray!15} 1 & \texttt{OOB} & \texttt{[0, 2]} \\
+      1 & 2 & --- \\
+      1 & 3 & --- \\
+      \rowcolor{gray!15} 2 & \texttt{OOB} & \texttt{[1, 1]} \\
+      2 & 3 & --- \\
+      \rowcolor{gray!15} 3 & \texttt{OOB} & \texttt{[2, 1]} \\
+      3 & 4 & --- \\
+      \rowcolor{gray!15} 4 & \texttt{OOB} & \texttt{[1, 0]} \\
+      \hline
+    \end{tabular}
+    \caption{\texttt{table:edge\_out}}
+    \label{fig:schema:ekey-out}
+  \end{subfigure}%
+  \hfill
+  \begin{subfigure}[b]{0.48\columnwidth}
+    \centering
+    \footnotesize
+    \begin{tabular}{|c|c||c|}
+      \hline
+      \textbf{dst\_id} & \textbf{src\_id} & \textbf{attr} \\
+      \hline
+      \rowcolor{gray!15} 1 & \texttt{OOB} & \texttt{[0, 2]} \\
+      \rowcolor{gray!15} 2 & \texttt{OOB} & \texttt{[1, 1]} \\
+      2 & 1 & --- \\
+      \rowcolor{gray!15} 3 & \texttt{OOB} & \texttt{[2, 1]} \\
+      3 & 1 & --- \\
+      3 & 2 & --- \\
+      \rowcolor{gray!15} 4 & \texttt{OOB} & \texttt{[1, 0]} \\
+      4 & 3 & --- \\
+      \hline
+    \end{tabular}
+    \caption{\texttt{table:edge\_in} (directed only)}
+    \label{fig:schema:ekey-in}
+  \end{subfigure}
+
+  % \caption{EdgeKey representation for the example graph in~\autoref{fig:schema:example-graph}.
+  %   Each table interleaves \colorbox{gray!15}{node sentinel rows} (shaded) with edge rows.
+  %   Node sentinels use an out-of-band destination ID (\texttt{OOB}\,=\,0) so they sort before all outgoing edges for that source, and store packed \texttt{[in\_degree, out\_degree]} as the value.
+  %   Edge rows store the edge weight for weighted graphs, or a placeholder for unweighted graphs (\texttt{---}).
+  %   % User-provided IDs are shifted by +1 internally so that no real vertex collides with the \texttt{OOB} sentinel.
+  %   For undirected graphs, both directions are stored in \texttt{edge\_out} and the \texttt{edge\_in} table is omitted.
+  %   Format codes: \texttt{u}\,=\,raw byte array.}
+  \caption{EdgeKey representation for the example graph in~\autoref{fig:schema:example-graph}. \colorbox{gray!15}{Node sentinels} (shaded) use an out-of-band destination ID (\texttt{OOB},=,0) and store packed \texttt{[in\_degree, out\_degree]};
+  edge rows store the weight or a placeholder (\texttt{---}). For undirected graphs, \texttt{edge\_in} is omitted. All columns use raw byte arrays (\texttt{u}).}
+  \label{fig:schema:edgekey}
+\end{figure}

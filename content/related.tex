@@ -1,2 +1,37 @@
-\section{Related Work}
-\label{chapter:related-work}
+\section{Related Work and Comparison Points}
+\label{sec:related-work}
+The introduction identified two silos in graph data management: graph databases for transactional workloads and specialized engines for analytics. We refine this classification into five categories that capture the diversity of related work and that we use to frame our evaluation.
+% Heidari et al.~\cite{Heidari:2018:SGP:3212709.3199523} survey static graph processing systems; Besta et al.~\cite{besta2020demystifying} survey graph databases.
+
+\textbf{Graph Analytics on Relational Systems:}
+% As discussed in \autoref{sec:intro}, 
+TAO~\cite{bronson2013tao}, Oracle PGX~\cite{hong2015pgx,OraclePG,WhatIsOracleSpatialGraph:online}, DuckPGQ~\cite{duckpgq:online}, and GART~\cite{shen2023bridging} all route analytics through a separate in-memory engine or transient representation.
+Welc et al.~\cite{welc2013graph,graphProcessingRDBMS} showed that SQL-based shortest paths can be competitive with Neo4j on social graphs but degrade for iterative workloads.
+Hong et al.~\cite{hong2013early} demonstrated that Green-Marl programs can compile to distributed Giraph jobs, but they do not eliminate data movement into an in-memory representation.
+\project{} stores graphs in persistent, analytics-friendly layouts within a transactional key-value store, requiring no data movement or separate engine.
+
+\textbf{In-Memory, Static Structural Graph Processing:}
+The GAP Benchmark Suite (GapBS)~\cite{beamer2015gap} provides optimized reference implementations of common analytics kernels on a CSR representation; \project{} adapts these to use our API for a fair comparison.
+Ligra~\cite{shun2013ligra} introduces direction-optimizing traversal that switches between sparse and dense modes based on frontier size.
+Galois~\cite{nguyen2013lightweight} generalizes graph computation with priority-driven scheduling for irregular parallelism.
+Gemini~\cite{zhu2016gemini} uses chunk-based partitioning with locality-aware execution; we evaluate it on a single host to isolate local computation efficiency.
+All four require an offline preprocessing step to build their in-memory layout; we include this time in all comparisons, as \project{} operates directly on its persistent representation.
+
+\textbf{Out-of-Core, Static Structural Graph Processing:}
+Out-of-core systems process graphs larger than memory by scheduling disk I/O for sequential bandwidth.
+GraphChi~\cite{kyrola2012graphchi} partitions edges into shards processed via Parallel Sliding Windows;
+X-Stream~\cite{roy2013x} streams unordered edge lists through memory in a scatter-gather model;
+Blaze~\cite{kim2022blaze} targets NVMe SSDs with partition-centric processing and I/O scheduling optimized for high device parallelism.
+All three require a preprocessing step and are batch-only, supporting no mutations during processing.
+\project{} relies on \wt{}'s buffer pool to spill to secondary storage, achieving competitive out-of-core performance without a dedicated I/O framework.
+
+\textbf{In-Memory, Dynamic Structural Graphs:}
+We compare against Teseo~\cite{teseo2021deLeo}, LiveGraph~\cite{zhu2019livegraph}, and GraphOne~\cite{graphone2019kumar}, using the GFE driver~\cite{teseo2021deLeo} for fair, reproducible benchmarking across all systems.
+Teseo organizes edges in a fat-tree of dense pages periodically rebalanced for locality. %; due to a known bug we limit its comparison to insertion throughput and steady-state analytics.
+GraphOne uses an append-only edge log paired with an adjacency array, with blind-write semantics and no conflict detection.
+LiveGraph maintains a transactional edge log with mmap-backed adjacency-list snapshots and is the closest system to \project{} in scope.
+We include this comparison to show that a persistent, B-tree-backed database can deliver competitive throughput without sacrificing ACID semantics or crash recovery.
+
+\textbf{Graph Databases, Property Graphs:}
+We integrate \project{} into the AsterDB~\cite{moAsterEnhancingLSMstructures2025} evaluation artifact to run microbenchmarks and analytics queries under identical conditions against Neo4j~\cite{neo4j} (native graph storage, index-free adjacency), ArangoDB~\cite{arangodb} (multi-model document store), and JanusGraph~\cite{janusgraph} (distributed, pluggable backends).
+For LDBC SNB queries we also compare against NeuG~\cite{NeuG2025Alibaba}; we exclude AsterDB from this comparison, because its Gremlin bridge does not populate properties from the RocksDB backend and stores all edges under a single default label, preventing label-filtered traversals.

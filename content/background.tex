@@ -1,325 +1,112 @@
-\chapter{Background}
-\label{chapter:background}
-This chapter covers the background information necessary to understand the research presented in this thesis.
-We begin by defining graphs and the Property Graph Model, which is the most common graph model used for modeling real-world data.
-We then discuss the different types of graph workloads and study the access patterns they induce on the graph.
-We conclude the chapter by examining the different data structures used to support these workloads.
+\section{Background}
+\label{sec:bg}
+We formally define graphs and the Property Graph Model, then discuss graph workloads, and the data structures used to support them.
 
-%%%%%%%%%%%%%%%%%%%%%%%%%% Basic Graph Definitions %%%%%%%%%%%%%%%%%%%%%%%%%%
-\section{Graph Models}
-\label{back:graph_models}
+\subsection{Graph Models}
+\label{sec:bg:model}
+A graph $G$ is a pair $G = (V, E)$ where $V$ is the set of \textit{vertices} (or ``nodes'') and $E \subseteq V \times V$ is the set of \textit{edges}~\cite{diestel2017basics}.
+Edges can be directed or undirected.
+A \emph{weighted graph} includes edge weights, modeled as a triple $G = (V, E, w)$, where $w: E \rightarrow \mathbb{R}$ maps edges to weights.
+This representation, called a \emph{Structural Graph}, captures both graph topology and connectivity, supporting analytics such as shortest paths, centrality, and community detection.
 
-A graph $G$ is defined as a pair $G = (V, E)$ of sets $V$ and $E$ such that $E \subseteq V \times V$. $V$ is the set of \textit{vertices} (also called ``nodes'') of the graph $G$, and $E$ is the set of \textit{edges} of $G$~\cite{diestel2017basics}.
-The vertices are the entities modeled by a graph, and an edge represents a relationship between the vertices to which it connects.
-% We have $|V| = n$ and $|E| = m$.
-The edges of a graph can be directed or undirected.
-In a directed graph $G$, an edge $e = (u, v) \in E$ is an ordered pair, where $u$ is called the "source" vertex and $v$ is the "destination" vertex. 
-If $G$ is undirected, then an edge $e = (u, v) \in E$ is a \emph{set} of two vertices.
-A weighted graph has a "weight" associated with each edge.
-Formally, a weighted graph $G$ is modeled as a triple $(V, E, w)$, where $w: E \rightarrow \mathbb{R}$ maps edges to weights.
+Real-world graphs model entities that have labels and properties.
+% The \emph{Labeled Property Graph} (or simply \emph{Property Graph}, PG) model extends the structural graph to capture this information~\cite{Angles_Arenas_Barceló_Hogan_Reutter_Vrgoč_2018}.
+% Each vertex and edge in a PG carries a \emph{label} that partitions the graph elements into disjoint subsets; for example, vertices may be labeled ``User'' or ``Post,'' and edges ``follows'' or ``likes.''
+% Labels are analogous to tables in the relational model: a vertex label corresponds to a table, and an edge label corresponds to a foreign key or join table.
+% Additionally, each vertex and edge may have \emph{attributes} (also called \emph{properties}) modeled as $(key, value)$ pairs, analogous to columns in a relational table.
+% Vertices with the same label share a common attribute schema; for instance, all ``User'' vertices might carry \texttt{name}, \texttt{age}, and \texttt{location} attributes.
+% Formal definitions appear in~\cite{Angles_Arenas_Barceló_Hogan_Reutter_Vrgoč_2018, bonifati2018querying}.
+The \emph{Property Graph} (PG) model extends the structural graph to represent real-world entities \cite{Angles_Arenas_Barceló_Hogan_Reutter_Vrgoč_2018, bonifati2018querying}: vertices and edges may carry \emph{labels} that assign them a type (e.g., ``User'' or ``follows'') and \emph{properties} modeled as key-value pairs (e.g., \texttt{name}, \texttt{age}).
+A \emph{structural graph} can be derived from a property graph by selecting elements with specific labels and discarding their properties.
 
-This formulation of a graph captures only the structure of the graph; for the remainder of this dissertation, we will refer to this as a \textit{Structural Graph}.
-Structural graphs are appropriate for graph theoretic studies and analytics tasks that examine the graph's topology and connectivity (e.g., finding shortest paths, computing centrality measures, and detecting communities).
-However, real-world graphs model entities that have a "schema," i.e., they have types and properties associated with them.
-Capturing the additional information allows us to perform more complex queries on the graph, such as finding all users who are friends with a particular user or finding all users who have a particular property.
+\subsection{Graph Workloads}
+\label{sec:bg:workloads}
+Graph databases handle graph OLTP and graph OLAP workloads.
+Graph OLTP queries, such as finding a node's neighborhood (e.g., finding a user’s friends in a social network), access a small subset of the graph.
+They are latency-sensitive, short-running, and often transactional, involving operations such as inserting/updating vertices/edges or finding specific nodes/edges.
 
-The augmented graph model that satisfies the requirement to have properties and labels associated with graph elements is called the \textit{Labeled Property Graph (or simply a Property Graph)} Model~\cite{Angles_Arenas_Barceló_Hogan_Reutter_Vrgoč_2018}.
-We use the term Property Graphs (PG) to refer to these graphs in the remainder of this dissertation. 
-Each vertex and edge in a PG has labels, which are used to construct subsets of vertices and edges and are useful for filtering queries.
-For instance, in a social network, the nodes could be labeled "users" or "organizations," and the relationship labels could be "is friends with" or "follows."
-The concept of labels has an equivalent in the relational model: node labels are analogous to tables and the edge labels are analogous to foreign keys or join tables.
+Graph OLAP tasks, in contrast, are long-running and complex, often analyzing large portions or entire graphs. Examples include Breadth-First Search (BFS), PageRank, community detection, shortest path computation, and pattern mining~\cite{capotua2015graphalytics}.
 
+Besta et al.~\cite[Section 4.2.1]{besta2020demystifying} classify graph workloads by query scope, as summarized in~\autoref{tab:bg:workload_patterns}.
+Point queries involve minimal graph access, while OLAP tasks require read-only access to most or all graph data. Neighborhood queries and traversals fall between these extremes. Traversals leverage logical locality but can exhibit random physical access patterns, making optimization challenging.
+Regardless of the workload, using data structures that provide sequential access to the vertices and their neighborhoods is a common optimization.
 
-Additionally, the nodes and the edges in a PG could have an arbitrary number of \textit{properties} (also called \emph{attributes}) associated with them.
-If a relational table corresponds to a label in a property graph, then a row in the table represents a node or edge, and the columns represent the node's properties.
-For instance, a node with a "user" label in a social network graph could have properties such as "name," "age", and "location".
-Similarly, an edge with a "works at" label could have properties such as "start date", "level", etc.
-These properties are modeled as $(key, value)$ pairs, where \textit{key} identifies the property and the \textit{value} is the corresponding value of that property.
-\autoref{fig:back:property_graph} shows an example of a property graph with two node labels, "User" and "Organization", and three edge labels, "friends with", "follows", and "works at".
+\begin{table}[h!]
+  \centering
+  \footnotesize
+  \begin{tabularx}{\columnwidth}{|l|X|X|}
+  \hline
+  \textbf{Workload} & \textbf{Access Pattern} & \textbf{Helpful Optimization} \\ \hline
+  \textbf{Point Query} & 
+    Random access to nodes with a certain label or property & 
+    Index on labels or property \\ \hline
+  \textbf{Neighborhood} & 
+    Accessing a node's in- or out-neighborhood & 
+    Direct, sequential access to neighborhoods \\ \hline
+  \textbf{Traversals} & 
+    Selection on neighborhood queries & 
+    Inherently random, no clear optimization \\ \hline
+  \textbf{Analytics} & 
+    Access all/most nodes and edges on some materialized structural graph & 
+    Sequential access to nodes and edges in each node's neighborhood \\ \hline
+  \end{tabularx}
+  \caption{Summary of graph workloads and their access patterns (derived from Besta et al.~\cite{besta2020demystifying}).}
+  \label{tab:bg:workload_patterns}
+\end{table}
 
-\begin{figure*}
-    \centering
-    \includegraphics[scale=0.5]{content/fig/background/property_graph.pdf}
-    \caption{A Property Graph with two node labels, "User" and "Organization", and three edge labels, "friends with", "follows", and "works at". The nodes and edges have properties associated with them.}
-    \label{fig:back:property_graph}
-\end{figure*}
+\subsection{Graph Representations}
+\label{sec:bg:reps}
+%Since the ultimate goal of~\project{} is to provide robust data management for property graphs, the initial focus has been on developing analytics-friendly storage solutions for structural graphs (see ~\autoref{sec:architecture}).
+We now describe the in-memory data structures that yield sequential access for common graph processing access patterns.
+% \subsubsection{Adjacency Matrices}
+% \label{sec:bg:adj_mat}
+% The canonical representation of a graph uses an $n \times n$ matrix, $A$, where $n$ is the number of vertices in the graph; an element $a_{ij} = 1$ in $A$ indicates the presence of an edge between vertices $i$ and $j$.
+% Depending on the matrix's definition, edges can be directed or undirected. 
+% Hence, the edge $a_{ij}$ can either indicate a directed edge $i \rightarrow j$ or an undirected edge $i \leftrightarrow j$.
+% Real-world graphs tend to follow the power law distribution~\cite{newman2005power}, have small diameters, and exhibit communities ~\cite[Section~2]{chakrabarti2006GraphMining}.
+% A power-law distribution of degrees leads to a few \textit{hub} nodes with high degrees and many nodes with low degrees (i.e., the heavy tail of degree distribution).
+% A direct consequence of the power law is that the resulting \textbf{adjacency matrices are sparse and, therefore, memory inefficient}.
+\subsubsection{Adjacency Lists}
+\label{sec:bg:reps:adj}
+% Adjacency lists are a natural solution to the sparsity problem and memory inefficiency of adjacency matrices.
+Adjacency lists represent a graph with a row for each vertex with the row containing a list of the vertex's neighbors; it consumes $O(|V| + |E|)$ memory. %, which is superior to the $O(V^2)$ required for an adjacency matrix.
 
-
-A more formal definition of Property Graphs can be found in the survey papers by Angles et al.~\cite{Angles_Arenas_Barceló_Hogan_Reutter_Vrgoč_2018} and Yakovets et al.~\cite{bonifati2018querying}.
-It is important to note that structural graphs are a subclass of property graphs. 
-Property graphs can be transformed into structural graphs by selecting nodes and edges with specific labels and removing all associated properties. 
-For example, ~\autoref{fig:back:property_graph} can be converted into a structural graph by selecting nodes labeled "user" and edges labeled "friends with" and then removing all associated properties.
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-\section{Graph Workloads}
-\label{back:workloads}
-
-In~\autoref{introduction}, we briefly explored typical relational database workloads: Online Transactional Processing (OLTP) and Online Analytical Processing (OLAP).
-OLTP workloads involve tasks that insert or update data in a database at high volume using transactions.
-These systems are optimized for a high volume of queries that are typically latency-sensitive, short-running, and small, typically modifying only a small portion of the database.
-In contrast, OLAP workloads are read-mostly and are used to analyze and aggregate data.
-While analytical processing tasks also involve high volumes, they are generally less sensitive to latency and are designed to maximize throughput.
-
-Similarly, graph data management systems can handle both OLTP and OLAP workloads.
-An example of a graph OLTP workload is a neighborhood query, such as finding a user's friends in a social network graph.
-These queries tend to access small parts of the graph, are short-running, and transactional.
-Other graph OLTP tasks include inserting or updating vertices or edges, looking up nodes or edges, and other interactive queries. These typically involve immediate responses and real-time data manipulation.
-
-In contrast, graph OLAP queries are usually long-running and complex tasks that often involve reading large portions of the graph, if not the entirety.
-Familiar examples of analytics workloads include running Breadth-First Search (BFS), PageRank, community detection tasks (such as triangle counting and label propagation), shortest path computations (SSSP), pattern mining, and many others~\cite{capotua2015graphalytics}.
-
-% import figure from fig/background/olap_oltp.pdf
-\begin{figure}
-    \centering
-    \includegraphics[scale=0.5]{content/fig/background/olap_oltp.pdf}
-    \caption{Graph workloads can be classified into OLTP and OLAP workloads based on the scope of the query. OLTP workloads are typically point or neighborhood queries, while OLAP workloads are whole-graph analytics tasks.}
-    \label{fig:back:olap_oltp}
-\end{figure}
-
-To better understand the graph workloads and how they access the graph, it is helpful to classify them based on how much of the graph they access (also called the scope of the query).
-A recent survey by Besta et al.~\cite[Section~4.2.1]{besta2020demystifying} provides a handy classification of graph queries on graph databases.
-We briefly summarize their classification here to complete our description of the research landscape.
-
-\subsection{Types of Graph Queries by Scope}
-\label{back:workloads:oltp}
-\begin{enumerate}
-    \item \textbf{Point Queries}: Point queries on a property graph involve inserting, deleting, or updating a single graph element (vertex or edge). Another typical example is to set or retrieve some associated property or to filter edges/nodes with a certain label. To run efficiently, point queries require an index on the property or label being queried.
-
-    \item \textbf{Neighborhood Queries}: Neighborhood queries are used for finding the edges incident to or emanating from a vertex. A neighborhood query finds nodes that are reachable from (or are part of the neighborhood of) a given node. These queries are essential for social network analysis, where finding a user's friends or followers is a common task. A common way to optimize neighborhood queries is to have direct, sequential access to a node's neighborhood.
-
-    \item \textbf{Traversals}: Graph traversals mean visiting graph elements starting from a "root" vertex and following its edges in some deterministic or random/sampling-based fashion.  Graph traversals can be thought of as a neighborhood query but with selection criteria based on the label or property of the nodes or edges. Additionally, while neighborhood queries are typically limited to a fixed depth, traversals can be unbounded. A typical traversal query on a social network could be to find friends-of-friends or friends-of-friends-of-friends who work at a particular organization. Traversal queries access have some logical locality, but they might access the physical data in random order; this makes them challenging to optimize.
-    
-    \item \textbf{Whole Graph Analytics}: Computations for global graph properties (such as vertex centralities, all pairs shortest paths, or clustering coefficients) that require accessing the entire graph are called whole-graph analytics. These workloads access most (often all) vertices and edges in a graph, though not necessarily all properties and labels associated with them (\ie the structural graph). These workloads benefit from having sequential access to all vertices in the graph and sequential access to all edges in each vertex's neighborhood.
-    
-\end{enumerate}
-
-While \emph{graph databases} support all types of queries, they are best suited for point and neighborhood queries.
-Static graph processing systems are specialized to handle whole-graph OLAP workloads on structural graphs.
-A summarization of this classification is provided in \autoref{tab:back:workload_patterns}.
-
-\begin{table}[]
-    \centering
-    \resizebox{\columnwidth}{!}{%
-    \begin{tabular}{|l|l|l|}
-    \hline
-    \textbf{Workload} &
-      \textbf{Access Pattern} &
-      \textbf{Helpful Optimization} \\ \hline
-    \textbf{Point Query} &
-      \begin{tabular}[c]{@{}l@{}}Random access to nodes with a\\  certain label or property\end{tabular} &
-      Index on labels or property \\ \hline
-    \textbf{Neighborhood Queries} &
-      \begin{tabular}[c]{@{}l@{}}Accessing a node's in- or \\ out-neighborhood\end{tabular} &
-      \begin{tabular}[c]{@{}l@{}}Direct, sequential access\\  to neighborhoods\end{tabular} \\ \hline
-    \textbf{Graph Traversals} &
-      Selection on neighborhood queries &
-      \begin{tabular}[c]{@{}l@{}}Inherently random, no \\ clear optimization\end{tabular} \\ \hline
-    \textbf{Whole-Graph Analytics} &
-      \begin{tabular}[c]{@{}l@{}}Access all/most nodes and edges on \\ some materialized structural graph\end{tabular} &
-      \begin{tabular}[c]{@{}l@{}}Sequential access to nodes and \\ edges in each node's neighborhood\end{tabular} \\ \hline
-    \end{tabular}%
-    }
-    \caption{Summary of graph workloads and their access patterns}
-    \label{tab:back:workload_patterns}
-    \end{table}
-
-Wherever there are workloads of broad commercial interest, a benchmarking council is looking to formalize a specification; graph data management systems are no exception. 
-The leading benchmarking association for graph workloads is the Linked Data Benchmark Council (LDBC)~\cite{Introduc58:online}, and they have published several benchmark specifications to standardize the benchmarking practices on graph data.
-LDBC provides two popular benchmarking suites: the Social Network Benchmark (SNB)~\cite{LDBCSoci94:online} and Graphalytics~\cite{LDBCGrapalytics22:online}.
-
-LDBC-SNB defines two subclasses of transactional workloads: interactive and business intelligence workloads.
-The interactive workload is centered around "complex read queries that access the neighborhoods of a given node and update operations that continuously insert new data into the graph."~\cite{LDBCSoci94:online}.
-Besta et al.~\cite{besta2020demystifying} provide a breakdown of the interactive workload into short read-only queries (neighborhood lookup for a node or short traversals), complex read-only queries (traverse a more significant part of the graph and used to assess query optimizers), and transactional update queries (insert/modify/remove a node and it's incoming or outgoing edges).
-The Social Network Benchmark also provides the LDBC Business Intelligence workloads, which gauge the system's performance under more expansive reads that fetch large parts of the graph.
-Typical queries include tasks that sort, order, aggregate, and derive maximum or minimum values from the data.
-
-
-The LDBC Graphalytics benchmark and the GAP Benchmark~\cite{beamer2015gap} describe the most important classes of graph analytics kernels based on their frequency of use in applications and their diverse computational complexities.
-Graphalytics includes six kernels: Breadth-First Search (BFS), PageRank (PR), Weakly Connected Components (WCC), Label Propagation for Community Detection (CDLP), Clustering Coefficient, and Single-Source Shortest Path (SSSP).
-The GAP Benchmark Suite~\cite{beamer2016understanding},
-GAPBS, provides a specification and reference implementation for BFS, PR, Triangle Counting (TC), Betweenness Centrality (BC), and Connected Components (CC).
-
-Another notable benchmark suite is the GraphMineSuite, which contains graph mining workloads.
-Kernels used for graph mining are significantly more computation-heavy than the "low-complexity" kernels used in most applications and benchmarking suites such as GAPBS and Graphalytics.
-GraphMineSuite provides a framework for evaluating a reference implementation for graph pattern matching, graph learning algorithms, optimization problems (such as minimum spanning tree and minimum cut), and vertex ordering tasks.
-
-
-%%%%%%%%%%%%%%%%%%%%%%%%%% IN-MEMORY GRAPH REPRESENTATIONS %%%%%%%%%%%%%%%%%%%%%%%%%%
-\section{Graph Representations}
-\label{back:graph_rep}
-In \autoref{back:graph_models}, we formally defined graph-structured data.
-While the ultimate goal of~\project{} is to provide robust data management for property graphs, the initial focus has been on developing analytics-friendly storage solutions for structural graphs (see ~\autoref{chapter:architecture}).
-This foundational work sets the stage for efficient handling and analysis of property graphs in subsequent phases (see \autoref{chapter:propertyGraphs}).
-
-We now describe how graphs are represented by introducing the most common in-memory data structures used for storing them.
-We begin with the most common way to represent graphs and then follow up with other, more compact, layouts designed to enable sequential access to graph neighborhoods.
-
-For the remainder of this section, we will use the sample graph shown in \autoref{fig:back:sample_graph} to illustrate the different graph representations.
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-\newcommand{\sampleMatrix}
-{
-\begin{bmatrix}
-0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 \\
-1 & 0 & 0 & 0 & 0 & 1 & 0 & 1 & 1 \\
-1 & 0 & 0 & 0 & 0 & 1 & 1 & 0 & 0 \\
-0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 \\
-0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 \\
-0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 \\
-0 & 1 & 0 & 1 & 0 & 0 & 0 & 0 & 0 \\
-0 & 0 & 0 & 1 & 0 & 0 & 0 & 0 & 0 \\
-\end{bmatrix}
-}
-
-\begin{figure}[htbp!]
-    \centering
-    \begin{subfigure}[b]{0.45\textwidth}
-        \centering
-        \includegraphics[scale=0.45]{content/fig/background/sample_graph.pdf}
-        \caption{ }
-        \label{fig:back:sample_graph}
-    \end{subfigure}
-  \hfill
-    \begin{subfigure}[b]{0.45\textwidth}
-        \centering
-        \[
-            A = \sampleMatrix
-        \]
-        \caption{  }
-        \label{fig:back:sample_adj_matrix}
-    \end{subfigure}
-\caption{A small directed graph with nine nodes and ten edges (a) and the corresponding $9\times9$ adjacency matrix (b).}
-  \label{fig:main}
-\end{figure}
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-\subsection{Adjacency Matrix}
-\label{back:graph_rep:adjmat}
-The canonical representation of a graph uses an $n \times n$ matrix, $A$, where $n$ is the number of vertices in the graph; an element $a_{ij} = 1$ in $A$ indicates the presence of an edge between vertices $i$ and $j$.
-Depending on the matrix's definition, edges can be directed or undirected. 
-Hence, the edge $a_{ij}$ can either indicate a directed edge $i \rightarrow j$ or an undirected edge $i \leftrightarrow j$.
-It is common to represent undirected edges between vertices $i$ and $j$ as two directed edges $i \rightarrow j $ and $j \rightarrow i$.
-The adjacency matrix representation of our sample graph is shown in \autoref{fig:back:sample_adj_matrix}.
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-\begin{figure}[ht!]
-    \centering
-    \begin{subfigure}[b]{0.45\textwidth}
-        \centering
-        \includegraphics[align=c,scale=0.5]{content/fig/background/epinions_adjmatrix.png}
-        \caption{The adjacency matrix for the network}
-        \label{fig:back:soc_adjmat}
-    \end{subfigure}
-    \hfill
-    \begin{subfigure}[b]{0.45\textwidth}
-        \centering
-        \includegraphics[align=c,scale=0.5]{content/fig/background/degree_distribution_epinions.png}
-        \caption{Degree distribution plot for the network}
-        \label{fig:back:soc_degdist}
-    \end{subfigure}
-    \caption{\texttt{soc-Epinions1} is a sparse, real-world graph that follows a power-law degree distribution. The adjacency matrix is memory inefficient. The power-law distribution shows that a few vertices have a high degree (hub nodes), while most vertices have a low degree. }
-    \label{fig:back:soc_epinions}
-\end{figure}
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-Real-world graphs tend to follow the power law distribution~\cite{newman2005power}, have small diameters, and exhibit communities ~\cite[Section~2]{chakrabarti2006GraphMining}.
-A power-law distribution of degrees leads to a few \textit{hub} nodes with high degrees and many nodes with low degrees (i.e., the heavy tail of degree distribution).
-A direct consequence of the power law is that the resulting adjacency matrices are sparse and, therefore, memory inefficient.
-\autoref{fig:back:soc_epinions} shows the adjacency matrix and the degree distribution plots for \texttt{soc-epinions1}~\cite{soc-epinions1:SNAP}, a small network with around 76,000 nodes.
-The white space in the adjacency matrix illustration denotes the sparsity pattern, which translates to empty cells in an adjacency matrix representation of the graph.
-This wasted space in an adjacency matrix leads to poor cache utilization, which is already challenging due to the random access pattern inherent in graph traversal.
-Better data structures that are more compressed than an adjacency matrix are essential to minimize the space requirement and maximize cache utilization. 
-
-We now examine a few memory-efficient data structures commonly used in graph processing systems and the cost of creating, updating, and finding neighborhoods of a node in each representation.
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-
-\begin{figure}[htbp!]
-    \begin{subfigure}[b]{0.45\textwidth}
-        \centering
-        \includegraphics[scale=0.5]{content/fig/background/sample_adjlist.pdf}
-        \caption{An adjacency list representation}
-        \label{fig:back:sample_adjlist}
-    \end{subfigure}
-  \hfill
-  \begin{subfigure}[b]{0.45\textwidth}
-        \centering
-        \includegraphics[scale=0.5]{content/fig/background/sample_csr.pdf}
-        \caption{CSR representation}
-        \label{fig:back:sample_csr}
-    \end{subfigure}
-  \caption{The adjacency list and CSR representations of the sample graph shown in \autoref{fig:back:sample_graph}.}
-  \label{fig:main}
-\end{figure}
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-%~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~%~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~%
-%~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~%~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~%
-\subsection{Adjacency Lists}
-\label{back:adjlist}
-Adjacency lists are a natural solution to the sparsity problem and memory inefficiency of adjacency matrices.
-We construct adjacency lists by expressing each row in the adjacency matrix as a list of a vertex's neighbors.
-For instance, consider the adjacency matrix shown in \autoref{fig:back:sample_adj_matrix}.
-To construct the neighborhood list for each node, we construct a vector containing the column index $j$ where $a_{ij} = 1 $ in the adjacency matrix. 
-The corresponding adjacency list representation of the graph is shown in \autoref{fig:back:sample_adjlist}.
-The memory requirement for the adjacency list representation is $O(|V| + |E|)$, which is superior to the $O(V^2)$ required for an adjacency matrix.
-
-Adjacency lists allow sequential access to a node's neighborhood. However, a random seek is required to access the neighborhood (the vertex typically contains a pointer to the list).
-Adjacency lists are dynamic data structures. Inserting new edges into an unsorted adjacency list representation has an amortized $O(1)$ cost; however, if the list must be kept sorted, the cost increases to $O(log(n))$.
+Adjacency lists are dynamic, in-memory data structures. Inserting new edges into an unsorted adjacency list representation has an amortized $O(1)$ cost; however, if the list is sorted, the cost increases to $O(log(n))$.
 Typically, two adjacency lists are maintained for a graph: one for the in-neighborhood and another for the out-neighborhood.
+Adjacency lists allow sequential access to a node's neighborhood. However, they require a random seek to access a node's neighborhood (the vertex typically contains a pointer to the list).
+% \textbf{This property makes adjacency lists an excellent choice for all workloads except ones that critically depend on sequential vertex set scans.}
+Although adjacency lists offer sequential access within a single neighborhood, full-graph scans incur pointer-chasing overhead when jumping between disjoint neighbor arrays.
+% Sortledton~\cite{sortledton2022Fuchs} shows that this is never a problem in practice, and adjacency lists provide performance within 40\% of the performance of the even more compact \emph{compressed sparse row} representation for most workloads.
 
-The adjacency list representation provides O(1) seeks to a vertex but often requires a random seek to access the neighborhood.
-Once the neighborhood is accessed, the adjacency list provides sequential access to the neighborhood.
-This property makes adjacency lists an excellent choice for all workloads except ones that critically depend on sequential vertex set scans.
-Sortledton~\cite{sortledton2022Fuchs} shows that this is never a problem in practice, and adjacency lists provide performance within 40\% of the performance of the compressed sparse row representation for most workloads.
-%~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~%~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~%
-%~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~%~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~%
-\subsection{Compressed Sparse Row}
-\label{back:CSR}
-Compressed Sparse Row (CSR) ~\cite{saad2003iterative} is a compact, \emph{immutable} data structure that uses two flat arrays to store the neighborhood lists for nodes in a graph.
-Assuming a non-symmetric sparse matrix A, we create two integer vectors: \emph{vertices} and \emph{edges}.
+\subsubsection{Compressed Sparse Rows}
+\label{sec:bg:reps:csr}
+Compressed Sparse Row (CSR)~\cite{saad2003iterative} is a compact, \emph{immutable} data structure that uses two flat arrays to store the neighborhood lists for nodes in a graph.
+Consider the sparse square matrix A whose rows and columns both correspond to the set of vertices. We can represent a graph's edge $(v1, v2)$ by a non-zero value in $A[v1][v2]$.
+For such a matrix A, we create two integer vectors: \emph{vertices} and \emph{edges}.
 For each $v_i \in V$, \emph{vertices[$v_i$]} = $idx_{v_i}$; where $idx_{v_i}$ is the index in \emph{edges} where $v$'s adjacency list begins.
 The contents of \emph{edges}[idx$_{v_i}$] to \emph{edges}[idx$_{v_i+1}$] are the sets of vertices $v_j$ such that $a_{ij} \neq 0$.
 
-CSRs provide O(1) seeks to a vertex, and since all nodes are stored in a single array, they provide sequential access to the vertex set.
-CSRs also provide a sequential scan of a node's neighborhood.
-These properties make CSRs an excellent choice for all workloads we discussed in \autoref{back:workloads}.
-
-CSR stores a graph $G = (V, E)$ in $O(|V| + |E|)$, but since it is immutable, every modification (i.e., insert or delete) requires reconstructing the edge array.
+CSRs provide $O(1)$ seeks to a vertex, and since all nodes are stored in a single array, they provide sequential access to the vertex set.
+% CSRs also provide a sequential scan of a node's neighborhood.
+CSRs support both sequential scan of a node's neighborhood as well as sequential edge scanning of the entire database.
+These properties make CSR an excellent choice for all workloads discussed in \autoref{sec:bg:workloads}.
+CSR stores a graph $G = (V, E)$ in space $O(|V| + |E|)$, but since it is immutable, every modification (i.e., insert or delete) requires reconstructing the edge array.
 The edge array might need reallocation to accommodate an incoming edge, and the old edges must be moved and shifted around the new edge.
-This is a serious limitation for evolving graphs, and much research has been done to create resizable CSRs for graphs~\cite{staudt2014networkit, PackedCSR, csr++2020Firmli, llama, madduri2009compact}.
+This is a serious limitation for evolving graphs, and much research has been done to create dynamic CSRs~\cite{staudt2014networkit, PackedCSR, csr++2020Firmli, llama, madduri2009compact}.
 
-Common variations of CSRs that are insertion-friendly include:
-\begin{enumerate}
-    \item \textbf{In-place Updates}: CSRs can be created to allow in-place insertion and deletion of graph elements without needing a full, expensive rebuilding of the data structure.
-    NetworKit~\cite{staudt2014networkit} doubles the size of the initial edge array to reserve space for new edges. 
-    A variant of the CSR called the Packed CSR \cite{PackedCSR} leaves space between elements, allowing for faster insertion and deletion of graph elements at the cost of a slowdown in traversals and an increase in the space overhead. 
-    \item \textbf{Batching updates}: Many systems batch updates and preprocess the updates to make the insertions faster.
-    Systems such as the one described by Madduri et al. \cite{madduri2009compact} batch updates, order them by vertex ID, and sort them before applying the updates.
-    \item \textbf{Multi-versioning and Delta Updates}: An alternative design to support fast inserts into a graph is to store all updates in a separate structure called a Delta Map.
-    This use of delta maps allows for running graph analytics on snapshots of the graph at different times in its evolution.
-    LLAMA~\cite{llama} is one such snapshot-based graph system that supports multi-versioning and stores the delta updates as separate concurrently accessible snapshots. 
-    There are some disadvantages to using a snapshot-based system for analytics. 
-    A high ingestion rate leads to many delta snapshots since the updates get fragmented over multiple snapshots.
-    An analytics job must read many snapshots, and this causes significant performance degradation.
-    It is common to merge and consolidate updates into the CSR; this process is called compaction~\cite{csr++2020Firmli,llama}. It is similar to garbage collection and leads to increased latency.
-\end{enumerate}
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-\subsection{Persistent Graph Representations}
-\label{back:persistent}
-
+\subsubsection{Persistent Graph Representations}
+\label{sec:bg:persistent}
 The data structures we have discussed so far are all in-memory representations of graphs.
-Commodity hardware has limited memory, and the size of real-world graphs can exceed the available memory.
-Moreover, the data in memory is volatile and is lost when the system is shut down or suffers a crash.
-Due to these limitations, it is essential to have persistent graph representations that can be stored on disk and analyzed efficiently.
+Real-world graphs frequently exceed available memory, and data held only in memory is volatile, lost on shutdown or crash.
+Therefore, it is essential to have persistent graph representations that can be stored on disk and analyzed efficiently.
 
-A persistent graph representation needs to be block-based; no in-memory data structures are block-based, and it is not trivial to convert them to a block-based representation.
-LLAMA~\cite{llama} uses a persistent CSR representation to store an evolving graph on disk and can demand-page the relevant blocks into memory for analytics.
+Because disk I/O operates on fixed-size blocks, a persistent graph representation must be block-based to avoid excessive random reads; none of the in-memory data structures discussed above are block-based, and converting them is not trivial.
+LLAMA~\cite{llama} uses a persistent CSR representation to store an evolving graph on SSDs and can demand-page the relevant blocks into memory for analytics.
+Other systems follow a variation of in-place updates through reserved space (e.g., NetworKit~\cite{staudt2014networkit} and Packed CSR \cite{PackedCSR}), batched updates to amortize inserts (e.g., Madduri et al. \cite{madduri2009compact}), and multi-versioning and delta updates ~\cite{csr++2020Firmli,llama}.
 
-Out-of-core graph processing systems are designed to handle graphs that are too large to fit in memory.
-They use a combination of in-memory data structures and disk-based data layouts to process the graph.
-The key design decision in out-of-core systems is to minimize the number of disk accesses and to ensure that the disk accesses are sequential.
-A common way to achieve this is by partitioning the edges across multiple files in a way that keeps neighborhood accesses sequential.
-As the reader will see, we adopt an existing storage engine to provide graph persistence.
-As such, we delay discussion of existing persistent representations until the Related Work section~\autoref{chapter:related-work} (which is something I plan to do after my candidacy exam). 
+\PM{we should talk about MMAP-based systems here:} Persistent graph representations can also be created by using memory-mapped I/O, in which the contents of a file on secondary storage are mapped into the analytics process's address space.
+File-backed mmap regions can be used to store the in-memory representations, and, as long as the system does not suffer extreme memory pressure, this approach works fairly well.
+However, crash-consistent databases must control when dirty pages reach disk so that, for example, a write-ahead log (WAL) record is always persisted before the corresponding data page.
+With mmap, the OS can flush dirty pages at any time without the database's knowledge, making it impossible to enforce such ordering and therefore fundamentally incompatible with correct crash recovery.
+Combined with I/O stalls from transparent page eviction and page-table contention, mmap is not a viable alternative to a managed buffer pool~\cite{crotty2022you}.
+There are a few graph processing systems/databases that use this approach, e.g., LiveGraph\cite{zhu2019livegraph} and KuzuDB\cite{feng2023kuzu}, but they admit that replacing mmap with a managed page cache is essential for robust performance\cite[Section 6]{zhu2019livegraph}.

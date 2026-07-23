@@ -1,0 +1,70 @@
+% Embedded vs. Columnar property storage (hline + thicker rules for Adobe)
+\begin{figure*}[t]
+  \centering
+  {\setlength{\arrayrulewidth}{0.5pt}%
+
+  %% --- LEFT: Embedded mode ---
+  \begin{minipage}[t]{0.40\textwidth}
+    \centering
+    \footnotesize
+    \begin{tabular}{|c|c|c|c|c|c|c|c|}
+      \hline
+      \multicolumn{2}{|c|}{\textit{key}} & \multicolumn{2}{c|}{\textit{degree}} & \multicolumn{4}{c|}{\textit{property blob}} \\
+      \hline
+      \textbf{src} & \textbf{dst} & \textbf{in\_d} & \textbf{out\_d} & \textbf{first} & \textbf{bday} & \textbf{browser} & \textbf{IP} \\
+      \hline
+      \rowcolor{gray!15} 1 & \texttt{OOB} & 0 & 1 & Alice & 90-01 & Chrome & 1.2.3.4 \\
+      1 & 2 & \multicolumn{6}{c|}{---} \\
+      \rowcolor{gray!15} 2 & \texttt{OOB} & 1 & 0 & Bob & 85-06 & Firefox & 5.6.7.8 \\
+      \hline
+    \end{tabular}
+    \caption*{\textbf{(a)} Embedded: single \texttt{edge\_out} B-tree}
+  \end{minipage}%
+  \hfill
+  %% --- RIGHT: Columnar mode ---
+  \begin{minipage}[t]{0.57\textwidth}
+    \centering
+    \footnotesize
+    \begin{tabular}{|c|c|c|c|}
+      \hline
+      \multicolumn{4}{|c|}{\textit{edge\_out}} \\
+      \hline
+      \textbf{src} & \textbf{dst} & \textbf{in\_d} & \textbf{out\_d} \\
+      \hline
+      \rowcolor{gray!15} 1 & \texttt{OOB} & 0 & 1 \\
+      1 & 2 & \multicolumn{2}{c|}{---} \\
+      \rowcolor{gray!15} 2 & \texttt{OOB} & 1 & 0 \\
+      \hline
+    \end{tabular}%
+    \quad
+    \begin{tabular}{|c|c|c|}
+      \hline
+      \multicolumn{3}{|c|}{\cellcolor{blue!12}\textit{personal}} \\
+      \hline
+      \textbf{id} & \textbf{first} & \textbf{bday} \\
+      \hline
+      \rowcolor{blue!12} 1 & Alice & 90-01 \\
+      \rowcolor{blue!12} 2 & Bob & 85-06 \\
+      \hline
+    \end{tabular}%
+    \quad
+    \begin{tabular}{|c|c|c|}
+      \hline
+      \multicolumn{3}{|c|}{\textit{contact}} \\
+      \hline
+      \textbf{id} & \textbf{browser} & \textbf{IP} \\
+      \hline
+      1 & Chrome & 1.2.3.4 \\
+      2 & Firefox & 5.6.7.8 \\
+      \hline
+    \end{tabular}
+    \caption*{\textbf{(b)} Columnar: structural + column-group B-trees}
+  \end{minipage}%
+  }% end \arrayrulewidth scope
+
+  \caption{Embedded vs.\ columnar property storage for Person vertices (EdgeKey layout).
+  (a)~All properties packed into sentinel rows; every read fetches the full record.
+  (b)~Sentinel rows store only degrees (8\,B); properties split into per-label column-group B-trees.
+  A query on \texttt{bday} reads only the \colorbox{blue!12}{personal} group.}
+  \label{fig:schema:property}
+\end{figure*}

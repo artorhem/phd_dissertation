@@ -19,6 +19,7 @@ DEPS_OPT=
 
 # LATEXMK Options
 LATEXMK_OPTS=\
+	-synctex=1 \
 	-latexoption=-interaction=nonstopmode \
 	-output-directory=$(BUILD_DIR) \
 	-e '$$max_repeat=10' \

@@ -1,0 +1,23 @@
+\subsection{Dynamic Graph Operations}
+\label{sec:eval:dynamic}
+
+Dynamic graph processing systems are systems custom-built for high-performance ingest and are primarily designed for in-memory operation.
+We choose three such systems: Teseo~\cite{teseo2021deLeo}, LiveGraph~\cite{zhu2019livegraph}, and GraphOne~\cite{graphone2019kumar}.
+Among these baselines, only Teseo and LiveGraph provide transactional semantics
+comparable to \project{}'s; GraphOne uses blind-write semantics with no
+conflict detection.
+However, only GraphOne and Teseo provide any support for persistence.
+GraphOne has a write-ahead-log based persistence mechanism; LiveGraph provides optional file-backed mmap for persistence.
+To evaluate these systems in a fairly, in a manner representative of this class of graph systems, we disable persistence in both GraphOne and LiveGraph so that all systems operate under comparable in-memory conditions.
+To achieve the same in~\project{}, we ensure that the write-ahead-log and checkpointing have both been turned off; we run with a WiredTiger cache size large enough that no evictions are triggered.
+Since we do not run \project{} purely in-memory (because that is against our design objective), we are only avoiding disk IO and not turning off the persistence mechanism entirely; we still pay the price of being able to do so.
+
+
+This comparison therefore isolates the in-memory overhead of building on
+a persistent storage engine, separate from the I/O cost of durability.
+
+We conduct four experiments:
+(1)~a scalability study that varies the writer thread count,
+(2)~an insertion benchmark at each system's optimal thread count, 
+(3)~a sustained mixed insert-and-delete workload that replays a graph update log, 
+(4)~a Graphalytics kernel run after finishing the insertion.

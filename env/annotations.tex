@@ -1,0 +1,92 @@
+%%
+%% Annotation/comment system for collaborative editing.
+%%
+%% acmart already loads: xcolor, framed.
+%% Do NOT reload those here.
+%%
+
+\usepackage{ifthen}
+\usepackage[normalem]{ulem} % for \sout
+
+\newcommand{\ra}{$\rightarrow$}
+\newboolean{showedits}
+\setboolean{showedits}{true} % toggle to show or hide edits
+\ifthenelse{\boolean{showedits}}
+{
+	\newcommand{\ugh}[1]{\textcolor{red}{\uwave{#1}}} % please rephrase
+	\newcommand{\ins}[1]{\textcolor{blue}{\uline{#1}}} % please insert
+	\newcommand{\del}[1]{\textcolor{red}{\sout{#1}}} % please delete
+	\newcommand{\chg}[2]{\textcolor{red}{\sout{#1}}{\ra}\textcolor{blue}{\uline{#2}}} % please change
+}{
+	\newcommand{\ugh}[1]{#1} % please rephrase
+	\newcommand{\ins}[1]{#1} % please insert
+	\newcommand{\del}[1]{} % please delete
+	\newcommand{\chg}[2]{#2}
+}
+
+\newboolean{showcomments}
+% \setboolean{showcomments}{true}
+\setboolean{showcomments}{false}
+\newcommand{\id}[1]{$-$Id: scgPaper.tex 32478 2010-04-29 09:11:32Z oscar $-$}
+\newcommand{\yellowbox}[1]{\fcolorbox{gray}{yellow}{\bfseries\sffamily\scriptsize#1}}
+\newcommand{\triangles}[1]{{\sf\small$\blacktriangleright$\textit{#1}$\blacktriangleleft$}}
+\ifthenelse{\boolean{showcomments}}
+%{\newcommand{\nb}[2]{{\yellowbox{#1}\triangles{#2}}}
+{\newcommand{\nbc}[3]{
+ {\colorbox{#3}{\bfseries\sffamily\scriptsize\textcolor{white}{#1}}}
+ {\textcolor{#3}{\sf\small$\blacktriangleright$\textit{#2}$\blacktriangleleft$}}}
+ \newcommand{\version}{\emph{\scriptsize\id}}}
+{\newcommand{\nbc}[3]{}
+ \renewcommand{\ugh}[1]{#1} % please rephrase
+ \renewcommand{\ins}[1]{#1} % please insert
+ \renewcommand{\del}[1]{} % please delete
+ \renewcommand{\chg}[2]{#2} % please change
+ \newcommand{\version}{}}
+\newcommand{\nb}[2]{\nbc{#1}{#2}{orange}}
+
+\definecolor{forestgreencolor}{rgb}{0.13,0.55,0.13}
+\definecolor{royalpurplecolor}{rgb}{0.5,0.0,0.5}
+\definecolor{azurebluecolor}{rgb}{0.0, 0.5, 1.0}
+\definecolor{crimsonredcolor}{rgb}{0.8, 0.1, 0.1}
+\newcommand\MIS[1]{\nbc{MS}{#1}{crimsonredcolor}}
+\newcommand\PM[1]{\nbc{PM}{#1}{royalpurplecolor}}
+\newcommand\SF[1]{\nbc{TLS}{#1}{forestgreencolor}}
+\newcommand\SP[1]{\nbc{TLS}{#1}{azurebluecolor}}
+
+\newcommand\yesml[1]{\nbc{ML {\textcolor{yellow}\sun}}{#1}{mircolor}}
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%% to make the colored frame
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% The following is for color coding the bar
+% blue for work that is basically all complete, orange for parts where the research is basically done, but it's not completely written up, and red for work that is neither research nor writing complete.
+\newlength{\leftbarwidth}
+\setlength{\leftbarwidth}{3pt}
+\newlength{\leftbarsep}
+\setlength{\leftbarsep}{10pt}
+
+\definecolor{done}{rgb}{0.0, 0.5, 0.0} %ao on latexcolor.com
+\definecolor{idea}{rgb}{1.0, 0.13, 0.32} %awesome on latexcolor.com
+\definecolor{nocode}{rgb}{1.0, 0.88, 0.21} %bananayellow on latexcolor.com
+\definecolor{prototyped}{rgb}{1.0, 0.88, 0.21} %applegreen on latexcolor.com
+
+% Define custom environment with left bar
+\newcommand*{\leftbarcolorcmd}{\color{leftbarcolor}}% as a command to be more flexible
+\colorlet{leftbarcolor}{black}
+
+\renewenvironment{leftbar}{%
+    \def\FrameCommand{{\leftbarcolorcmd{\vrule width \leftbarwidth\relax\hspace {\leftbarsep}}}}%
+    \MakeFramed {\advance \hsize -\width \FrameRestore }%
+}{%
+    \endMakeFramed
+}
+
+%define a new environment that accepts a color and creates a left bar of that color
+\newenvironment{statusbar}[1]{%
+		\colorlet{leftbarcolor}{#1}%
+		\leftbar
+}{%
+		\endleftbar
+}

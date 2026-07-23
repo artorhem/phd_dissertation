@@ -1,0 +1,10 @@
+\section{Conclusion}
+\label{sec:conclusion}
+
+We presented \project{}, a graph database built on \wt{} that stores graphs in persistent, analytics-friendly layouts and runs whole-graph analytics directly on them, eliminating the ETL and preprocessing steps that dominate end-to-end time in existing pipelines.
+Two structural representations (Adjacency List and EdgeKey) offer complementary read/write tradeoffs, and a typed property storage layer provides both embedded and columnar modes with disk-based per-column I/O isolation on a transactional B+ tree.
+Our evaluation shows that \project{} matches most in-memory graph processing systems on end-to-end analytics, sustains stable (albeit lower than best-in-class systems) throughput under mixed insert-delete workloads, and answers property graph queries orders of magnitude faster than established graph databases.
+
+\project{} trades peak insertion throughput for persistence and ACID guarantees: Teseo and GraphOne are 3 to 5$\times$ faster on pure insertion thanks to lightweight in-memory write paths.
+Integrating a high-level query language and supporting concurrent analytics under mutation are natural next steps.
+The central lesson is that a carefully designed persistent layout on a mature storage engine can serve both OLTP and OLAP graph workloads competitively, without a separate analytics engine or data movement.

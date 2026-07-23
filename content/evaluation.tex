@@ -1,0 +1,110 @@
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Evaluation
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Evaluation}
+\label{sec:evaluation}
+
+We evaluate \project{} across four complementary settings.
+We begin with property graph workloads (\autoref{sec:eval:property}), comparing \project{} to graph databases on graph algorithm benchmarks and LDBC SNB queries.
+Next, we compare against specialized in-memory systems designed for rapid ingest of dynamic structural graphs (\autoref{sec:eval:dynamic}).
+Finally, we evaluate against static structural graph processing systems, first in an out-of-core setting where the graph exceeds available memory (\autoref{sec:eval:ooc}), then fully in memory (\autoref{sec:eval:inmem}).
+The systems to which we compare in each setting are described in \autoref{sec:related-work}.
+For structural graph evaluations, we use the LDBC Graphalytics Benchmark kernels: BFS, PageRank (PR), connected components (CC), triangle counting (TC), and single-source shortest path (SSSP) ~\cite{LDBCGrapalytics22:online}.
+We use a mix of \PM{microbenchmarks -- but we might remove these} and LDBC SNB queries to evaluate \project{} on property graphs.
+
+%% --------------------------------------------------------------------------
+\subsection{Experimental Setup and Datasets}
+\label{sec:eval:setup}
+
+We use two evaluation machines.
+For all structural graph benchmarks, we use a dual-socket AMD EPYC 7643 Processor @ 2.30 GHz, 96 cores/192 threads, 2 TB of memory, and 2 TB NAND Flash SSD.
+All benchmarks comparing \project{} to graph databases were run on an Intel Xeon W-2275 @ 3.30 GHz, 14 cores/28 threads, 128 GB RAM, 1 TB NVMe SSD.
+Hyperthreading is enabled on both machines.
+
+Both machines run Ubuntu 22.04 LTS with Linux 6.8.0, and all applications are compiled using GCC 13.3.0 with the optimization flags \texttt{-O3 -march=native -mtune=native}.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{table}[h!]
+  \footnotesize
+  \begin{tabular*}{\columnwidth}{@{\extracolsep{\fill}}lrrrr@{}}
+  \toprule
+  Dataset Name &
+    Vertices |V| &
+    Edges |E| &
+    Avg. Degree &
+    Size (GB) \\ \midrule
+  Dota-league             & 61.17 K  & 50.87 M  & 831.45 & 0.8    \\
+  graph500-22, uniform-22 & 2.39 M   & 64.15 M  & 26.84  & 0.95   \\
+  graph500-24, uniform-24 & 8.87 M   & 260.38 M & 29.36  & 4.34   \\
+  graph500-26, uniform-26 & 32.80 M  & 1.05 B   & 32.01  & 18.59  \\
+  Twitter MPI             & 52.58 M  & 1.96 B   & 37.28  & 29.63  \\
+  com-friendster          & 65.60 M  & 1.80 B   & 27.44  & 32.36  \\
+  uk-2007                 & 105.15 M & 3.30 B   & 31.38  & 54.10  \\
+  Graph500-28             & 121.24 M & 4.23 B   & 34.89  & 75.64  \\
+  Graph500-30             & 447.80 M & 17.02 B  & 38.00  & 339.25 \\ \bottomrule
+  \end{tabular*}
+  \caption{Number of vertices |V|, edges |E|, avg. degree (|E|/|V|), size of the edge list
+  files for the structural graphs evaluated.}
+  \label{tab:datasets}
+  \end{table}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+The Graphalytics benchmark suite provides a few reference datasets for evaluation, from which we selected the Graph500 graphs, DOTA League, Twitter MPI, and the friendster graphs.
+We use the Koblenz Network Collection for the UK domain (uk2007) graph~\cite{kunegis2013konect}.
+The uniform random graph datasets are generated with the graph generator developed by the Teseo authors~\cite{teseo2021deLeo}.
+We repeat all experiments five times and report the mean.
+%--------------------------------------------------------------------------
+The out-of-core and in-memory analytics experiments (Sections \ref{sec:eval:ooc} and \ref{sec:eval:inmem}) use a static structural graph; \project{} opens read-only connections to a pre-loaded graph and performs no writes.
+
+\input{content/eval_property.tex}
+
+\input{content/dynamic_v2.tex}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{figure*}[t]
+  \centering
+  \begin{minipage}[t]{\columnwidth}
+    \vspace{0pt}
+    \centering
+    \footnotesize
+    \setlength{\tabcolsep}{2pt}\renewcommand{\arraystretch}{1.0}
+    \begin{tabular}{c l rrr | c l rrr}
+    \toprule
+    Graph & System & BFS & PR & WCC & Graph & System & BFS & PR & WCC \\
+    \midrule
+    \multirow{5}{*}{\rotatebox[origin=c]{90}{\small G500-22}} & FG AdjList & 0.16 & \textbf{0.18} & \textbf{0.20} & \multirow{5}{*}{\rotatebox[origin=c]{90}{\small Unif-22}} & FG AdjList & 0.14 & \textbf{0.17} & 0.11 \\
+     & FG EdgeKey & 28.90 & 3.24 & 1.26 &  & FG EdgeKey & 23.20 & 3.19 & 0.71 \\
+     & Teseo & \textbf{0.04} & 0.99 & 0.36 &  & Teseo & \textbf{0.07} & 1.44 & 0.50 \\
+     & LiveGraph & 0.40 & 0.88 & 0.50 &  & LiveGraph & 0.14 & 0.68 & \textbf{0.06} \\
+     & GraphOne & 3.82 & 4.47 & 13.20 &  & GraphOne & 3.84 & 4.60 & 16.00 \\
+    \midrule
+    \multirow{5}{*}{\rotatebox[origin=c]{90}{\small G500-24}} & FG AdjList & 0.37 & \textbf{0.81} & \textbf{0.48} & \multirow{5}{*}{\rotatebox[origin=c]{90}{\small Unif-24}} & FG AdjList & 0.35 & \textbf{0.93} & 0.62 \\
+     & FG EdgeKey & 640.00 & 12.90 & 3.82 &  & FG EdgeKey & 547.00 & 12.70 & 3.75 \\
+     & Teseo & \textbf{0.10} & 5.26 & 1.86 &  & Teseo & \textbf{0.16} & 8.60 & 2.76 \\
+     & LiveGraph & 1.79 & 4.11 & 2.30 &  & LiveGraph & 0.57 & 5.89 & \textbf{0.25} \\
+     & GraphOne & 4.10 & 7.37 & 67.80 &  & GraphOne & 4.04 & 9.97 & 95.80 \\
+    \midrule
+    \multirow{5}{*}{\rotatebox[origin=c]{90}{\small G500-26}} & FG AdjList & 1.29 & \textbf{5.52} & \textbf{3.70} & \multirow{5}{*}{\rotatebox[origin=c]{90}{\small Unif-26}} & FG AdjList & 1.05 & \textbf{9.91} & 4.24 \\
+     & FG EdgeKey & t/o & 51.91 & 20.04 &  & FG EdgeKey & t/o & 51.43 & 14.36 \\
+     & Teseo & \textbf{0.61} & 27.00 & 12.00 &  & Teseo & \textbf{0.55} & 50.20 & 15.60 \\
+     & LiveGraph & 7.54 & 20.80 & 10.50 &  & LiveGraph & 2.08 & 32.80 & \textbf{0.95} \\
+     & GraphOne & 4.86 & 19.90 & 346.00 &  & GraphOne & 5.99 & 40.20 & 401.00 \\
+    \bottomrule
+    \end{tabular}
+    \vfill
+    \captionof{table}{Cross-system Graphalytics kernel time (s), median over warm runs. FG = FlexoGraph, PR = PageRank.}
+    \label{tab:analytics-main}
+  \end{minipage}%
+  \hfill
+  \begin{minipage}[t]{\columnwidth}
+    \vspace{0pt}
+    \centering
+    \includegraphics[width=\textwidth]{content/fig/ooc/flexograph_ooc_results.pdf}
+    \captionof{figure}{Out-of-core graph analytics. Solid bars: combined PageRank + CC time. Hatched: preprocessing time. Note the log Y axis; preprocessing time often dominates runtime.}
+    \label{fig:ooc-results}
+  \end{minipage}
+\end{figure*}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\input{content/eval_ooc.tex}
+
+\input{content/eval_inmem.tex}
