@@ -1,0 +1,28 @@
+%% The following is a directive for TeXShop to indicate the main file
+%%!TEX root = diss.tex
+
+\chapter{Glossary}
+
+
+% use \acrodef to define an acronym, but no listing
+\acrodef{UI}{user interface}
+\acrodef{UBC}{University of British Columbia}
+
+% The acronym environment will typeset only those acronyms that were
+% *actually used* in the course of the document
+\begin{acronym}
+\acro{RDBMS}{Relational Database Management System}
+\acroplural{RDBMS}[RDBMSs]{Relational Database Management Systems}
+
+\acro{OLTP}{Online Transactional Processing}
+\acro{BI}{Business Intelligence}
+\acro{OLAP}{Online Analytical Processing}
+\acro{HTAP}{Hybrid Transactional and Analytical Processing}
+\acro{ETL}{Extract, Transform, Load}
+\acro{HGTAP}{Hybrid Graph Analytics and Processing}
+\acro{CSR}{Compressed Sparse Row}
+\acro{CRUD}{Create, Read, Update, Delete}
+\acro{API}{Application Programming Interface}
+\acro{WT}{WiredTiger}
+\acro{GAPBS}{GAP Benchmark Suite}
+\end{acronym}

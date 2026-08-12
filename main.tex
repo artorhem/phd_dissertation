@@ -1,0 +1,250 @@
+% !TEX enableShellEscape = yes
+
+%====================================================
+% UBC PhD Thesis — Puneet Mehrotra
+% Based on ubcthesis class (Forbes/genthesis)
+%====================================================
+
+\documentclass[phd,oneside]{ubcthesis}
+
+% GPS-recommended margins: 1.25in left, 1.0in right/top/bottom
+\usepackage[left=1.25in,right=1.0in,top=1.0in,bottom=1.0in]{geometry}
+
+%====================================================
+% Packages
+%====================================================
+% \usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{xspace}
+
+% Paragraph spacing (from stock ubcthesis template)
+\usepackage{parskip}
+
+% Math
+\usepackage{amsmath, amsfonts, amssymb}
+
+% Algorithms
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+
+% Graphics and figures
+\usepackage{afterpage}
+\usepackage{float}
+\usepackage{graphicx}
+\usepackage{graphbox}
+\usepackage{subcaption}
+\graphicspath{{fig/}}
+
+% Tables
+\usepackage{longtable}
+\usepackage{booktabs}
+\usepackage{multirow}
+\usepackage{tabularx}
+
+% Colors and formatting
+\usepackage{xcolor}
+\usepackage{colortbl}
+\definecolor{greytext}{gray}{0.5}
+
+% Code listings
+\usepackage{listings}
+\lstset{basicstyle=\sffamily\scriptsize,showstringspaces=false,fontadjust}
+
+% TikZ
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta,positioning}
+
+% Captions
+\usepackage[format=hang,indention=-1cm,labelfont={bf},margin=1em]{caption}
+
+% Symbols
+\usepackage{pifont}
+
+% Landscape pages
+\usepackage{pdflscape}
+
+% Misc
+\usepackage{comment}
+\usepackage{ifdraft}
+\usepackage{layout}
+\usepackage{mdframed}
+\usepackage[nointegrals]{wasysym}
+\usepackage{xstring}
+\usepackage{url}
+\urlstyle{sf}
+
+% Acronyms — no textcase available in genthesis, so skip \MakeTextLowercase
+\usepackage[printonlyused,nohyperlinks]{acronym}
+\renewcommand{\acsfont}[1]{{\scshape #1}}
+
+% Bibliography
+\usepackage[numbers,sort&compress]{natbib}
+\newcommand{\citeeg}[1]{\citep[e.g.,][]{#1}}
+
+% Hyperref (should be loaded late)
+\usepackage[unicode=true,
+  bookmarks,bookmarksnumbered,
+  pagebackref,linktocpage,
+  colorlinks=true,
+  linkcolor=black,
+  urlcolor=blue,
+  citecolor=black]{hyperref}
+
+% Back-reference formatting for bibliography
+\newcommand{\nocitations}{\relax}
+\renewcommand*{\backrefsep}{,~}%
+\renewcommand*{\backreftwosep}{,~}%
+\renewcommand*{\backreflastsep}{,~}%
+\renewcommand*{\backrefalt}[4]{%
+\textcolor{greytext}{\ifcase #1%
+\nocitations%
+\or
+\(\rightarrow\) page #2%
+\else
+\(\rightarrow\) pages #2%
+\fi}}
+
+% Autoref names
+\renewcommand{\chapterautorefname}{Chapter}
+\renewcommand{\sectionautorefname}{Section}
+\renewcommand{\subsectionautorefname}{Section}
+\renewcommand{\subsubsectionautorefname}{Section}
+
+%====================================================
+% Custom macros
+%====================================================
+\input{commands}
+\input{annotations}
+\input{cmd}
+
+%====================================================
+% Committee member formatting command
+%====================================================
+\newcommand{\committeeMember}[4]{#1, #2, #3\\\textit{#4}}
+
+%====================================================
+% Document metadata
+%====================================================
+\def \theAuthor {Puneet Mehrotra}
+\def \theTitle {Storing and Analyzing Large Graphs}
+\def \theSubtitle {What if all you need is a database}
+\def \theDegree {Doctor of Philosophy}
+\def \theProgramTitle {Computer Science}
+\def \theCopyrightyear {2024}
+\def \theSubmitdate {July 2024}
+
+\institution{The University Of British Columbia}
+\faculty{The Faculty of Graduate and Postdoctoral Studies}
+\institutionaddress{Vancouver}
+
+\previousdegree{M. Science, University of British Columbia, 2019}
+\previousdegree{B. Engineering, Birla Institute of Technology and Science, 2013}
+
+\degreetitle{\theDegree}
+
+\title{\theTitle}
+\subtitle{\theSubtitle}
+\author{\theAuthor}
+\copyrightyear{\theCopyrightyear}
+\submitdate{\theSubmitdate}
+\program{\theProgramTitle}
+
+\hypersetup{
+  pdftitle={Storing and Analyzing Large Graphs},
+  pdfauthor={Puneet Mehrotra},
+  pdfkeywords={PhD Thesis, Graph Database, WiredTiger}
+}
+
+%====================================================
+% Page numbering (consistent with G+PS)
+%====================================================
+\renewcommand\thepart         {\Roman{part}}
+\renewcommand\thechapter      {\arabic{chapter}}
+\renewcommand\thesection      {\thechapter.\arabic{section}}
+\renewcommand\thesubsection   {\thesection.\arabic{subsection}}
+\renewcommand\thesubsubsection{\thesubsection.\arabic{subsubsection}}
+\renewcommand\theparagraph    {\thesubsubsection.\arabic{paragraph}}
+\renewcommand\thesubparagraph {\theparagraph.\arabic{subparagraph}}
+
+\setcounter{tocdepth}{2}
+\setcounter{secnumdepth}{2}
+
+%====================================================
+\begin{document}
+
+\frontmatter
+
+%%% Order of preliminary pages (per G+PS):
+%%%   1. Title (Mandatory)
+%%%   2. Committee Page (Mandatory)
+%%%   3. Abstract (Mandatory — max 350 words)
+%%%   4. Lay Summary (Mandatory — max 150 words)
+%%%   5. Preface (Mandatory if collaborator contributions)
+%%%   6. Table of Contents
+%%%   7. List of Tables
+%%%   8. List of Figures
+%%%   9. List of Abbreviations (optional)
+%%%  10. Acknowledgements (optional)
+%%%  11. Dedication (optional)
+
+\maketitle
+\include{admin_chapters/committee_page/committee_page}
+
+\begin{abstract}
+A graph database such as Neo4j can store and query property graphs but performs poorly on whole-graph analytics.
+A graph analytics engine such as Ligra delivers strong analytical performance but requires a costly data-loading step and lacks transactional guarantees.
+Users must choose between persistent, transactional graph storage and fast analytics, but cannot have both.
+We present \project{}, a graph database built on top of \wt{}, a transactional key-value store used in production.
+\project{} inherits \wt{}'s crash recovery and transactional properties without the engineering cost of building them anew.
+\project{} supports both analytical and transactional property graph workloads.
+Across 10 LDBC SNB queries, \project{} is $4$--$7\times$ faster than Neo4j on point lookups and aggregates and up to $4\times$ faster on full-graph analytical scans via parallel columnar reads.
+Insertion throughput scales near-linearly to 72 threads, sustaining up to 1.48\,M edges/sec ($3\times$ LiveGraph), and post-ingestion graph analytics performance remains competitive with purpose-built dynamic graph systems across all kernels and scales.
+On structural, static graph analytics, \project{} is competitive with in-memory graph analytics engines and outperforms out-of-core engines, while providing transactional semantics that specialized in-memory dynamic graph containers lack.
+\end{abstract}
+
+\include{admin_chapters/lay_summary/lay_summary}
+\include{admin_chapters/preface/preface}
+
+\tableofcontents
+\listoftables
+\listoffigures
+
+% Glossary / List of abbreviations
+\input{glossary}
+
+\include{admin_chapters/acknowledgements/acknowledgements}
+\include{admin_chapters/dedication/dedication}
+
+%====================================================
+% Main body
+%====================================================
+\mainmatter
+
+\acresetall
+
+\include{body_chapters/introduction}
+\include{body_chapters/background}
+\include{body_chapters/design_space}
+\include{body_chapters/architecture}
+\include{body_chapters/related}
+\include{body_chapters/evaluation}
+\include{body_chapters/conclusion}
+
+%====================================================
+% Bibliography
+%====================================================
+\begingroup
+\raggedright
+\bibliographystyle{abbrvnat}
+\bibliography{references}
+\endgroup
+
+%====================================================
+% Appendices
+%====================================================
+\appendix
+% TODO: add appendices
+
+\backmatter
+
+\end{document}
