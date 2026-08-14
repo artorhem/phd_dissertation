@@ -86,9 +86,9 @@
   bookmarks,bookmarksnumbered,
   pagebackref,linktocpage,
   colorlinks=true,
-  linkcolor=black,
+  linkcolor=blue!70!black,
   urlcolor=blue,
-  citecolor=black]{hyperref}
+  citecolor=green!40!black]{hyperref}
 
 % Back-reference formatting for bibliography
 \newcommand{\nocitations}{\relax}
@@ -125,13 +125,14 @@
 %====================================================
 % Document metadata
 %====================================================
+\renewcommand{\titlefont}{\LARGE \bfseries}
 \def \theAuthor {Puneet Mehrotra}
-\def \theTitle {Storing and Analyzing Large Graphs}
-\def \theSubtitle {What if all you need is a database}
+\def \theTitle {Have Your Graph OLAP and OLTP Too: Unifying Graph Transactions and Analytics in FlexoGraph} 
+\def \theSubtitle {}
 \def \theDegree {Doctor of Philosophy}
 \def \theProgramTitle {Computer Science}
-\def \theCopyrightyear {2024}
-\def \theSubmitdate {July 2024}
+\def \theCopyrightyear {2026}
+\def \theSubmitdate {August 2026}
 
 \institution{The University Of British Columbia}
 \faculty{The Faculty of Graduate and Postdoctoral Studies}
@@ -222,13 +223,16 @@ On structural, static graph analytics, \project{} is competitive with in-memory 
 
 \acresetall
 
-\include{body_chapters/introduction}
-\include{body_chapters/background}
-\include{body_chapters/design_space}
-\include{body_chapters/architecture}
-\include{body_chapters/related}
-\include{body_chapters/evaluation}
-\include{body_chapters/conclusion}
+\include{body_chapters/introduction}          % Ch 1
+\include{body_chapters/background}             % Ch 2
+\include{body_chapters/design_space}           % Ch 3: Related Work and Design Space
+\include{body_chapters/architecture}           % Ch 4: Structural Graph Storage
+\include{body_chapters/architecture_property}  % Ch 5: Property Graph Storage
+\include{body_chapters/evaluation_static}      % Ch 6: Evaluation -- Static Graph Analytics
+\include{body_chapters/evaluation_dynamic}     % Ch 7: Evaluation -- Dynamic Structural Graphs
+\include{body_chapters/evaluation_property}    % Ch 8: Evaluation -- Property Graph Workloads
+\include{body_chapters/future_work}            % Ch 9: Future Work
+\include{body_chapters/conclusion}             % Ch 10: Conclusion
 
 %====================================================
 % Bibliography

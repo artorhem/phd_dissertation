@@ -1,0 +1,14 @@
+\chapter{Evaluation: Dynamic Structural Graphs}
+\label{sec:eval:dynamic:chapter}
+
+We evaluate \project{} on dynamic structural graph workloads: insertion throughput scaling, mixed insert-delete workloads, and post-ingestion analytics.
+We compare against Teseo, LiveGraph, and GraphOne using the GFE benchmarking driver.
+The systems to which we compare are described in \autoref{sec:related-work}.
+
+\section{Experimental Setup}
+\label{sec:eval:dynamic:setup}
+
+We use the same dual-socket AMD EPYC 7643 machine described in \autoref{sec:eval:static:setup}.
+The datasets used for the dynamic evaluation are listed in \autoref{tab:datasets}.
+
+\input{body_chapters/dynamic_v2.tex}

@@ -1,0 +1,48 @@
+\chapter{Evaluation: Static Graph Analytics}
+\label{sec:eval:static}
+
+We evaluate \project{} on static structural graph analytics in two settings: out-of-core, where the graph exceeds available memory, and in-memory, where the graph fits entirely in the \wt{} cache.
+In both settings, \project{} opens read-only connections to a pre-loaded graph and performs no writes.
+We compare against specialized graph processing systems using the LDBC Graphalytics Benchmark kernels: BFS, PageRank (PR), connected components (CC), triangle counting (TC), and single-source shortest path (SSSP)~\cite{LDBCGrapalytics22:online}.
+The systems to which we compare in each setting are described in \autoref{sec:related-work}.
+
+\section{Experimental Setup and Datasets}
+\label{sec:eval:static:setup}
+
+We use a dual-socket AMD EPYC 7643 Processor @ 2.30 GHz, 96 cores/192 threads, 2 TB of memory, and 2 TB NAND Flash SSD.
+Hyperthreading is enabled.
+The machine runs Ubuntu 22.04 LTS with Linux 6.8.0, and all applications are compiled using GCC 13.3.0 with the optimization flags \texttt{-O3 -march=native -mtune=native}.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{table}[h!]
+  \footnotesize
+  \begin{tabular*}{\columnwidth}{@{\extracolsep{\fill}}lrrrr@{}}
+  \toprule
+  Dataset Name &
+    Vertices |V| &
+    Edges |E| &
+    Avg. Degree &
+    Size (GB) \\ \midrule
+  Dota-league             & 61.17 K  & 50.87 M  & 831.45 & 0.8    \\
+  graph500-22, uniform-22 & 2.39 M   & 64.15 M  & 26.84  & 0.95   \\
+  graph500-24, uniform-24 & 8.87 M   & 260.38 M & 29.36  & 4.34   \\
+  graph500-26, uniform-26 & 32.80 M  & 1.05 B   & 32.01  & 18.59  \\
+  Twitter MPI             & 52.58 M  & 1.96 B   & 37.28  & 29.63  \\
+  com-friendster          & 65.60 M  & 1.80 B   & 27.44  & 32.36  \\
+  uk-2007                 & 105.15 M & 3.30 B   & 31.38  & 54.10  \\
+  Graph500-28             & 121.24 M & 4.23 B   & 34.89  & 75.64  \\
+  Graph500-30             & 447.80 M & 17.02 B  & 38.00  & 339.25 \\ \bottomrule
+  \end{tabular*}
+  \caption{Number of vertices |V|, edges |E|, avg. degree (|E|/|V|), size of the edge list
+  files for the structural graphs evaluated.}
+  \label{tab:datasets}
+  \end{table}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+The Graphalytics benchmark suite provides a few reference datasets for evaluation, from which we selected the Graph500 graphs, DOTA League, Twitter MPI, and the friendster graphs.
+We use the Koblenz Network Collection for the UK domain (uk2007) graph~\cite{kunegis2013konect}.
+The uniform random graph datasets are generated with the graph generator developed by the Teseo authors~\cite{teseo2021deLeo}.
+We repeat all experiments five times and report the mean.
+
+\input{body_chapters/eval_ooc.tex}
+
+\input{body_chapters/eval_inmem.tex}

@@ -54,7 +54,7 @@ These systems work well for OLTP workloads but frequently exhibit suboptimal per
 Neo4j, for instance, stores all graph data on disk as ``linked lists of fixed size records''~\cite{neo4j:data_layout:2024}.
 A linked-list representation is effective for connectivity queries but causes catastrophic random access overhead when running whole-graph analytics.
 
-In contrast, graph processing systems such as Pregel~\cite{malewicz2010pregel}, GraphX~\cite{gonzalez2014graphx}, PowerLyra~\cite{powerlyra2019}, GraphChi~\cite{kyrola2012graphchi}, and Ligra~\cite{shun2013ligra} deliver outstanding OLAP performance but do not provide OLTP-style query capabilities.
+In contrast, graph processing systems such as Pregel~\cite{malewicz2010pregel}, GraphX~\cite{gonzalez2014graphx}, PowerLyra~\cite{powerlyra2019}, GraphChi ~\cite{kyrola2012graphchi}, and Ligra~\cite{shun2013ligra} deliver outstanding OLAP performance but do not provide OLTP-style query capabilities.
 Using them requires extracting the structural graph from the database, transforming it for ingestion, and loading it; a costly ETL pipeline.
 
 \textit{This is the central dichotomy of graph data management}: graph databases provide \emph{persistent graph storage} but are outperformed on OLAP by specialized processing systems, which need a costly ingest and preprocessing phase before analytics can begin.
@@ -133,4 +133,27 @@ Our contributions are as follows.
   \label{fig:fg-spider}
 \end{figure}
 
-\subsection{Dissertation Organization}
+\section{Dissertation Organization}
+\label{sec:intro:organization}
+
+The remainder of this dissertation is organized as follows.
+\autoref{sec:bg} introduces core concepts that are necessary to understand the landscape of graph data management systems. 
+We look at two graph data models that conceptualize the graph data, and the data structures can be used to represent graphs in memory and on disk.
+The chapter takes a look at some strategies that can be used for handling data that is larger than installed memory. 
+The chapter concludes with a brief introduction to the \wt{} storage engine and all the internal concepts that inspire the \project{} architecture and are critical to understanding performance.
+
+\autoref{chap:design_space} surveys the graph data management landscape, classifies existing systems along axes of graph model, mutability, and transaction support, and identifies the design point that \project{} occupies.
+Since \project{} can \emph{flexibly} operate under conditions that vary along these axes, it is important to look at some exemplar systems along several points in the space.
+We particularly focus on the systems that we use to benchmark \project{}'s performance against.
+
+\autoref{sec:architecture:structural} and \autoref{sec:architecture:property} present \project{}'s design in two parts.
+The first describes how two complementary structural layouts are encoded in \wt{}'s B-tree, along with the cursor abstraction and partitioning strategies that enable parallel analytics.
+The second introduces the label encoding scheme and two property storage modes, embedded and columnar, that decouple property storage from structural storage.
+
+We evaluate \project{} across three workload classes that span four operating regimes. 
+\autoref{sec:eval:static} compares \emph{static structural graph} analytics performance against in-memory and out-of-core systems.
+\autoref{sec:eval:dynamic:chapter} measures insertion scalability and post-ingestion analytics on \emph{dynamic structural graphs} against other in-memory systems.
+\autoref{sec:eval:property:chapter} evaluates \emph{property graph} workloads using the LDBC Social Network Benchmark against Neo4j, ArangoDB, and JanusGraph.
+
+In \autoref{sec:future-work}, we explore three promising reseach projects that naturally follow the work presented in this dissertation: learned indexes on the property graph based on access pattern, integrating a high-level query language and identifying what query planning and optimization look like absent a cost model and traditional catalog, and supporting graph machine workloads in \project{}.
+Finally, we conclude the dissertation in \autoref{sec:conclusion}, with a recap and synthesis of our contributions to the field of graph data management.

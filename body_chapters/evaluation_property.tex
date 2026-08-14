@@ -1,0 +1,14 @@
+\chapter{Evaluation: Property Graph Workloads}
+\label{sec:eval:property:chapter}
+
+We evaluate \project{} on property graph workloads using the LDBC Social Network Benchmark and microbenchmarks against established graph databases.
+The systems to which we compare are described in \autoref{sec:related-work}.
+
+\section{Experimental Setup}
+\label{sec:eval:property:setup}
+
+All benchmarks comparing \project{} to graph databases were run on an Intel Xeon W-2275 @ 3.30 GHz, 14 cores/28 threads, 128 GB RAM, 1 TB NVMe SSD.
+Hyperthreading is enabled.
+The machine runs Ubuntu 22.04 LTS with Linux 6.8.0, and all applications are compiled using GCC 13.3.0 with the optimization flags \texttt{-O3 -march=native -mtune=native}.
+
+\input{body_chapters/eval_property.tex}

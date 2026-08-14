@@ -2,6 +2,5 @@
   "editor.fontSize": 14,
   "editor.wordWrap": "bounded",
   "latex-workshop.latex.outDir": "build",
-  "latex-workshop.latex.recipe.default": "latexmk",
-  "latex-workshop.latex.external.build.command": "make"
+  "latex-workshop.latex.rootFile": "main.tex"
 }
