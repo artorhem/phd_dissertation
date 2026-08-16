@@ -1,0 +1,338 @@
+% \wt{} Basics -- Thesis Background Section
+% This file is intended to be \input{} into a larger thesis document.
+% It assumes the document class already provides \section, \subsection, etc.
+% Adjust the sectioning depth (\section -> \chapter, etc.) as needed.
+
+\section{\wt{} Basics}
+\label{sec:wiredtiger-basics}
+
+\wt{} is a high-performance, transactional storage engine that serves as the default storage engine for MongoDB.  
+It provides B-tree-based storage with multi-version concurrency control (MVCC), write-ahead logging, compression, and encryption.
+This section introduces the \wt{} concepts that are most relevant to understanding the performance characteristics of \project{}.
+
+%% -------------------------------------------------------------------
+\subsection{Storage Formats: Row-Store and Column-Store}
+\label{sec:wt-storage-formats}
+
+\wt{} organises every table as a B-tree, but it offers two fundamentally
+different ways to lay out data within that tree: \emph{row-store} and
+\emph{column-store}.
+
+In a \textbf{row-store} B-tree, each leaf page contains an array of key--value
+pairs with explicitly stored, variable-length keys.  
+Keys are kept in sorted order and may be prefix-compressed on disk to reduce space.  
+Row-store is the more general-purpose format: it supports arbitrary byte-string keys, random cursors, and fast range truncation.
+
+A \textbf{column-store} B-tree uses a 64-bit unsigned integer as the key
+(a \emph{record number}), which is not stored explicitly but is derived
+from each record's position in the tree.  
+This eliminates per-record key storage overhead.
+\wt{} provides a variable-length column-store, that allows values to be of any length, as in a row-store.  
+On disk, consecutive identical values are compressed using run-length encoding (RLE), which can dramatically reduce space for columns with many repeated values.
+The trade-off is that random access within a leaf page requires walking the RLE entries rather than performing a direct offset calculation.
+
+Internally, \wt{} uses the same object \texttt{WT\_BTREE} to reference both row-store and column-store B-trees and uses a \texttt{type} field to distinguish between them.
+
+\project{} uses row-store tables for storing the structural graphs, and provides the option of using column-store tables for storing
+vertex and edge properties.
+Property storage using column stores is discussed in \autoref{sec:architecture:property}.
+
+%% -------------------------------------------------------------------
+\subsection{Connections, Sessions, and Cursors}
+\label{sec:wt-conn-sess-cur}
+
+\wt{}'s programming model is organised around three principal
+abstractions: \emph{connections}, \emph{sessions}, and \emph{cursors}.
+
+A \textbf{connection} (\texttt{WT\_CONNECTION}) is a handle to a \wt{}
+database instance.
+It is created by calling \texttt{wiredtiger\_open()} and holds exclusive access to the database directory through a file lock: only one connection may be open to a given database at a time.
+The connection handle is thread-safe and is typically shared among all threads in a process.
+It manages global resources including the in-memory cache, background worker
+threads (for eviction, checkpointing, and logging), and database metadata.
+
+A \textbf{session} (\texttt{WT\_SESSION}) is the context in which an
+application performs work.
+Sessions are created from a connection via \texttt{WT\_CONNECTION::open\_session()}.
+A connection may have many sessions, but each session is \emph{single-threaded}: it is not safe to access a session concurrently from multiple threads.
+A session owns at most one active transaction at a time, and that transaction must complete (commit or rollback) before another can begin.
+Sessions also cache data handles to the B-trees they access, amortising the cost of repeated opens.
+
+A \textbf{cursor} (\texttt{WT\_CURSOR}) provides the data access interface.
+Cursors are opened within a session via \texttt{WT\_SESSION::open\_cursor()}
+and support operations including \texttt{search}, \texttt{insert},
+\texttt{update}, \texttt{remove}, and positional iteration (\texttt{next},
+\texttt{prev}).
+A session may hold multiple open cursors, and all cursors in a session share the session's transaction context.
+The most common cursor type is the B-tree file cursor (\texttt{WT\_CURSOR\_BTREE}), which provides direct access to a single B-tree.
+Higher-level table cursors, index cursors, and join cursors are also available but internally delegate to file cursors.
+
+The relationship between these abstractions is strictly hierarchical: a process opens one connection, the connection owns many sessions, and each session owns many cursors.
+
+%% -------------------------------------------------------------------
+\subsection{Threading Model}
+\label{sec:wt-threading}
+
+\wt{} follows a \emph{single-process, multi-threaded} design.
+A process typically opens a single connection to the database, and all threads in that process share it.
+No inter-process access to the database is permitted (enforced by the file lock on the database directory).
+
+Within the process, the threading contract is:
+
+\begin{itemize}
+  \item \texttt{WT\_CONNECTION} methods are thread-safe.  The connection handle
+    is shared freely among threads.
+  \item \texttt{WT\_SESSION} and \texttt{WT\_CURSOR} methods are \emph{not}
+    thread-safe.  The recommended---and in practice universal---pattern is for each application thread to open its own session and cursors.
+\end{itemize}
+
+\wt{} uses no thread-local storage internally.
+If an application wishes to share a session between threads (e.g.\ in a thread pool), it must serialise access itself.
+In practice, the session-per-thread model eliminates this complexity.
+
+In addition to application threads, \wt{} manages several internal background threads:
+
+\begin{itemize}
+  \item An \emph{eviction server} thread that walks B-trees to identify
+    candidate pages for eviction, scoring them by recency of access
+    (an approximate LRU policy).
+  \item One or more \emph{eviction worker} threads that perform the actual
+    eviction work.  The number is configurable and can scale dynamically
+    between a minimum and maximum bound.
+  \item A \emph{checkpoint} thread that periodically writes a consistent
+    snapshot of the database to stable storage.
+  \item A \emph{log server} thread for write-ahead log management.
+  \item A \emph{sweep server} that manages the lifecycle of data handles,
+    closing handles that are no longer in active use.
+\end{itemize}
+
+Concurrent access to in-memory page structures is predominantly
+\emph{lock-free}.
+\wt{} uses \textbf{hazard pointers} to protect pages from eviction while a thread is reading them: before accessing a page, a thread publishes a hazard pointer to it; the eviction server checks for outstanding hazard pointers before evicting any page.
+This avoids the overhead of reader--writer locks on the critical path of page access and is essential for scaling to many concurrent readers.
+
+%% -------------------------------------------------------------------
+\subsection{Transactions and Snapshot Isolation}
+\label{sec:wt-txn}
+
+\wt{} provides full transactional support with ACID guarantees.
+Transactions are managed at the session level: a session holds at most one
+active transaction, and all cursor operations within that session execute in
+the context of that transaction.
+If the application does not explicitly begin a transaction, \wt{} automatically wraps each individual operation in an implicit (auto-commit) transaction.
+
+\wt{} supports three isolation levels:
+
+\begin{enumerate}
+  \item \textbf{Snapshot isolation} (default).  The transaction takes a
+    \emph{snapshot} of committed transactions at the time it begins.  For the
+    entire lifetime of the transaction, it sees a consistent view of the
+    database as of that snapshot.  Updates committed by concurrent transactions
+    after the snapshot was taken are invisible.  \emph{This is the only
+    isolation level that supports write operations.}
+
+  \item \textbf{Read-committed.}  The transaction obtains a fresh snapshot
+    before each search operation.  Between successive reads, a transaction may
+    observe changes committed by other transactions (phantom reads are
+    possible).  As an optimisation, \wt{} reuses the same snapshot for all
+    reads between successive search calls.
+
+  \item \textbf{Read-uncommitted.}  No snapshot is maintained.  The transaction
+    can see updates from all concurrent transactions, including those that have
+    not yet committed.  This provides the highest concurrency but the weakest
+    consistency guarantees.
+\end{enumerate}
+
+The snapshot mechanism works as follows.
+Each transaction that performs a write is assigned a globally unique \emph{transaction ID} before its first write operation.
+A snapshot consists of the set of transaction IDs that were in-flight (uncommitted) at the time the snapshot was taken, together with boundary IDs that delimit the ``visible'' range.
+When a read operation encounters an update, it checks the update's transaction ID against the snapshot.
+If the ID appears in the snapshot's in-flight set, or is larger than the snapshot's upper bound, the update is not visible.
+The reader then continues down the version chain to find an older, visible version.
+
+Visibility is also governed by \emph{timestamps}---user-specified 64-bit
+sequence numbers associated with operations.
+A transaction may be given a \emph{read timestamp}, and it will only see updates whose commit timestamps are at or before that value.
+An update is visible only when \emph{both} its transaction ID and its timestamp satisfy the visibility rules.
+Timestamps are optional; when not used, visibility is determined solely by transaction IDs and snapshots.
+
+\PM{this is pending investigation}
+For \project{}, read-heavy workloads (e.g.\ graph traversals and analytics queries) can operate at read-committed isolation, which carries lower overhead because snapshots are shorter-lived and fewer old versions need to be retained.
+Any thread that performs mutations must use snapshot isolation.
+Since each thread has its own session, the isolation level can be chosen independently per thread.
+
+%% -------------------------------------------------------------------
+\subsection{The \wt{} Cache}
+\label{sec:wt-cache}
+
+The \wt{} cache is an in-memory region that holds copies of recently
+accessed or modified B-tree pages.
+Its size is controlled by the \texttt{cache\_size} configuration parameter (default 100\,MB; the MongoDB recommendation is to set it to half of available RAM).
+The cache is allocated from the process heap and wt{} does not use memory-mapped files or a custom memory allocator.
+
+The cache stores only B-tree data: the on-disk page images (decrypted and
+decompressed) together with their associated in-memory indexing structures
+(insert lists, update chains, etc.).
+Other \wt{} metadata---session objects, cursor objects, data handles---live outside the cache and do not count against \texttt{cache\_size}.
+
+Pages are loaded into the cache \emph{on demand}.
+When \wt{} opens a B-tree, it loads the root page and the first level of internal pages.
+Subsequent pages are faulted in as cursor operations traverse the tree.
+Upon loading, \wt{} decrypts and decompresses the on-disk block, then allocates indexing structures (arrays of \texttt{WT\_ROW} or \texttt{WT\_COL} entries) that allow binary search over the keys on the page.
+
+The cache separately tracks total bytes in memory, bytes of dirty (modified) data, and bytes consumed by update structures.  \wt{} uses configurable \textbf{trigger} and \textbf{target} thresholds to govern eviction:
+
+\begin{itemize}
+  \item \texttt{eviction\_target} / \texttt{eviction\_trigger}: overall cache
+    fullness thresholds.  When usage exceeds the \emph{target}, eviction worker
+    threads begin reclaiming pages.  When it exceeds the \emph{trigger},
+    application threads are additionally conscripted to perform eviction before
+    they may continue their own work.
+  \item \texttt{eviction\_dirty\_target} / \texttt{eviction\_dirty\_trigger}:
+    analogous thresholds applied specifically to the volume of dirty data.
+  \item \texttt{eviction\_updates\_target} /
+    \texttt{eviction\_updates\_trigger}: thresholds based on the volume of
+    in-memory update structures.
+\end{itemize}
+
+The back-pressure mechanism (application threads assisting with eviction) is important for performance analysis: under sustained write pressure, application threads may experience latency spikes while they help evict pages to bring the cache back within its target.
+
+\textbf{Eviction} follows an approximate LRU strategy. 
+The eviction server periodically walks the in-memory B-trees, scoring pages by their \emph{read generation}---a counter incremented each time a page is accessed.
+It collects candidates, sorts them by read generation, and selects the oldest third as eviction candidates.
+These candidates are placed into eviction queues (two ordinary queues plus an urgent queue for pages that require forced eviction).
+Eviction worker threads dequeue and process pages concurrently.
+
+Evicting a \emph{clean} (unmodified) page is inexpensive: \wt{} simply
+frees the page's memory.
+Evicting a \emph{dirty} page first requires \emph{reconciliation}---converting the page from its in-memory format to the on-disk format---and writing it to storage (see Section~\ref{sec:wt-reconcile}).
+
+%% -------------------------------------------------------------------
+\subsection{In-Memory Page Structure: Skip Lists and Update Chains}
+\label{sec:wt-skiplist}
+
+The in-memory representation of B-tree leaf pages is optimised for fast, concurrent access and differs substantially from the compact on-disk format.
+
+\subsubsection{Row-Store Pages}
+
+When a row-store leaf page is loaded from disk, \wt{} creates an array of \texttt{WT\_ROW} structures: one per key--value pair on the page.
+This array is derived from the on-disk image, supports binary search, and is treated as \emph{immutable}: modifications are never written back into this array.
+Instead, changes are recorded in two auxiliary structures.
+
+\textbf{Update chains.}  Updates to \emph{existing} entries are tracked by an
+array of update-chain pointers, one per \texttt{WT\_ROW} slot.
+Each chain is a singly-linked list of \texttt{WT\_UPDATE} nodes, with the newest update at the head.
+A \texttt{WT\_UPDATE} records:
+
+\begin{itemize}
+  \item A transaction ID (\texttt{txnid}), marked \texttt{volatile} for safe
+    concurrent reads.
+  \item Timestamps: a start timestamp and a durable timestamp.
+  \item The update type: \texttt{STANDARD} (a complete new value),
+    \texttt{TOMBSTONE} (a deletion), \texttt{MODIFY} (a partial/delta update),
+    or \texttt{RESERVE}.
+  \item A variable-length data payload appended immediately after the fixed
+    47-byte structure header (using a C99 flexible array member).
+\end{itemize}
+
+To read a key, \wt{} walks the update chain from head to tail until it finds an update whose transaction ID and timestamps are visible under the current transaction's snapshot.
+If no visible update exists in memory, \wt{} falls back to the on-disk value; if that too is invisible, it searches the \emph{history store} (Section~\ref{sec:wt-reconcile}).
+
+\textbf{Insert skip lists.}  Newly inserted keys (keys that did not exist on the original on-disk page) are stored in \emph{skip lists}.
+\wt{} maintains an array of skip-list heads (\texttt{WT\_INSERT\_HEAD}), one for each ``gap'' between consecutive keys on the original page, plus one for keys smaller than the page's smallest key.
+Each skip-list node (\texttt{WT\_INSERT}) contains the key data, a pointer to its own update chain (for the value and its version history), and a variable-length array of forward pointers.
+
+The skip lists have a maximum depth of 10 (\texttt{WT\_SKIP\_MAXDEPTH}) and a promotion probability of approximately 25\%, giving $O(\log n)$ expected time for search and insertion.
+Insertions use compare-and-swap (CAS) atomic operations, making them lock-free.
+
+\subsubsection{Concurrency Properties}
+
+The combination of immutable base data, append-only update chains, and lock-free skip lists means that readers and writers on the same page rarely contend with each other.
+Readers traversing an update chain see a consistent snapshot determined by their transaction's visibility rules, while writers append new updates to the head of chains using atomic operations.
+Almost all operations on these data structures are lock-free, which is a primary reason \wt{} achieves high throughput under concurrent workloads.
+
+%% -------------------------------------------------------------------
+\subsection{Partial Updates with \texttt{WT\_MODIFY}}
+\label{sec:wt-modify}
+
+In addition to \texttt{WT\_CURSOR::insert} and \texttt{WT\_CURSOR::update}, which store \emph{complete} replacement values, \wt{} provides a \texttt{WT\_CURSOR::modify} operation that records a \emph{partial} change to an existing value.
+A modify operation is specified as an array of \texttt{WT\_MODIFY} structures, each describing a single edit: a byte offset into the existing value, a number of bytes to replace at that offset, and a buffer of new data to splice in.
+The edits are applied in order, and later edits may overlap with earlier ones.  The modify API is restricted to values of format \texttt{S} (null-terminated strings) or \texttt{u} (raw byte arrays accessed via a \texttt{WT\_ITEM}), and can only be used under snapshot isolation (since it is a write operation).
+
+The key property of \texttt{modify} is that the update chain entry stores only
+the \emph{delta}, i.e., the array of edits, rather than the full new value.
+The \texttt{WT\_UPDATE} node is tagged with type \texttt{WT\_UPDATE\_MODIFY} (as opposed to \texttt{WT\_UPDATE\_STANDARD} for a complete value).
+This has two main benefits:
+
+\begin{enumerate}
+  \item \textbf{Reduced cache pressure.}  When the value is large (e.g.\ a
+    serialised adjacency list stored as a byte array) and the change is small
+    (e.g.\ appending one edge), storing only the delta avoids duplicating the
+    full value in the update chain.  For a value of $V$ bytes and a change of
+    $\Delta$ bytes, a standard update consumes $O(V)$ while a modify update
+    consumes $O(\Delta)$.
+
+  \item \textbf{Reduced log amplification.}  \wt{} writes the same delta
+    record to the write-ahead log, so log volume is proportional to the
+    change rather than to the total value size.
+\end{enumerate}
+
+The trade-off is on the \textbf{read path}.
+To reconstruct the current value, \wt{} must find the most recent \texttt{STANDARD} (complete-value) update in the chain, then \emph{roll forward} all subsequent \texttt{MODIFY} entries in order, applying each splice operation to build the full value.
+If the complete value is not in the update chain at all, \wt{} must read it from the on-disk page image or the history store before applying the modifies.
+Reads are therefore slower when modify updates are present, and the cost grows
+with the number of stacked modify entries that must be replayed.
+
+During \textbf{reconciliation}, \wt{} resolves the modify chain: it
+reconstructs the full value by applying all visible modifies to the base value,
+and writes the resulting complete value to the on-disk page.
+After reconciliation, subsequent reads of the reconciled value no longer pay the
+replay cost until new modify updates accumulate.
+
+%% -------------------------------------------------------------------
+\subsection{Reconciliation}
+\label{sec:wt-reconcile}
+
+\emph{Reconciliation} is \wt{}'s process for converting an in-memory page back into the compact on-disk format.
+It is invoked in two contexts: when a dirty page is selected for \emph{eviction} (to free cache space), and during a \emph{checkpoint} (to write a consistent database snapshot to stable storage).
+
+The in-memory and on-disk representations serve very different goals.
+The in-memory format uses indexing arrays, skip lists, and update chains to support fast concurrent access.
+The on-disk format packs keys and values into a compact cell-based encoding to minimise storage space and I/O cost.
+
+The reconciliation process proceeds as follows:
+
+\begin{enumerate}
+  \item \textbf{Visibility resolution.}  For each key on the page, \wt{}
+    walks the update chain and selects the \emph{latest committed value} that
+    is globally visible---i.e.\ committed and older than any running
+    transaction or the oldest active timestamp.
+
+  \item \textbf{History store offloading.}  Older committed values that are
+    still needed to serve concurrent readers (long-running transactions or
+    transactions with older read timestamps) are written to the
+    \emph{history store} (\texttt{WiredTigerHS.wt}), a single internal
+    row-store table shared by all user tables.  The history store key is a
+    composite of the originating B-tree ID, the record key, a start timestamp,
+    and a monotonic counter.  The value includes the stop timestamp, durable
+    timestamp, update type, and the actual data.  This separation ensures that
+    only the most current version of each key occupies space in the main data
+    file, while historical versions remain available without interfering with
+    the primary data path.
+
+  \item \textbf{Page splitting.}  If the reconciled page exceeds the
+    configured maximum page size, \wt{} splits it into multiple on-disk
+    pages, creating new internal-page references as needed.
+
+  \item \textbf{Disk image construction.}  The selected values are packed into
+    the on-disk cell format (keys, values, and time validity windows encoded as
+    cells) and written to storage via the block manager.
+\end{enumerate}
+
+After successful reconciliation and write-out, the in-memory structures (update chains, skip lists) for the reconciled page can be freed.
+If the page contains uncommitted updates---for example from an in-progress transaction---those updates are \emph{restored} after reconciliation so they remain available for the owning transaction to commit or roll back.
+
+Reconciliation is performance-critical because it lies on both the eviction and checkpoint code paths.
+A page with a long update chain or many skip-list inserts requires proportionally more work to reconcile.
+Pages that cannot be fully reconciled (due to pinned uncommitted transactions) may resist eviction, increasing cache pressure and potentially triggering application-thread eviction.
+Understanding this interaction between update volume, reconciliation cost, and cache pressure is important for explaining the write-throughput characteristics of \project{}.

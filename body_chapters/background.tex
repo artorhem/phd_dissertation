@@ -27,10 +27,10 @@ For instance, in a social network, the nodes could be labeled ``users'' or ``org
 The concept of labels has an equivalent in the relational model: node labels are analogous to tables and the edge labels are analogous to foreign keys or join tables.
 
 
-Additionally, the nodes and the edges in a PG could have an arbitrary number of \textit{properties} (also called \emph{attributes}) associated with them.
+Nodes and the edges in a PG may also carry an arbitrary number of \textit{properties} (also called \emph{attributes}) associated with them.
 If a relational table corresponds to a label in a property graph, then a row in the table represents a node or edge, and the columns represent the node's properties.
 For instance, a node with a ``user'' label in a social network graph could have properties such as ``name,'' ``age,'' and ``location.''
-Similarly, an edge with a ``works at'' label could have properties such as ``start date,'' ``level,'' etc.
+Similarly, an edge with a ``works at'' label could have properties such as ``start date,'' and ``level''.
 These properties are modeled as $(key, value)$ pairs, where \textit{key} identifies the property and the \textit{value} is the corresponding value of that property.
 \autoref{fig:back:property_graph} shows an example of a property graph with two node labels, ``User'' and ``Organization,'' and three edge labels, ``friends with,'' ``follows,'' and ``works at.''
 
@@ -43,23 +43,22 @@ These properties are modeled as $(key, value)$ pairs, where \textit{key} identif
 
 
 A more formal definition of Property Graphs can be found in the survey papers by Angles et al.~\cite{Angles_Arenas_Barceló_Hogan_Reutter_Vrgoč_2018} and Yakovets et al.~\cite{bonifati2018querying}.
-It is important to note that structural graphs are a subclass of property graphs. 
+Structural graphs are a subclass of property graphs. 
 Property graphs can be transformed into structural graphs by selecting nodes and edges with specific labels and removing all associated properties. 
 For example, ~\autoref{fig:back:property_graph} can be converted into a structural graph by selecting nodes labeled ``user'' and edges labeled ``friends with'' and then removing all associated properties.
 \section{Graph Workloads}
 \label{sec:bg:workloads}
 In~\autoref{sec:intro}, we briefly explored typical relational database workloads: Online Transactional Processing (OLTP) and Online Analytical Processing (OLAP).
 OLTP workloads involve tasks that insert or update data in a database at high volume using transactions.
-These systems are optimized for a high volume of queries that are typically latency-sensitive, short-running, and small, typically modifying only a small portion of the database.
+These systems are optimized for a high volume of queries that are typically latency-sensitive, short-running, and small, modifying only a small portion of the database.
 In contrast, OLAP workloads are read-mostly and are used to analyze and aggregate data.
-While analytical processing tasks also involve high volumes, they are generally less sensitive to latency and are designed to maximize throughput.
+Although analytical processing tasks also involve high volumes, they are generally less sensitive to latency and are designed to maximize throughput.
 
 Similarly, graph data management systems can handle both graph OLTP and graph OLAP workloads.
-An example of a graph OLTP workload is a neighborhood query, such as finding a user's friends in a social network graph.
 Graph OLTP queries, such as finding a node's neighborhood (e.g., finding a user’s friends in a social network), access a small subset of the graph.
 They are latency-sensitive, short-running, and often transactional, involving operations such as inserting/updating vertices/edges or finding specific nodes/edges.
 
-Graph OLAP tasks, in contrast, are usually long-running and complex tasks that  often involve reading large portions of the graph, if not the entirety.
+Graph OLAP tasks, in contrast, are usually long-running and complex tasks that often involve reading large portions of the graph, if not the entirety.
 Familiar examples of analytics workloads include running Breadth-First Search (BFS), PageRank, community detection tasks (such as triangle counting and label propagation), shortest path computations (SSSP), pattern mining, and many others~\cite{capotua2015graphalytics}.
 
 \begin{figure}
@@ -79,7 +78,7 @@ We briefly summarize their classification here to complete our description of th
 
     \item \textbf{Neighborhood Queries}: Neighborhood queries are used for finding the edges incident to or emanating from a vertex. A neighborhood query finds nodes that are reachable from (or are part of the neighborhood of) a given node. These queries are essential for social network analysis, where finding a user's friends or followers is a common task. A common way to optimize neighborhood queries is to have direct, sequential access to a node's neighborhood.
 
-    \item \textbf{Traversals}: Graph traversals mean visiting graph elements starting from a "root" vertex and following its edges in some deterministic or random/sampling-based fashion.  Graph traversals can be thought of as a neighborhood query but with selection criteria based on the label or property of the nodes or edges. Additionally, while neighborhood queries are typically limited to a fixed depth, traversals can be unbounded. A typical traversal query on a social network could be to find friends-of-friends or friends-of-friends-of-friends who work at a particular organization. Traversal queries access have some logical locality, but they might access the physical data in random order; this makes them challenging to optimize.
+    \item \textbf{Traversals}: Graph traversals mean visiting graph elements starting from a "root" vertex and following its edges in some deterministic or random/sampling-based fashion.  Graph traversals can be thought of as a neighborhood query but with selection criteria based on the label or property of the nodes or edges. Unlike neighborhood queries, which are typically limited to a fixed depth, traversals can be unbounded. A typical traversal query on a social network could be to find friends-of-friends or friends-of-friends-of-friends who work at a particular organization. Traversal queries have some logical locality, but they might access the physical data in random order; this makes them challenging to optimize.
     
     \item \textbf{Whole Graph Analytics}: Computations for global graph properties (such as vertex centralities, all pairs shortest paths, or clustering coefficients) that require accessing the entire graph are called whole-graph analytics. These workloads access most (often all) vertices and edges in a graph, though not necessarily all properties and labels associated with them (i.e.,\ the structural graph). These workloads benefit from having sequential access to all vertices in the graph and sequential access to all edges in each vertex's neighborhood.
     
@@ -114,7 +113,7 @@ Static graph processing systems are specialized to handle whole-graph OLAP workl
 \section{Graph Representations}
 \label{sec:bg:reps}
 %Since the ultimate goal of~\project{} is to provide robust data management for property graphs, the initial focus has been on developing analytics-friendly storage solutions for structural graphs (see ~\autoref{sec:architecture}).
-While the ultimate goal of~\project{} is to provide robust data management for property graphs, the initial focus has been on developing analytics-friendly storage solutions for structural graphs (see ~\autoref{sec:architecture:structural}).
+Although the ultimate goal of~\project{} is to provide comprehensive data management for property graphs, the initial focus has been on developing analytics-friendly storage solutions for structural graphs (see ~\autoref{sec:architecture:structural}).
 This foundational work sets the stage for efficient handling and analysis of property graphs in subsequent phases (see \autoref{sec:architecture:property}).
 We now describe the in-memory data structures that yield sequential access for common graph processing access patterns.
 We begin with the most common way to represent graphs and then follow up with other, more compact, layouts designed to enable sequential access to graph neighborhoods.
@@ -161,7 +160,7 @@ For the remainder of this section, we will use the sample graph shown in \autore
 The canonical representation of a graph uses an $n \times n$ matrix, $A$, where $n$ is the number of vertices in the graph; an element $a_{ij} = 1$ in $A$ indicates the presence of an edge between vertices $i$ and $j$.
 Depending on the matrix's definition, edges can be directed or undirected. 
 Hence, the edge $a_{ij}$ can either indicate a directed edge $i \rightarrow j$ or an undirected edge $i \leftrightarrow j$.
-It is common to represent undirected edges between vertices $i$ and $j$ as two directed edges $i \rightarrow j $ and $j \rightarrow i$.
+Implementations commonly represent undirected edges between vertices $i$ and $j$ as two directed edges $i \rightarrow j $ and $j \rightarrow i$.
 The adjacency matrix representation of our sample graph is shown in \autoref{fig:back:sample_adj_matrix}.
 
 Real-world graphs tend to follow the power law distribution~\cite{newman2005power}, have small diameters, and exhibit communities~\cite[Section~2]{chakrabarti2006GraphMining}.
@@ -203,7 +202,7 @@ Typically, two adjacency lists are maintained for a graph: one for the in-neighb
 Adjacency lists allow sequential access to a node's neighborhood. However, they require a random seek to access a node's neighborhood (the vertex typically contains a pointer to the list).
 % \textbf{This property makes adjacency lists an excellent choice for all workloads except ones that critically depend on sequential vertex set scans.}
 Although adjacency lists offer sequential access within a single neighborhood, full-graph scans incur pointer-chasing overhead when jumping between disjoint neighbor arrays.
-Sortledton~\cite{sortledton2022Fuchs} shows that this is never a problem in practice, and adjacency lists provide performance within 40\% of the performance of the even more compact \emph{compressed sparse row} representation for most workloads.
+Sortledton~\cite{sortledton2022Fuchs} shows that this is never a problem in practice, and adjacency lists provide performance within 40\% of the even more compact \emph{compressed sparse row} representation for most workloads.
 The adjacency list representation of our sample graph is shown in \autoref{fig:back:sample_adjlist}.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -262,15 +261,17 @@ Common variations of CSRs that are insertion-friendly include:
 \label{sec:bg:persistent}
 The data structures we have discussed so far are all in-memory representations of graphs.
 Real-world graphs frequently exceed available memory, and data held only in memory is volatile, lost on shutdown or crash.
-Therefore, it is essential to have persistent graph representations that can be stored on disk and analyzed efficiently.
+Persistent graph representations that can be stored on disk and support efficient analysis are therefore essential.
 
 Because disk I/O operates on fixed-size blocks, a persistent graph representation must be block-based to avoid excessive random reads; none of the in-memory data structures discussed above are block-based, and converting them is not trivial.
 LLAMA~\cite{llama} uses a persistent CSR representation to store an evolving graph on SSDs and can demand-page the relevant blocks into memory for analytics.
 Other systems follow a variation of in-place updates through reserved space (e.g., NetworKit~\cite{staudt2014networkit} and Packed CSR \cite{PackedCSR}), batched updates to amortize inserts (e.g., Madduri et al. \cite{madduri2009compact}), and multi-versioning and delta updates ~\cite{csr++2020Firmli,llama}.
 
-Persistent graph representations can also be created by using memory-mapped I/O, in which the contents of a file on secondary storage are mapped into the analytics process's address space.
+Memory-mapped I/O offers another path to persistence: the operating system maps a file on secondary storage into the analytics process's address space.
 File-backed mmap regions can be used to store the in-memory representations, and, as long as the system does not suffer extreme memory pressure, this approach works fairly well.
 However, crash-consistent databases must control when dirty pages reach disk so that, for example, a write-ahead log (WAL) record is always persisted before the corresponding data page.
 With mmap, the OS can flush dirty pages at any time without the database's knowledge, making it impossible to enforce such ordering and therefore fundamentally incompatible with correct crash recovery.
 Combined with I/O stalls from transparent page eviction and page-table contention, mmap is not a viable alternative to a managed buffer pool~\cite{crotty2022you}.
-There are a few graph processing systems/databases that use this approach, e.g., LiveGraph\cite{zhu2019livegraph} and KuzuDB\cite{feng2023kuzu}, but they admit that replacing mmap with a managed page cache is essential for robust performance\cite[Section 6]{zhu2019livegraph}.
+There are a few graph processing systems/databases that use this approach, e.g., LiveGraph\cite{zhu2019livegraph} and KuzuDB\cite{feng2023kuzu}, but they admit that replacing mmap with a managed page cache is essential for predictable performance\cite[Section 6]{zhu2019livegraph}.
+
+\input{body_chapters/wiredtiger_basics.tex}
