@@ -26,6 +26,10 @@ This can be done by periodically recomputing the structural graph or incremental
 This leads to the concept of \emph{dynamic structural graphs}, which are updated as the property graph changes.
 We describe dynamic structural graphs in more detail in~\autoref{design:dynamic_structural}.
 
+\project{} stores both the property graph and its derived structural representations in the same transactional \wt{} store.
+Structural graphs are not separate materialized snapshots that must be rebuilt or shipped to a different engine; they are persistent layouts maintained alongside the property data.
+Switching between property queries and structural analytics therefore requires no data movement.
+
 
 \section{Static Graph Processing Systems}
 \label{design:static_structural}
@@ -96,13 +100,19 @@ Good examples of transactional dynamic graph processing systems include LiveGrap
 Teseo organizes edges in a fat-tree of dense pages that are periodically rebalanced for locality.
 GraphOne~\cite{graphone2019kumar} uses an append-only edge log paired with an adjacency array, with blind-write semantics and no conflict detection.
 LiveGraph maintains a transactional edge log with mmap-backed adjacency-list snapshots and is the closest system to FlexoGraph in scope.
-Sortledton is an in-memory system that provides a fully transactional adjacency-list based graph data structure.
+Sortledton is an in-memory system that provides a fully transactional adjacency-list based graph data structure; GTX~\cite{libinzhou2025GTX} offers similar capabilities.
+Sortledton and GTX achieve higher raw throughput than Teseo on several benchmarks, but we compare primarily against Teseo because it is a more established baseline and, like \project{}, uses a tree-based index structure.
 We compare against these systems using the GFE driver~\cite{teseo2021deLeo} for fair, reproducible benchmarking.
 FlexoGraph shows that a persistent, B-tree-backed database can deliver competitive throughput without sacrificing ACID semantics or crash recovery.
 
 The consistency model used by these systems falls along a spectrum (the left-right axis in the right branch of~\autoref{fig:design_space} points in the direction of diminishing consistency guarantees).
 To construct a taxonomy, we use a simple binary feature to characterize this consistency axis: does the system support transactions or not?
 Graph Databases and a few systems (LiveGraph, Teseo, and Sortledton) support transactions which allow for fine-grained guarantees for individual updates to the graph; the remaining systems provide some form of batch-dynamism: isolation is coarse grained and therefore weaker.
+
+\project{} addresses the consistency spectrum differently from all four categories.
+It provides full ACID transactions via \wt{}'s MVCC for point queries and mutations, while analytics run against a pinned named checkpoint---a reconciled, consistent snapshot of the B-tree.
+Running analytics at a checkpoint rather than on the live table avoids the cost of reading through un-reconciled writes in the cache under write-heavy workloads.
+This design gives \project{} transactional isolation without the blind-write semantics of GraphOne, the batch-only granularity of GraphBolt, or the lack of consistency guarantees of STINGER, while avoiding the performance penalty of snapshot-isolated reads on a heavily mutated live table.
 
 The static structural graph processing systems can be seen in the bottom left corner of the design space in~\autoref{fig:design_space}, while the dynamic structural graph processing systems occupy the bottom right.
 \autoref{fig:design_space} shows the memory-based/out-of-core axis as a gradient, where the out-of-core systems are shown in yellow shades, while the in-memory systems are shades of red.
@@ -117,41 +127,48 @@ This classification is based on the observation that most out-of-core systems ca
 
 \section{Programming and Computation Models}
 \label{design:programming_vs_computation}
-The design space of static graph processing systems can be further subdivided based on the programming and computation models for which they are designed.
-Several survey papers~\cite{mccune2015tlavSurvey, Heidari:2018:SGP:3212709.3199523} discuss this classification in far more detail; we present a brief overview here for completeness.
+The design space of graph processing systems can be further subdivided based on the programming and computation models for which they are designed.
+Several survey papers~\cite{mccune2015tlavSurvey, Heidari:2018:SGP:3212709.3199523} discuss this classification in far more detail; we present an overview here and then explain how the choice of programming model motivates \project{}'s dual-representation design.
+
+\subsection{Computation Models}
+\label{design:comp_models}
 
 Graph processing systems are designed to execute iterative algorithms in distinct phases.
 A \textbf{Computation Model} defines these phases and the sequence in which they must be run.
 The user typically writes the algorithm in terms of these phases, and the system executes the algorithm by running these phases in sequence.
-The computing model is independent of the system's scheduling model, which determines which vertices are selected for computation (i.e., remain active) in each phase.
+The computation model is independent of the system's scheduling model, which determines which vertices are selected for computation (i.e., remain active) in each phase.
 
 The most well-known computation model is the \textbf{Bulk Synchronous Parallel (BSP)} model~\cite{valiant1990bridging}.
 This model is based on the idea of supersteps, where the computation is divided into a sequence of supersteps, each consisting of a computation phase and a communication phase.
 The computation phase is where a user-defined function executes on each of the graph's vertices, and the communication phase is where the vertices exchange messages.
-The BSP model \textit{{pushes}} updates the vertices at the end of each superstep and applies these updates to the graph at the beginning of the next superstep.
+The BSP model \textit{pushes} updates to the vertices at the end of each superstep and applies these updates to the graph at the beginning of the next superstep.
 Examples of systems that use this model include Pregel~\cite{malewicz2010pregel} and Giraph~\cite{giraph}.
 
-The \textbf{Asynchronous} model is a computation model where the computation is not divided into supersteps. 
+The \textbf{Asynchronous} model is a computation model where the computation is not divided into supersteps.
 In the Asynchronous model, vertices make updates visible immediately; there is no clear delineation between supersteps.
 These systems need a consistency model for updating the edges and vertices.
 Examples of these systems include GRACE, ASPIRE, Giraph Unchained, CoRAL, and GraphChi~\cite{kyrola2012graphchi}.
 
 \textbf{Gather-Apply-Scatter} (GAS) is a more general computation model that can describe both BSP and Asynchronous models.
 The GAS model consists of three phases: Gathering updates by \emph{pulling} them from neighbors, computing and applying the updates, and \emph{pushing} the updates to the neighbors.
-Systems built using this model include GraphLab~\cite{low2012distributed}, PowerGraph~\cite{gonzalez2012powergraph}, GraphX~\cite{gonzalez2014graphx}.
+Systems built using this model include GraphLab~\cite{low2012distributed}, PowerGraph~\cite{gonzalez2012powergraph}, and GraphX~\cite{gonzalez2014graphx}.
 
+\subsection{Programming Models}
+\label{design:prog_models}
 
-The second axis to consider is the \textbf{Programming Model} used by the system.
+Orthogonal to the computation model is the \textbf{Programming Model} used by the system.
 The programming model defines the interface provided to the user to write graph algorithms and, therefore, defines the unit of computation in a system.
+
 The most common programming model is the \textbf{Vertex-Centric} model, where the user writes a function that operates on each vertex of the graph.
 Each vertex program can read the state of the vertex and its neighbors and update the state of the vertex.
 The user provides a \texttt{compute()} function, a \texttt{get\_value()} function to read the neighbors' state, and a \texttt{update\_state()} function to update the state of the vertex.
 
 The \textbf{Edge-Centric} model is another programming model where the user writes a function that operates on each edge of the graph.
+Edge-centric processing was introduced by X-Stream~\cite{roy2013x}, which observed that organizing computation per-edge converts random access to graph structure into sequential streaming---an access pattern that is efficient across all levels of the storage hierarchy.
 Edge-centric models propagate changes by updating the state of the edge and the state of the vertices connected by the edge.
-The user provides an \texttt{edge\_scatter(e)} function that sends an update over the edge $e$, an \texttt{edge\_gather(e)} function that reads the update from the edge $e$, and an \texttt{edge\_gather(e)} function that applies the update to the edge's destination vertex $e.dest$.
+The user provides an \texttt{edge\_scatter(e)} function that sends an update over the edge $e$, an \texttt{edge\_gather(e)} function that reads the update from the edge $e$, and an \texttt{apply(e)} function that applies the update to the edge's destination vertex $e.dest$.
 
-Our last programming model is the \textbf{Partition Centric} model, where the user writes a function executed on each graph partition.
+The \textbf{Partition Centric} model is a third programming model where the user writes a function executed on each graph partition.
 This model is used by systems that are expressly designed to reduce cross-partition communication overhead in a distributed graph processing system.
 
 The programming and computation models are orthogonal, and a system can use any combination.
@@ -164,10 +181,37 @@ The design space of static graph processing systems can be split based on these 
     \label{fig:static_ec_vc}
 \end{figure}
 
-As the figure shows, the Vertex-Centric model is the most common programming model used by graph processing systems.
-There are some combinations of programming and computation models that are not used by any system. 
-The more interesting thing to note here is that if the system provides a flexible API to interact with the graph, the user can implement any programming model on top of the system.
-\project{} is designed to provide a flexible API that allows users to implement any programming model on top of it.
+As the figure shows, the Vertex-Centric model is the most common programming model used by graph processing systems, and there are some combinations of programming and computation models that are not used by any system.
+The dominance of vertex-centric systems in the figure is not accidental---it reflects a deep coupling between physical representation and programming model that we explore next.
+
+\subsection{Representation and Computation Model Pairing}
+\label{design:rep_comp_pairing}
+
+Each programming model implies a dominant access pattern, and the physical representation of the graph determines how efficiently that pattern executes.
+Understanding this coupling is important for \project{}'s design, because it explains why we provide two structural representations and how each representation naturally pairs with a different programming model.
+
+Vertex-centric systems such as Ligra, Galois, and GAPBS store the graph in packed adjacency lists or CSR arrays.
+In these layouts, a single read retrieves all neighbors of a vertex, so the cost of a full graph scan is proportional to the number of vertices, not edges.
+This is highly efficient for read-heavy analytics: an algorithm like PageRank iterates over each vertex, reads its neighbor list in one operation, and computes a local update.
+However, this packing comes at a cost for mutations.
+Inserting or deleting a single edge requires a read-modify-write of the packed buffer---the system must read the entire neighbor list, modify it, and write it back---which is expensive for high-degree vertices and creates a serialization bottleneck under concurrent mutation.
+
+Edge-centric systems such as X-Stream and Chaos~\cite{roy2015chaos} take the opposite approach: they store edges as individual records that are streamed sequentially.
+Each edge is independently accessible, so edge insertions and deletions are simple appends or point deletes with no contention on shared buffers.
+The trade-off is that reading a vertex's full neighborhood requires scanning through individual edge records rather than reading a single packed value, and algorithms that need per-vertex aggregation must either use atomic operations or buffer partial results.
+
+\project{} provides both layouts (\autoref{arch:structural-reps}).
+The adjacency list representation packs each vertex's neighbors into a single \wt{} value, mirroring the packed adjacency lists used by vertex-centric systems.
+The EdgeKey representation stores each edge as an independent B-tree entry, mirroring the per-edge storage used by edge-centric systems.
+The representation choice is driven by the mutation characteristics of the workload: adjacency list for read-heavy analytics where mutation is infrequent, and EdgeKey for workloads that require concurrent edge insertion and deletion.
+
+Once the representation is chosen, the efficient computation model follows.
+Vertex-centric processing is the natural fit for the adjacency list representation because it consumes the packed neighbor blob directly---one cursor call per vertex retrieves the entire neighborhood.
+Edge-centric processing is the natural fit for the EdgeKey representation because it streams edges directly from the B-tree cursor without the overhead of reconstructing adjacency lists that vertex-centric processing on EdgeKey would require.
+
+This pairing has practical consequences.
+On directed graphs, edge-centric processing introduces challenges that do not arise in vertex-centric processing: atomic contention on high-degree destination vertices when multiple threads write to the same hub, redundant computation in frontier-based algorithms like BFS where previously discovered vertices continue to generate (failing) update attempts, and poor destination write locality since edges sorted by source scatter writes across the destination array.
+We describe how \project{} addresses these challenges and evaluate the read-path cost of the mutation-friendly EdgeKey representation in~\autoref{sec:eval:ec_vc}.
 
 \section{Graph Analytics on Relational Systems}
 \label{design:relational_analytics}
