@@ -139,19 +139,28 @@ The user typically writes the algorithm in terms of these phases, and the system
 The computation model is independent of the system's scheduling model, which determines which vertices are selected for computation (i.e., remain active) in each phase.
 
 The most well-known computation model is the \textbf{Bulk Synchronous Parallel (BSP)} model~\cite{valiant1990bridging}.
-This model is based on the idea of supersteps, where the computation is divided into a sequence of supersteps, each consisting of a computation phase and a communication phase.
-The computation phase is where a user-defined function executes on each of the graph's vertices, and the communication phase is where the vertices exchange messages.
-The BSP model \textit{pushes} updates to the vertices at the end of each superstep and applies these updates to the graph at the beginning of the next superstep.
-Examples of systems that use this model include Pregel~\cite{malewicz2010pregel} and Giraph~\cite{giraph}.
+BSP divides execution into a sequence of \emph{supersteps}, each consisting of a local computation phase followed by a communication phase.
+During the computation phase a user-defined function executes on each active vertex; during the communication phase vertices exchange messages with their neighbors.
+A global barrier separates consecutive supersteps: updates produced in superstep~$k$ are buffered and only become visible at the start of superstep~$k{+}1$.
+This barrier-based isolation simplifies reasoning about correctness---every vertex sees a consistent snapshot of its neighborhood---but introduces synchronization overhead that can be significant when the workload is skewed.
+Examples of BSP systems include Pregel~\cite{malewicz2010pregel} and Giraph~\cite{giraph}.
 
-The \textbf{Asynchronous} model is a computation model where the computation is not divided into supersteps.
-In the Asynchronous model, vertices make updates visible immediately; there is no clear delineation between supersteps.
-These systems need a consistency model for updating the edges and vertices.
-Examples of these systems include GRACE, ASPIRE, Giraph Unchained, CoRAL, and GraphChi~\cite{kyrola2012graphchi}.
+The \textbf{Asynchronous} model removes the global barrier: a vertex's updates become visible to its neighbors immediately, without waiting for all other vertices to finish the current iteration.
+Because vertices can read the most recent values written by any neighbor, asynchronous execution often converges faster than BSP for algorithms whose correctness does not depend on seeing a globally consistent snapshot (e.g., PageRank, label propagation).
+The trade-off is non-determinism---different execution orders can produce different intermediate states---so asynchronous systems require a consistency model that specifies which concurrent updates are visible to a given vertex.
+Examples of asynchronous systems include GRACE~\cite{wang2013asynchronous}, ASPIRE~\cite{vora2014aspire}, Giraph Unchained~\cite{han2015giraph}, CoRAL~\cite{vora2017coral}, and GraphChi~\cite{kyrola2012graphchi}.
 
-\textbf{Gather-Apply-Scatter} (GAS) is a more general computation model that can describe both BSP and Asynchronous models.
-The GAS model consists of three phases: Gathering updates by \emph{pulling} them from neighbors, computing and applying the updates, and \emph{pushing} the updates to the neighbors.
-Systems built using this model include GraphLab~\cite{low2012distributed}, PowerGraph~\cite{gonzalez2012powergraph}, and GraphX~\cite{gonzalez2014graphx}.
+\textbf{Gather-Apply-Scatter (GAS)} is a programming decomposition that splits a vertex's computation into three explicit phases: \emph{gather} (pull and reduce values from neighbors), \emph{apply} (compute a new vertex value from the reduced result), and \emph{scatter} (push updated values along outgoing edges).
+GAS was introduced by PowerGraph~\cite{gonzalez2012powergraph} to parallelize computation on high-degree vertices: because the gather phase is associative and commutative, it can be partitioned across machines that each hold a subset of the vertex's edges, and the partial results are combined before the apply phase.
+Importantly, GAS is orthogonal to the synchronization model---PowerGraph supports both synchronous (BSP) and asynchronous execution of GAS programs.
+GraphX~\cite{gonzalez2014graphx} also adopts the GAS decomposition.
+
+A related two-phase variant is \textbf{Scatter-Gather}, in which computation alternates between a \emph{scatter} phase that propagates updates along edges and a \emph{gather} phase that aggregates incoming updates at each vertex, with no explicit apply phase (the aggregation result is written directly).
+X-Stream~\cite{roy2013x} and Chaos~\cite{royChaos2015} use scatter-gather within synchronized iterations, combining the streaming edge-access pattern of edge-centric processing with BSP-like barriers between iterations.
+
+Some systems are \textbf{hybrid} in their synchronization model.
+GraphLab~\cite{low2014graphlab} and Hsync~\cite{Xie2015Hsync} support both synchronous and asynchronous execution, allowing the user (or the runtime) to select the mode that best suits the algorithm's convergence properties.
+GRACE~\cite{wang2013asynchronous} similarly supports both modes but is primarily known for demonstrating that customized asynchronous scheduling can significantly accelerate iterative graph algorithms.
 
 \subsection{Programming Models}
 \label{design:prog_models}
@@ -168,21 +177,62 @@ Edge-centric processing was introduced by X-Stream~\cite{roy2013x}, which observ
 Edge-centric models propagate changes by updating the state of the edge and the state of the vertices connected by the edge.
 The user provides an \texttt{edge\_scatter(e)} function that sends an update over the edge $e$, an \texttt{edge\_gather(e)} function that reads the update from the edge $e$, and an \texttt{apply(e)} function that applies the update to the edge's destination vertex $e.dest$.
 
-The \textbf{Partition Centric} model is a third programming model where the user writes a function executed on each graph partition.
-This model is used by systems that are expressly designed to reduce cross-partition communication overhead in a distributed graph processing system.
-
 The programming and computation models are orthogonal, and a system can use any combination.
 The design space of static graph processing systems can be split based on these two axes, as shown in~\autoref{fig:static_ec_vc}.
 
-\begin{figure}
-    \centering
-    \includegraphics[width=0.8\textwidth]{fig/background/vc_ec.pdf}
-    \caption{Splitting the space of static graph processing systems based on the programming model (x-axis) and the computation model (y-axis). The systems marked with a blue X are hybrid: Mosaic~\cite{maass2017mosaic} is a hybrid vertex-centric/edge-centric system, while GraphLab~\cite{low2014graphlab} and Hsync~\cite{Xie2015Hsync} are hybrid in their computation model and switch between synchronous and asynchronous modes of computation.}
-    \label{fig:static_ec_vc}
-\end{figure}
+\subsection{Subgraph-Centric Models}
+\label{design:subgraph_centric}
 
-As the figure shows, the Vertex-Centric model is the most common programming model used by graph processing systems, and there are some combinations of programming and computation models that are not used by any system.
-The dominance of vertex-centric systems in the figure is not accidental---it reflects a deep coupling between physical representation and programming model that we explore next.
+Both vertex-centric and edge-centric models define the unit of computation as an individual vertex or edge, respectively.
+A third family of programming models raises the unit of computation to an entire \emph{subgraph}---a set of vertices and edges that are processed together by a single user-defined function.
+Tian et al.\ introduced this idea in Giraph++~\cite{tian2013giraphpp} under the slogan ``think like a graph'': by internalizing computation within a subgraph and only communicating across subgraph boundaries, systems can eliminate many redundant messages and exploit intra-subgraph locality.
+Several concrete instantiations of this idea differ in how they define the subgraph unit and what optimization they target.
+
+\paragraph{Block-Centric.}
+Blogel~\cite{yan2014blogel} partitions the graph into \emph{blocks}---connected subgraphs computed via graph voronoi partitioning.
+The user writes a \texttt{compute()} function that operates on an entire block; only boundary vertices exchange inter-block messages.
+By internalizing edges within a block, Blogel reduces the message volume of algorithms such as connected components and shortest paths by orders of magnitude compared to vertex-centric Pregel, and avoids the overhead of serializing and deserializing individual vertex messages.
+
+\paragraph{Path-Centric.}
+PathGraph~\cite{yuan2016pathgraph} organizes the graph into tree-based partitions rooted at high-degree vertices.
+Vertices within each partition are laid out in DFS order so that a scatter or gather traversal accesses them sequentially in memory, converting the random access pattern of vertex-centric processing into sequential I/O.
+PathGraph uses a path-centric scatter-gather computation model in which updates propagate along tree paths, achieving high throughput on secondary storage by maximizing sequential read bandwidth.
+
+\paragraph{Partition-Centric.}
+The Partition-Centric Processing Model (PCPM)~\cite{lakhotia2018accelerating} and its generalization GPOP~\cite{lakhotia2020gpop} define the unit of computation as a disjoint partition of contiguously labeled vertices sized to fit in the last-level cache.
+Scatter and gather operations are organized per \emph{partition pair}: all edges from a source partition to a destination partition are processed together, which converts random DRAM accesses into sequential streaming and enables lock-free updates to vertex state within a partition.
+This approach is designed for shared-memory systems and targets cache efficiency rather than the communication reduction that motivates block-centric models in the distributed setting.
+
+\autoref{tab:subgraph_models} summarizes how these subgraph-centric models differ.
+
+\begin{table}[t]
+\centering
+\small
+\caption{Comparison of subgraph-centric programming models.}
+\label{tab:subgraph_models}
+\begin{tabular}{llll}
+\toprule
+\textbf{Model} & \textbf{Unit of computation} & \textbf{Target environment} & \textbf{Key optimization} \\
+\midrule
+Block-Centric  & Connected subgraph (block) & Distributed & Message reduction \\
+Path-Centric   & Tree-based partition       & Out-of-core / disk & Sequential I/O \\
+Partition-Centric & Cache-sized vertex set  & Shared memory & Cache residency \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{table}[t]
+    \centering
+    \small
+    \caption{Design space of static graph processing systems classified by programming model (columns) and computation model (rows). Hybrid systems are noted below the table.}
+    \label{fig:static_ec_vc}
+    \input{fig/background/vc_ec.tex}
+\end{table}
+
+As the table shows, vertex-centric systems dominate: most graph processing frameworks adopt this model because it maps naturally to the adjacency-list and CSR representations that are standard in practice.
+Edge-centric and subgraph-centric models occupy smaller but distinct regions of the space, each motivated by a specific access-pattern optimization (sequential edge streaming and intra-partition locality, respectively).
+Some cells in the grid remain empty, reflecting combinations of programming and computation models that no existing system has explored.
+The dominance of vertex-centric systems is not accidental---it reflects a deep coupling between physical representation and programming model that we explore next.
 
 \subsection{Representation and Computation Model Pairing}
 \label{design:rep_comp_pairing}
@@ -196,7 +246,7 @@ This is highly efficient for read-heavy analytics: an algorithm like PageRank it
 However, this packing comes at a cost for mutations.
 Inserting or deleting a single edge requires a read-modify-write of the packed buffer---the system must read the entire neighbor list, modify it, and write it back---which is expensive for high-degree vertices and creates a serialization bottleneck under concurrent mutation.
 
-Edge-centric systems such as X-Stream and Chaos~\cite{roy2015chaos} take the opposite approach: they store edges as individual records that are streamed sequentially.
+Edge-centric systems such as X-Stream and Chaos~\cite{royChaos2015} take the opposite approach: they store edges as individual records that are streamed sequentially.
 Each edge is independently accessible, so edge insertions and deletions are simple appends or point deletes with no contention on shared buffers.
 The trade-off is that reading a vertex's full neighborhood requires scanning through individual edge records rather than reading a single packed value, and algorithms that need per-vertex aggregation must either use atomic operations or buffer partial results.
 

@@ -1,0 +1,32 @@
+% Design-space grid: programming model (columns) × computation model (rows)
+\begin{tabular}{l p{3.2cm} p{2.4cm} p{3.2cm}}
+\toprule
+& \textbf{Vertex-Centric} & \textbf{Edge-Centric} & \textbf{Subgraph-Centric} \\
+\midrule
+
+\rowcolor{gray!8}
+\textbf{BSP}
+  & Pregel~\cite{malewicz2010pregel}, Giraph~\cite{giraph}, Ligra~\cite{shun2013ligra}\textsuperscript{$\dagger\ddagger$}
+  & X-Stream~\cite{roy2013x}, Chaos~\cite{royChaos2015}
+  & Blogel~\cite{yan2014blogel} \tabularnewline
+
+\textbf{Async}
+  & GRACE~\cite{wang2013asynchronous}\textsuperscript{$*$}, ASPIRE~\cite{vora2014aspire}, Giraph Unchained~\cite{han2015giraph}, CoRAL~\cite{vora2017coral}, GraphChi~\cite{kyrola2012graphchi}
+  & ---
+  & --- \tabularnewline
+
+\rowcolor{gray!8}
+\textbf{GAS/SG}
+  & PowerGraph~\cite{gonzalez2012powergraph}, GraphX~\cite{gonzalez2014graphx}
+  & HitGraph~\cite{zhou2018fpga}
+  & PathGraph~\cite{yuan2016pathgraph}, PCPM~\cite{lakhotia2018accelerating}, GPOP~\cite{lakhotia2020gpop} \tabularnewline
+
+\bottomrule
+\end{tabular}
+
+\vspace{4pt}
+{\small
+\textsuperscript{$\dagger$}\,Mosaic~\cite{maass2017mosaic} is a VC/EC hybrid and also belongs in the Edge-Centric BSP cell.\\
+\textsuperscript{$\ddagger$}\,GraphLab~\cite{low2014graphlab} and Hsync~\cite{Xie2015Hsync} support both synchronous and asynchronous execution.\\
+\textsuperscript{$*$}\,GRACE is primarily asynchronous but also supports synchronous mode.
+}
