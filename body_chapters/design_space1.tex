@@ -1,5 +1,6 @@
 \chapter{Related Work and Design Space}
 \label{chap:design_space}
+\label{sec:related-work}
 
 The previous chapter established what graphs are, how they are accessed, and how they are stored.
 This chapter surveys the systems that have been built to manage and process graph data, and organizes them into a taxonomy based on three classification features: whether a system operates on property graphs or structural graphs, whether it handles a static snapshot or a dynamic, evolving graph, and whether it provides transactional guarantees for mutations.
@@ -60,12 +61,17 @@ For the purpose of our taxonomy, we collectively refer to shared-memory multi-co
 Over time, researchers noticed that the communication overheads in distributed graph processing systems were high, leading them to underperform when compared to single-threaded systems running on a commodity laptop~\cite{mcsherry2015scalability}.
 The need to build systems that can scale to large graphs that do not fit in RAM on a single machine, coupled with the underperformance of distributed graph processing systems, led to the development of out-of-core systems.
 These systems cache the most frequently accessed data structures in memory and spill the rest to disk; we call them \textbf{out-of-core graph} processing systems.
-The on-disk data layout is designed to leverage sequential access to edge data to minimize I/O overheads.
-Most systems achieve this by some form of edge-list partitioning such that the neighbors (either in- or out-neighbors) of a vertex are stored contiguously on disk.
-GraphChi~\cite{kyrola2012graphchi} partitions edges into shards processed via Parallel Sliding Windows;
-X-Stream~\cite{roy2013x} streams unordered edge lists through memory in a scatter-gather model;
-Blaze~\cite{kim2022blaze} targets NVMe SSDs with partition-centric processing and I/O scheduling optimized for high device parallelism.
-Other out-of-core systems include GridGraph~\cite{zhu2015gridgraph}, V-part~\cite{elyasi2019large}, Wonderland~\cite{zhang2018wonderland}, CLIP~\cite{ai2018clip}, and FlashGraph~\cite{zheng2015flashgraph}.
+The on-disk data layout is designed to maximize sequential I/O and minimize random access to edge data.
+Out-of-core systems differ primarily in how they partition edges on disk~\cite{xu2026oocsurvey}.
+\emph{Destination-based} systems group edges by destination interval. GraphChi~\cite{kyrola2012graphchi}, the pioneer of out-of-core graph processing, divides vertices into disjoint intervals and constructs one edge shard per interval, processing shards via its Parallel Sliding Windows algorithm.
+\emph{Source-based} systems instead group source vertices with their out-edges; TurboGraph~\cite{han2013turbograph} uses this layout to exploit SSD parallelism by issuing concurrent I/O requests across multiple flash channels.
+\emph{2-D} partitioning, introduced by GridGraph~\cite{zhu2015gridgraph}, divides the adjacency matrix into a $P \times P$ grid indexed by source and destination intervals, so that the active vertex state for each cell fits in the last-level cache.
+X-Stream~\cite{roy2013x} streams an unordered edge list in a scatter-gather model, avoiding any sorted preprocessing altogether.
+Blaze~\cite{kim2022blaze} targets NVMe SSDs with partition-centric processing and a lock-free online-binning scheme that saturates device bandwidth.
+FlashGraph~\cite{zheng2015flashgraph} takes a semi-external-memory approach, keeping vertex state in RAM and issuing fine-grained asynchronous I/O for edge lists on SSDs.
+ChunkGraph~\cite{wang2024chunkgraph} takes a different approach: rather than designing a new computation model, it replaces the OS page cache with a chunk-based graph representation that organizes vertex adjacency lists into degree-classified, variable-size chunks, solving the problem of vertex data spanning page boundaries and improving I/O utilization for power-law graphs.
+ChunkGraph works transparently with existing in-memory vertex-centric systems such as Ligra without requiring changes to their computation model.
+Other out-of-core systems include CLIP~\cite{ai2018clip}, V-part~\cite{elyasi2019large}, Wonderland~\cite{zhang2018wonderland}, and Mosaic~\cite{maass2017mosaic}; we discuss CLIP's programming model in~\autoref{design:subgraph_centric}.
 
 All static systems, whether in-memory or out-of-core, require an offline preprocessing step to build their layout and are batch-only, supporting no mutations during processing.
 FlexoGraph operates directly on its persistent representation, eliminating the preprocessing step entirely; we include preprocessing time in all comparisons to capture this advantage.
@@ -179,8 +185,15 @@ The user provides an \texttt{edge\_scatter(e)} function that sends an update ove
 
 The programming and computation models are orthogonal, and a system can use any combination.
 The design space of static graph processing systems can be split based on these two axes, as shown in~\autoref{fig:static_ec_vc}.
+\begin{table}[t]
+    \centering
+    \small
+    \caption{Design space of static graph processing systems classified by programming model (columns) and computation model (rows). Hybrid systems are noted below the table.}
+    \label{fig:static_ec_vc}
+    \input{fig/background/vc_ec.tex}
+\end{table}
 
-\subsection{Subgraph-Centric Models}
+\subsubsection{Subgraph-Centric Models}
 \label{design:subgraph_centric}
 
 Both vertex-centric and edge-centric models define the unit of computation as an individual vertex or edge, respectively.
@@ -192,6 +205,8 @@ Several concrete instantiations of this idea differ in how they define the subgr
 Blogel~\cite{yan2014blogel} partitions the graph into \emph{blocks}---connected subgraphs computed via graph voronoi partitioning.
 The user writes a \texttt{compute()} function that operates on an entire block; only boundary vertices exchange inter-block messages.
 By internalizing edges within a block, Blogel reduces the message volume of algorithms such as connected components and shortest paths by orders of magnitude compared to vertex-centric Pregel, and avoids the overhead of serializing and deserializing individual vertex messages.
+In the out-of-core setting, block-centric ideas manifest as reentry-based execution models~\cite[Section~4.2.2]{xu2026oocsurvey}.
+CLIP~\cite{ai2018clip} uses this approach: it runs multiple iterations on each in-memory edge partition to fully converge vertex values before loading the next partition, reducing the total number of I/O-intensive passes needed for convergence.
 
 \paragraph{Path-Centric.}
 PathGraph~\cite{yuan2016pathgraph} organizes the graph into tree-based partitions rooted at high-degree vertices.
@@ -221,13 +236,6 @@ Partition-Centric & Cache-sized vertex set  & Shared memory & Cache residency \\
 \end{tabular}
 \end{table}
 
-\begin{table}[t]
-    \centering
-    \small
-    \caption{Design space of static graph processing systems classified by programming model (columns) and computation model (rows). Hybrid systems are noted below the table.}
-    \label{fig:static_ec_vc}
-    \input{fig/background/vc_ec.tex}
-\end{table}
 
 As the table shows, vertex-centric systems dominate: most graph processing frameworks adopt this model because it maps naturally to the adjacency-list and CSR representations that are standard in practice.
 Edge-centric and subgraph-centric models occupy smaller but distinct regions of the space, each motivated by a specific access-pattern optimization (sequential edge streaming and intra-partition locality, respectively).

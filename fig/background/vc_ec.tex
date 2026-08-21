@@ -1,28 +1,29 @@
 % Design-space grid: programming model (columns) × computation model (rows)
-\begin{tabular}{l p{3.2cm} p{2.4cm} p{3.2cm}}
+\newcolumntype{Y}{>{\raggedright\arraybackslash}X}
+\begin{tabularx}{\textwidth}{l Y Y Y}
 \toprule
 & \textbf{Vertex-Centric} & \textbf{Edge-Centric} & \textbf{Subgraph-Centric} \\
 \midrule
 
 \rowcolor{gray!8}
 \textbf{BSP}
-  & Pregel~\cite{malewicz2010pregel}, Giraph~\cite{giraph}, Ligra~\cite{shun2013ligra}\textsuperscript{$\dagger\ddagger$}
-  & X-Stream~\cite{roy2013x}, Chaos~\cite{royChaos2015}
-  & Blogel~\cite{yan2014blogel} \tabularnewline
+  & \mbox{Pregel~\cite{malewicz2010pregel}}, \mbox{Giraph~\cite{giraph}}, \mbox{Ligra~\cite{shun2013ligra}\textsuperscript{$\dagger\ddagger$}}
+  & \mbox{X-Stream~\cite{roy2013x}}, \mbox{Chaos~\cite{royChaos2015}}, \mbox{GridGraph~\cite{zhu2015gridgraph}}
+  & \mbox{Blogel~\cite{yan2014blogel}} \tabularnewline
 
 \textbf{Async}
-  & GRACE~\cite{wang2013asynchronous}\textsuperscript{$*$}, ASPIRE~\cite{vora2014aspire}, Giraph Unchained~\cite{han2015giraph}, CoRAL~\cite{vora2017coral}, GraphChi~\cite{kyrola2012graphchi}
-  & ---
+  & \mbox{GRACE~\cite{wang2013asynchronous}\textsuperscript{$*$}}, \mbox{ASPIRE~\cite{vora2014aspire}}, \mbox{Giraph Unchained~\cite{han2015giraph}}, \mbox{CoRAL~\cite{vora2017coral}}, \mbox{GraphChi~\cite{kyrola2012graphchi}}
+  & \mbox{CLIP~\cite{ai2018clip}}
   & --- \tabularnewline
 
 \rowcolor{gray!8}
 \textbf{GAS/SG}
-  & PowerGraph~\cite{gonzalez2012powergraph}, GraphX~\cite{gonzalez2014graphx}
-  & HitGraph~\cite{zhou2018fpga}
-  & PathGraph~\cite{yuan2016pathgraph}, PCPM~\cite{lakhotia2018accelerating}, GPOP~\cite{lakhotia2020gpop} \tabularnewline
+  & \mbox{PowerGraph~\cite{gonzalez2012powergraph}}, \mbox{GraphX~\cite{gonzalez2014graphx}}
+  & \mbox{HitGraph~\cite{zhou2018fpga}}
+  & \mbox{PathGraph~\cite{yuan2016pathgraph}}, \mbox{PCPM~\cite{lakhotia2018accelerating}}, \mbox{GPOP~\cite{lakhotia2020gpop}} \tabularnewline
 
 \bottomrule
-\end{tabular}
+\end{tabularx}
 
 \vspace{4pt}
 {\small

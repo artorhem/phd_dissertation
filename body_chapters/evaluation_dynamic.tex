@@ -12,3 +12,49 @@ We use the same dual-socket AMD EPYC 7643 machine described in \autoref{sec:eval
 The datasets used for the dynamic evaluation are listed in \autoref{tab:datasets}.
 
 \input{body_chapters/dynamic_v2.tex}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{figure*}[t]
+  \centering
+  \begin{minipage}[t]{\columnwidth}
+    \vspace{0pt}
+    \centering
+    \footnotesize
+    \setlength{\tabcolsep}{2pt}\renewcommand{\arraystretch}{1.0}
+    \begin{tabular}{c l rrr | c l rrr}
+    \toprule
+    Graph & System & BFS & PR & WCC & Graph & System & BFS & PR & WCC \\
+    \midrule
+    \multirow{5}{*}{\rotatebox[origin=c]{90}{\small G500-22}} & FG AdjList & 0.16 & \textbf{0.18} & \textbf{0.20} & \multirow{5}{*}{\rotatebox[origin=c]{90}{\small Unif-22}} & FG AdjList & 0.14 & \textbf{0.17} & 0.11 \\
+     & FG EdgeKey & 28.90 & 3.24 & 1.26 &  & FG EdgeKey & 23.20 & 3.19 & 0.71 \\
+     & Teseo & \textbf{0.04} & 0.99 & 0.36 &  & Teseo & \textbf{0.07} & 1.44 & 0.50 \\
+     & LiveGraph & 0.40 & 0.88 & 0.50 &  & LiveGraph & 0.14 & 0.68 & \textbf{0.06} \\
+     & GraphOne & 3.82 & 4.47 & 13.20 &  & GraphOne & 3.84 & 4.60 & 16.00 \\
+    \midrule
+    \multirow{5}{*}{\rotatebox[origin=c]{90}{\small G500-24}} & FG AdjList & 0.37 & \textbf{0.81} & \textbf{0.48} & \multirow{5}{*}{\rotatebox[origin=c]{90}{\small Unif-24}} & FG AdjList & 0.35 & \textbf{0.93} & 0.62 \\
+     & FG EdgeKey & 640.00 & 12.90 & 3.82 &  & FG EdgeKey & 547.00 & 12.70 & 3.75 \\
+     & Teseo & \textbf{0.10} & 5.26 & 1.86 &  & Teseo & \textbf{0.16} & 8.60 & 2.76 \\
+     & LiveGraph & 1.79 & 4.11 & 2.30 &  & LiveGraph & 0.57 & 5.89 & \textbf{0.25} \\
+     & GraphOne & 4.10 & 7.37 & 67.80 &  & GraphOne & 4.04 & 9.97 & 95.80 \\
+    \midrule
+    \multirow{5}{*}{\rotatebox[origin=c]{90}{\small G500-26}} & FG AdjList & 1.29 & \textbf{5.52} & \textbf{3.70} & \multirow{5}{*}{\rotatebox[origin=c]{90}{\small Unif-26}} & FG AdjList & 1.05 & \textbf{9.91} & 4.24 \\
+     & FG EdgeKey & t/o & 51.91 & 20.04 &  & FG EdgeKey & t/o & 51.43 & 14.36 \\
+     & Teseo & \textbf{0.61} & 27.00 & 12.00 &  & Teseo & \textbf{0.55} & 50.20 & 15.60 \\
+     & LiveGraph & 7.54 & 20.80 & 10.50 &  & LiveGraph & 2.08 & 32.80 & \textbf{0.95} \\
+     & GraphOne & 4.86 & 19.90 & 346.00 &  & GraphOne & 5.99 & 40.20 & 401.00 \\
+    \bottomrule
+    \end{tabular}
+    \vfill
+    \captionof{table}{Cross-system Graphalytics kernel time (s), median over warm runs. FG = FlexoGraph, PR = PageRank.}
+    \label{tab:analytics-main}
+  \end{minipage}%
+  \hfill
+  \begin{minipage}[t]{\columnwidth}
+    \vspace{0pt}
+    \centering
+    \includegraphics[width=\textwidth]{fig/ooc/flexograph_ooc_results.pdf}
+    \captionof{figure}{Out-of-core graph analytics. Solid bars: combined PageRank + CC time. Hatched: preprocessing time. Note the log Y axis; preprocessing time often dominates runtime.}
+    \label{fig:ooc-results}
+  \end{minipage}
+\end{figure*}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

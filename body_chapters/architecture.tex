@@ -199,10 +199,59 @@ the representation choice interacts with the access pattern.}
 \project{} exposes a C++ library API with two layers: \code{GraphEngine} owns the \wt{} connection, manages checkpoints, and handles partitioning; it creates \code{GraphBase} handles for graph operations.
 \code{GraphBase} is an abstract class with virtual methods for node/edge manipulation and property access; \code{AdjList} and \code{SplitEdgeKey} each provide a concrete implementation, so application code is unaware of the underlying storage layout.
 
-The API's structural operations include adding and deleting nodes and edges, querying node existence and degree, retrieving edges by endpoint, and updating edge weights.
-Iterator factory methods return cursors for bulk traversal of nodes, edges, and neighborhoods.
-Metadata queries expose graph properties such as node/edge counts, maximum and minimum IDs, and whether the graph is directed, weighted, or labeled.
-Management operations (create snapshot, close database, close cursors) complete the interface.
+The \code{GraphBase} interface has four categories of operations, summarized in~\autoref{tab:graphapi}.
+\textbf{Structural operations} manipulate and query the graph topology: adding and deleting nodes and edges, testing existence, querying degrees, and retrieving neighborhoods.
+\textbf{Iterator factory methods} return topology cursors for bulk traversal of nodes, edges, and neighborhoods; these are the primary interface for analytics workloads and are discussed in~\autoref{arch:topology-cursors}.
+\textbf{Metadata queries} expose graph-level properties such as node and edge counts, the maximum and minimum vertex IDs, and whether the graph is directed or weighted.
+\textbf{Management operations} handle checkpointing, closing the database, and cursor cleanup.
+
+\begin{table}[ht!]
+\centering
+  \footnotesize
+  \begin{tabularx}{\textwidth}{|>{\hsize=\dimexpr 0.35\hsize+0.1\tabcolsep+0.2\arrayrulewidth\relax}X
+    |>{\hsize=\dimexpr 0.65\hsize-0.1\tabcolsep-0.2\arrayrulewidth\relax}X|}
+  \hline
+  \rowcolor[HTML]{FFE135}
+  \textbf{Operation}        &\textbf{Interface}                                       \\ \hline
+  Add node to graph         &\apicall{int add_node(node n)}                           \\ \hline
+  Delete node               &\apicall{int delete_node(node_id_t id)}                  \\ \hline
+  Check if node exists      &\apicall{bool has_node(node_id_t id)}                    \\ \hline
+  Get node by ID            &\apicall{node get_node(node_id_t id)}                    \\ \hline
+  Get a random node         &\apicall{node get_random_node()}                         \\ \hline
+  Add edge to graph         &\apicall{int add_edge(edge e)}                           \\ \hline
+  Delete edge               &\apicall{int delete_edge(node_id_t src, node_id_t dst)}  \\ \hline
+  Check if edge exists      &\apicall{bool has_edge(node_id_t src, node_id_t dst)}    \\ \hline
+  Get edge between endpoints &\apicall{edge get_edge(node_id_t src, node_id_t dst)}   \\ \hline
+  Update edge weight        &\apicall{bool update_edge(edge e)}                       \\ \hline
+  Get in-degree             &\apicall{degree_t get_in_degree(node_id_t id)}           \\ \hline
+  Get out-degree            &\apicall{degree_t get_out_degree(node_id_t id)}          \\ \hline
+  Get in-neighbors (nodes)  &\apicall{vector<node> get_in_nodes(node_id_t id)}        \\ \hline
+  Get out-neighbors (nodes) &\apicall{vector<node> get_out_nodes(node_id_t id)}       \\ \hline
+  Get in-neighbor IDs       &\apicall{vector<node_id_t> get_in_nodes_id(node_id_t id)}  \\ \hline
+  Get out-neighbor IDs      &\apicall{vector<node_id_t> get_out_nodes_id(node_id_t id)} \\ \hline
+  Get in-edges              &\apicall{vector<edge> get_in_edges(node_id_t id)}        \\ \hline
+  Get out-edges             &\apicall{vector<edge> get_out_edges(node_id_t id)}       \\ \hline
+  \rowcolor[HTML]{FFE135}
+  \textbf{Iterator Functions}     &\textbf{}                                          \\ \hline
+  Get out-neighborhood cursor &\apicall{OutCursor *get_outnbd_iter()}                 \\ \hline
+  Get in-neighborhood cursor  &\apicall{InCursor *get_innbd_iter()}                   \\ \hline
+  Get node cursor             &\apicall{NodeCursor *get_node_iter()}                  \\ \hline
+  Get edge cursor             &\apicall{EdgeCursor *get_edge_iter()}                  \\ \hline
+  \rowcolor[HTML]{FFE135}
+  \textbf{Metadata Functions}     &\textbf{}                                          \\ \hline
+  Get max node ID           &\apicall{node_id_t get_max_node_id()}                    \\ \hline
+  Get min node ID           &\apicall{node_id_t get_min_node_id()}                    \\ \hline
+  Get number of nodes       &\apicall{node_id_t get_num_nodes()}                      \\ \hline
+  Get number of edges       &\apicall{edge_id_t get_num_edges()}                      \\ \hline
+  \rowcolor[HTML]{FFE135}
+  \textbf{Management Functions}   &\textbf{}                                          \\ \hline
+  Close the database        &\apicall{void close()}                                   \\ \hline
+  Close all cursors         &\apicall{void close_all_cursors()}                       \\ \hline
+
+  \end{tabularx}
+\caption{\code{GraphBase} API.  Each representation (\code{AdjList}, \code{SplitEdgeKey}) provides a concrete implementation of these virtual methods. Property and label interfaces are introduced in~\autoref{sec:architecture:property}.}
+\label{tab:graphapi}
+\end{table}
 
 \subsection{Topology Cursor Design}
 \label{arch:topology-cursors}
@@ -324,3 +373,7 @@ The last thread to complete (detected via an atomic decrement of the open-cursor
 
 This design maximizes parallelism during the I/O-intensive leaf-page writing phase, with synchronization limited to spinlock-protected metadata operations during the merge phase.
 The modifications are based on \wt{} 3.2.1; porting them to the \wt{} 11.0.0 release used by the rest of \project{} is ongoing work.
+
+\section{Edge-Centric vs. Vertex-Centric Read-Path Cost}
+\label{sec:eval:ec_vc}
+% TODO: Content in progress.
