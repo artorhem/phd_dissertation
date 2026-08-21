@@ -383,50 +383,64 @@ This section validates that claim with a controlled experiment that isolates the
 
 \subsection{Experiment}
 
-We run PageRank (10 iterations) on soc-LiveJournal~\cite{socLiveJournal} (4.84\,M vertices, 68.99\,M directed edges) in all four combinations of \{vertex-centric, edge-centric\} $\times$ \{adjacency list, EdgeKey\}, using 28 threads with edge-aware partitioning.
+We run PageRank (10 iterations) in all four combinations of \{vertex-centric, edge-centric\} $\times$ \{adjacency list, EdgeKey\} on two directed graphs: soc-LiveJournal~\cite{socLiveJournal} (4.84\,M vertices, 68.99\,M edges) and twitter-2010~\cite{twitter2010} (41.65\,M vertices, 1.47\,B edges).
+Both runs use 28 threads with edge-aware partitioning.
 To measure the dominant cost factor---\wt{} B-tree cursor operations---we enable \wt{}'s built-in statistics logging and extract per-run cursor-call counts.
+The two datasets differ in edge density ($|E|/|V| \approx 14$ for soc-LiveJournal vs.\ $\approx 35$ for twitter-2010), which stresses the cursor-cost asymmetry at different scales.
 
-The vertex-centric implementation uses the \emph{pull} model: for each destination vertex~$v$, an \code{InCursor} iterates over~$v$'s in-neighbors in the \code{adjlistin} (adjacency list) or \code{edge\_in} (EdgeKey) table, reads source scores (random reads), and writes the destination result (sequential writes).
-The edge-centric implementation uses the \emph{push} model with per-thread accumulation: each thread streams its partition of the \code{adjlistout} or \code{edge\_out} table via an \code{EdgeCursor}, accumulates source contributions into a private array (no atomics), and a merge phase reduces across threads after each iteration.
+The vertex-centric implementation (\autoref{appendix:pagerank_graphapi}) uses the \emph{pull} model: for each destination vertex~$v$, an \code{InCursor} iterates over~$v$'s in-neighbors in the \code{adjlistin} (adjacency list) or \code{edge\_in} (EdgeKey) table, reads source scores (random reads), and writes the destination result (sequential writes).
+The edge-centric implementation (\autoref{appendix:pagerank_ec}) uses the \emph{push} model with per-thread accumulation: each thread streams its partition of the \code{adjlistout} or \code{edge\_out} table via an \code{EdgeCursor}, accumulates source contributions into a private array (no atomics), and a merge phase reduces across threads after each iteration.
 
 \subsection{Results}
 
-\autoref{tab:ec_vc_time} shows the wall-clock time for each combination.
+\autoref{tab:ec_vc_time} shows the wall-clock time for each combination on both datasets.
 
 \begin{table}[ht]
 \centering
-\begin{tabular}{lrr}
+\begin{tabular}{llrr}
 \toprule
-                        & \textbf{Adjacency List} & \textbf{EdgeKey} \\
+\textbf{Dataset} & & \textbf{Adjacency List} & \textbf{EdgeKey} \\
 \midrule
-\textbf{Vertex-centric} & 1.2\,s  & 208.9\,s \\
-\textbf{Edge-centric}   & 3.2\,s  &  13.8\,s \\
+\multirow{2}{*}{soc-LiveJournal}
+  & Vertex-centric &     1.2\,s &    208.9\,s \\
+  & Edge-centric   &     3.2\,s &     13.8\,s \\
+\midrule
+\multirow{2}{*}{twitter-2010}
+  & Vertex-centric &    78.1\,s &  3{,}220\,s \\
+  & Edge-centric   &   138.3\,s &    805.4\,s \\
 \bottomrule
 \end{tabular}
-\caption{PageRank execution time (10 iterations, soc-LiveJournal, 28 threads).
-         Each cell is the mean of a single trial with warm \wt{} cache.
-         The adjacency list representation favors vertex-centric processing;
-         EdgeKey favors edge-centric processing.}
+\caption{PageRank execution time (10 iterations, 28 threads).
+         On both datasets the adjacency list representation favors vertex-centric processing and EdgeKey favors edge-centric processing.}
 \label{tab:ec_vc_time}
 \end{table}
 
-The cross pattern is stark: vertex-centric on adjacency list is 174$\times$ faster than vertex-centric on EdgeKey, while edge-centric processing narrows the cross-representation gap to 4.3$\times$.
-\autoref{tab:ec_vc_cursors} shows that the performance differences are explained almost entirely by the number of \wt{} B-tree cursor operations each combination requires.
+The cross pattern is consistent across both scales.
+On soc-LiveJournal, vertex-centric on adjacency list is 174$\times$ faster than vertex-centric on EdgeKey; on twitter-2010 the ratio is 41$\times$.
+In both cases, edge-centric processing on EdgeKey drastically outperforms vertex-centric processing on EdgeKey (15$\times$ on soc-LiveJournal, 4$\times$ on twitter-2010).
+\autoref{tab:ec_vc_cursors} shows that these performance differences are explained by the number of \wt{} B-tree cursor operations each combination requires.
 
 \begin{table}[ht]
 \centering
 \small
-\begin{tabular}{lrrr}
+\begin{tabular}{llrrr}
 \toprule
-\textbf{Configuration} & \textbf{Time (s)} & \textbf{cursor next} & \textbf{search near} \\
+\textbf{Dataset} & \textbf{Configuration} & \textbf{Time (s)} & \textbf{cursor next} & \textbf{search near} \\
 \midrule
-VC on adjacency list &   1.2 &        52.6\,M &       314 \\
-EC on adjacency list &   3.2 &        55.8\,M &       314 \\
-EC on EdgeKey        &  13.8 &       795.7\,M &   9.64\,M \\
-VC on EdgeKey        & 208.9 &     4{,}943\,M &   9.64\,M \\
+\multirow{4}{*}{\rotatebox[origin=c]{90}{\footnotesize soc-LJ}}
+& VC on adjacency list &     1.2 &          52.6\,M &         314 \\
+& EC on adjacency list &     3.2 &          55.8\,M &         314 \\
+& EC on EdgeKey        &    13.8 &         795.7\,M &     9.64\,M \\
+& VC on EdgeKey        &   208.9 &       4{,}943\,M &     9.64\,M \\
+\midrule
+\multirow{4}{*}{\rotatebox[origin=c]{90}{\footnotesize twitter}}
+& VC on adjacency list &    78.1 &           574\,M &         315 \\
+& EC on adjacency list &   138.3 &           570\,M &         314 \\
+& EC on EdgeKey        &   805.4 &        21{,}806\,M &   104.8\,M \\
+& VC on EdgeKey        & 3{,}220 &        72{,}882\,M &   104.8\,M \\
 \bottomrule
 \end{tabular}
-\caption{\wt{} cursor call counts for the four configurations in~\autoref{tab:ec_vc_time}, ordered by execution time.
+\caption{\wt{} cursor call counts for each configuration in~\autoref{tab:ec_vc_time}, ordered by execution time within each dataset.
          \emph{cursor next} is the number of \texttt{cursor->next()} calls (B-tree leaf-page advances);
          \emph{search near} is the number of \texttt{cursor->search\_near()} calls (B-tree seeks).
          M~denotes millions.}
@@ -438,26 +452,29 @@ VC on EdgeKey        & 208.9 &     4{,}943\,M &   9.64\,M \\
 \paragraph{Adjacency list: cursor cost amortized across neighbors.}
 On the adjacency list representation, a single \texttt{cursor->next()} call advances to the next vertex's packed blob, and all~$d$ neighbors are read via array indexing within the deserialized buffer.
 A full graph scan therefore requires $O(|V|)$ cursor calls regardless of the number of edges.
-Both the vertex-centric and edge-centric implementations exhibit this: 52.6\,M and 55.8\,M cursor~next calls respectively, consistent with $4.84\text{M vertices} \times 10\text{ iterations}$ plus per-thread positioning overhead.
+Both computation models confirm this: on soc-LiveJournal, vertex-centric and edge-centric perform 52.6\,M and 55.8\,M cursor~next calls respectively, consistent with $4.84\text{M} \times 10\text{ iterations}$.
+On twitter-2010, the counts are 574\,M and 570\,M---again proportional to~$|V|$, not~$|E|$.
 
-The vertex-centric implementation is faster (1.2\,s vs.\ 3.2\,s) despite nearly identical cursor counts because it consumes each packed adjacency list directly: the inner loop indexes into the deserialized neighbor array with no per-edge function-call overhead.
+The vertex-centric implementation is faster despite nearly identical cursor counts (1.2\,s vs.\ 3.2\,s on soc-LiveJournal; 78.1\,s vs.\ 138.3\,s on twitter-2010) because it consumes each packed adjacency list directly: the inner loop indexes into the deserialized neighbor array with no per-edge function-call overhead.
 The edge-centric implementation pays two additional costs: (1)~the \code{AdjEdgeCursor} yields edges one at a time via \texttt{edgelist[pos{+}{+}]}, adding a virtual call per edge, and (2)~the push model requires a merge phase that reduces 28 thread-local accumulator arrays after each iteration.
-Neither cost involves additional cursor operations---the 2.7$\times$ gap is pure compute overhead, not I/O.
+Neither cost involves additional cursor operations---the gap is pure compute overhead, not I/O.
+The overhead ratio narrows from 2.7$\times$ on soc-LiveJournal to 1.8$\times$ on twitter-2010 because the higher edge density ($|E|/|V| \approx 35$ vs.\ 14) makes the fixed per-vertex merge cost a smaller fraction of total work.
 
 \paragraph{EdgeKey: cursor cost paid per edge.}
 On EdgeKey, each edge is an independent B-tree entry, so a full scan requires $O(|V| + |E|)$ cursor~next calls---one per node sentinel and one per edge.
-For soc-LiveJournal this is approximately 73.8\,M entries per iteration, or 738\,M over 10 iterations.
-The edge-centric configuration's 795.7\,M cursor~next calls are consistent with this estimate plus thread-positioning overhead.
+The edge-centric configuration confirms this: 795.7\,M calls on soc-LiveJournal ($\approx 73.8\text{M entries} \times 10$) and 21.8\,B on twitter-2010 ($\approx 1.51\text{B entries} \times 10$), plus thread-positioning overhead in both cases.
 
-Vertex-centric processing on EdgeKey is dramatically more expensive: 4{,}943\,M cursor~next calls, over six times the edge-centric count.
+Vertex-centric processing on EdgeKey is dramatically more expensive: 4{,}943\,M cursor~next calls on soc-LiveJournal (6.2$\times$ the edge-centric count) and 72{,}882\,M on twitter-2010 (3.3$\times$).
 The overhead arises because vertex-centric processing must reconstruct adjacency lists from individual edge entries.
 For each vertex, the \code{InCursor} collects edge entries from the B-tree into a vector via repeated \texttt{push\_back} calls, and the algorithm then re-iterates this vector---effectively reading every edge twice.
 This reconstruction cost, compounded over 10 iterations and 28 threads, inflates the total cursor operations far beyond the single sequential scan that edge-centric processing requires.
 
 \paragraph{The read-path cost of mutation-friendly storage.}
-The natural pairings---vertex-centric on adjacency list (1.2\,s) and edge-centric on EdgeKey (13.8\,s)---represent the best each representation can offer.
-The 11.5$\times$ gap between them is the \emph{read-path cost} of choosing EdgeKey for its mutation advantages: single-entry B-tree inserts with no read-modify-write, no blob contention under concurrent mutation, and $O(1)$ edge deletion.
+The natural pairings---vertex-centric on adjacency list and edge-centric on EdgeKey---represent the best each representation can offer.
+On soc-LiveJournal, the gap between them is 11.5$\times$ (1.2\,s vs.\ 13.8\,s); on twitter-2010 it is 10.3$\times$ (78.1\,s vs.\ 805.4\,s).
+This is the \emph{read-path cost} of choosing EdgeKey for its mutation advantages: single-entry B-tree inserts with no read-modify-write, no blob contention under concurrent mutation, and $O(1)$ edge deletion.
 
 Edge-centric processing minimizes this cost by working \emph{with} EdgeKey's grain rather than against it.
-The alternative---vertex-centric on EdgeKey at 208.9\,s---demonstrates what happens when the computation model fights the representation: the system pays the full $O(|V| + |E|)$ cursor cost of EdgeKey \emph{and} the overhead of reconstructing the packed adjacency lists that the representation was designed to avoid storing.
-Edge-centric processing eliminates the reconstruction entirely, recovering a 15$\times$ speedup over vertex-centric on the same EdgeKey data.
+The alternative---vertex-centric on EdgeKey---demonstrates what happens when the computation model fights the representation: the system pays the full $O(|V| + |E|)$ cursor cost of EdgeKey \emph{and} the overhead of reconstructing packed adjacency lists that the representation was designed to avoid storing.
+On soc-LiveJournal, edge-centric processing recovers a 15$\times$ speedup over vertex-centric on EdgeKey (13.8\,s vs.\ 208.9\,s); on twitter-2010 the recovery is 4$\times$ (805\,s vs.\ 3{,}220\,s).
+In both cases, choosing the right computation model for the representation transforms EdgeKey from pathologically slow to a practical---if more expensive---alternative to the read-optimized adjacency list.

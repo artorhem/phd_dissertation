@@ -180,3 +180,139 @@ The key adaptations from the original GAPBS implementation are:
   \item OpenMP's automatic loop parallelization cannot be used directly because each thread must construct its own \code{GraphBase} handle and cursors. Instead, the loop is parallelized manually, with each thread obtaining its partition via \code{get\_key\_range()}.
   \item The \code{pvector} utility class (from GAPBS) supports parallel initialization; \project{} extends it to use an \code{mmap}-backed buffer so that computed scores can be persisted across runs without a separate serialization step.
 \end{itemize}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Edge-Centric PageRank Implementation}
+\label{appendix:pagerank_ec}
+
+\autoref{lst:pagerank_ec} shows the edge-centric PageRank kernel discussed in~\autoref{sec:eval:ec_vc}.
+Where the vertex-centric implementation in~\autoref{appendix:pagerank_graphapi} iterates by destination vertex using \code{InCursor} (pull model), this implementation streams edges via \code{EdgeCursor} (push model).
+
+The push model introduces a write-contention challenge: edges targeting the same destination vertex may be processed by different threads simultaneously.
+The simplest correct implementation uses an atomic compare-and-swap (CAS) retry loop to accumulate contributions into a shared destination array:
+\begin{lstlisting}[style=cpp, numbers=none]
+inline void atomic_accumulate(ScoreT& target, ScoreT val)
+{
+    ScoreT old_val, new_val;
+    do {
+        old_val = target;
+        new_val = old_val + val;
+    } while (!compare_and_swap(target, old_val, new_val));
+}
+\end{lstlisting}
+This CAS-based variant requires no per-thread buffers, making it suitable for out-of-core or memory-constrained settings.
+However, on power-law graphs it causes severe contention on high-degree hub vertices: every CAS failure forces a re-read and recomputation, and the resulting cache-line bouncing between cores degrades throughput.
+
+The implementation benchmarked in~\autoref{sec:eval:ec_vc} avoids this by using \emph{per-thread accumulation arrays}: each thread writes to a private \code{local\_sum} array during the scatter phase, and a merge phase reduces across all threads after the edge scan completes.
+This eliminates all atomic operations from the hot loop at the cost of additional memory.
+
+The algorithm is Jacobi-style: each iteration reads from \code{src} (the previous iteration's outgoing contributions) and writes to \code{dst} (the current scores), with a barrier between iterations.
+This contrasts with the vertex-centric implementation's Gauss--Seidel update, where newly computed scores are immediately visible to other vertices within the same iteration.
+The Jacobi formulation is a natural consequence of the push model: because a destination vertex's incoming contributions are scattered across many threads' edge ranges, the destination score cannot be finalized until all threads complete the scatter phase.
+
+\begin{lstlisting}[style=cpp, label={lst:pagerank_ec}, caption={Edge-centric PageRank using the \api{}.  Each thread streams its edge partition via \code{EdgeCursor}, accumulates into a private array, and a merge phase reduces across threads.  Compare with the vertex-centric implementation in~\autoref{lst:pagerank_graphapi}.}, captionpos=b]
+pvector<ScoreT> pagerank(GraphEngine& graph_engine,
+                         std::string& chkpt,
+                         int num_threads,
+                         int max_iters,
+                         node_id_t num_nodes,
+                         node_id_t max_node_id,
+                         double epsilon = 0)
+{
+    const ScoreT init_score = 1.0 / num_nodes;
+    const node_id_t arr_size = max_node_id + 1;
+    pvector<ScoreT> src(arr_size, 0);
+    pvector<ScoreT> dst(arr_size, 0);
+    pvector<node_id_t> deg(arr_size, 0);
+
+    // Per-thread partial-sum arrays (no atomics needed)
+    std::vector<pvector<ScoreT>*> local_sum(num_threads);
+    for (int t = 0; t < num_threads; t++)
+        local_sum[t] = new pvector<ScoreT>(arr_size, 0);
+
+    std::vector<GraphBase*> graph_handles(num_threads);
+
+    // Phase 1: collect degrees and initialize scores
+    #pragma omp parallel for
+    for (int i = 0; i < num_threads; i++)
+    {
+        GraphBase* graph =
+            graph_engine.create_ro_graph_handle(chkpt);
+        graph_handles[i] = graph;
+        NodeCursor* nc = graph->get_node_iter();
+        nc->set_key_range(graph_engine.get_key_range(i));
+
+        node found = {0};
+        nc->next(&found);
+        while (found.id != OutOfBand_ID_MAX)
+        {
+            deg[found.id] = found.out_degree;
+            dst[found.id] = init_score;
+            if (found.out_degree > 0)
+                src[found.id] = init_score / found.out_degree;
+            nc->next(&found);
+        }
+        nc->close();
+    }
+
+    // Phase 2: iterative scatter-merge
+    for (int iter = 0; iter < max_iters; iter++)
+    {
+        for (int t = 0; t < num_threads; t++)
+            local_sum[t]->fill(0);
+
+        // Scatter: stream edges, accumulate into
+        //          thread-local arrays
+        #pragma omp parallel for
+        for (int i = 0; i < num_threads; i++)
+        {
+            GraphBase* graph = graph_handles[i];
+            EdgeCursor* ec = graph->get_edge_iter();
+            ec->set_key_range(
+                graph_engine.get_edge_range(i));
+
+            edge found;
+            ec->next(&found);
+            while (found.src_id != OutOfBand_ID_MAX)
+            {
+                (*local_sum[i])[found.dst_id]
+                    += src[found.src_id];
+                ec->next(&found);
+            }
+            ec->close();
+        }
+
+        // Merge: reduce across threads, apply damping
+        double error = 0;
+        #pragma omp parallel for reduction(+ : error)
+        for (node_id_t v = 0; v < arr_size; v++)
+        {
+            ScoreT incoming = 0;
+            for (int t = 0; t < num_threads; t++)
+                incoming += (*local_sum[t])[v];
+            if (incoming == 0 && deg[v] == 0) continue;
+            ScoreT old_score = dst[v];
+            dst[v] = (1 - kDamp) / num_nodes
+                     + kDamp * incoming;
+            error += fabs(dst[v] - old_score);
+            if (deg[v] > 0)
+                src[v] = dst[v] / deg[v];
+        }
+        if (error < epsilon) break;
+    }
+
+    for (int i = 0; i < num_threads; i++)
+        graph_handles[i]->close(false);
+    for (int t = 0; t < num_threads; t++)
+        delete local_sum[t];
+    return dst;
+}
+\end{lstlisting}
+
+The key structural differences from the vertex-centric implementation are:
+\begin{itemize}
+  \item \textbf{Cursor type.} \code{EdgeCursor} replaces \code{InCursor}.  Each call to \code{next()} returns a single \code{edge} struct (source and destination), not an \code{adjlist} (vertex and all its neighbors).
+  \item \textbf{Partitioning.} \code{get\_edge\_range()} partitions the edge space so that each thread streams a contiguous range of edges, whereas \code{get\_key\_range()} partitions the vertex ID space.
+  \item \textbf{Accumulation.} Per-thread \code{local\_sum} arrays replace the direct in-place update of \code{dst[v]}.  The scatter loop performs only plain (non-atomic) additions to thread-private memory; the merge loop is a separate parallel pass that reduces across threads.
+  \item \textbf{Memory cost.} The per-thread arrays require $\text{num\_threads} \times \text{arr\_size} \times \text{sizeof(ScoreT)}$ bytes.  For twitter-2010 with 28 threads this is approximately 11.7\,GB---feasible on a 128\,GB machine, but a constraint for larger graphs.  A chunked variant that processes destination vertices in fixed-size blocks bounds memory at the cost of multiple passes over the edge stream.
+\end{itemize}
