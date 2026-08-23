@@ -4,7 +4,7 @@
 % Chapter preamble: scope and structure
 This chapter describes the design and implementation of \project{}'s structural graph storage layer.
 A graph database must efficiently store and retrieve both the graph's topology (vertices and edges) and the properties attached to them.
-Since analytics tasks operate primarily on the structural graph while point queries and neighborhood queries access properties, these two concerns impose different --- sometimes conflicting --- layout requirements.
+Since analytics tasks operate primarily on the structural graph while point queries and neighborhood queries access properties, these two concerns impose different (sometimes conflicting) layout requirements.
 \project{} therefore separates the graph structure from the properties and labels associated with the nodes and edges, devoting a distinct storage layer to each.
 
 The chapter breakdown of this thesis mirrors this architectural decision.
@@ -18,8 +18,8 @@ The next chapter (\autoref{sec:architecture:property}) builds on this foundation
 In~\autoref{sec:bg:workloads}, we discussed the different workloads that are commonly used on graph data and the access patterns they exhibit.
 A graph database should provide the following:
 \begin{itemize}
-\item The ability to store the graph in \textbf{formats} that facilitate high-performance analytics by providing good performance on common access patterns.
-\item A high-level \textbf{API} that abstracts the underlying data structures and provides a simple interface for the user to interact with the graph. The user should not need to know the internal representation of the graph to use and query her data.
+\item Storage \textbf{formats} that provide good performance on the common access patterns identified in~\autoref{sec:bg:workloads}.
+\item A high-level \textbf{API} that hides the underlying data structures behind a uniform interface, so the user can query her graph without knowing its internal representation.
 \item A \textbf{framework} to permit efficient implementation of common operations, such as neighborhood collection and traversal. Efficient iterators on the graph elements are critical for performance and should be first-class primitives in the system.
 \end{itemize}
 
@@ -73,13 +73,13 @@ Implementing PageRank in a graph database exercises all three requirements:
 
 A graph database architecture must allow efficient storage and retrieval of both structural and property graphs while supporting the breadth of workloads that we discussed in~\autoref{sec:bg:workloads}.
 Since \mbox{analytics} tasks operate on the structural graph while point and neighborhood queries access properties, a graph database must handle both efficiently.
-Therefore, we conclude that a \textbf{graph database should store the graph structure independent of the properties and the labels associated with the nodes and edges.}
-The layout optimizations needed by the structural graph can be different from those needed by the properties and labels, and this separation allows for more optimization opportunities.
+A \textbf{graph database should therefore store the graph structure independent of the properties and labels associated with nodes and edges.}
+The structural graph and the property store need different layout optimizations, and separating them widens the optimization space.
 For example, the structural graph benefits from compact, cache-friendly encodings optimized for sequential scans and high fan-out traversals, while properties benefit from columnar layouts that support selective column reads and schema-per-label storage.
 
 We use the \wt{} key-value store as our persistence layer, because it provides %key benefits that are crucial for performance:
 excellent multi-threaded (non-blocking) read performance, ACID-compliant MVCC reads, and the ability to scale to datasets larger than RAM.
-These properties are essential for efficient read-heavy analytics tasks that are common in graph processing workloads.
+These properties matter most for the read-heavy analytics tasks common in graph processing.
 
 Since \wt{} is an embedded KV store, \project{} runs as a single process: each thread opens a private session with its own cursors, so reads never contend across threads.
 Writes use snapshot isolation; concurrent writes to the same key are resolved by committing one transaction and rolling back the rest.
@@ -119,18 +119,18 @@ Concretely, the value format is:
 where $d$ is the degree and each neighbor ID is an 8-byte big-endian blob.
 The table is created with \texttt{value\_format=u} (raw, untyped bytes), which is required by the \code{WT\_MODIFY} API.
 
-This format allows us to modify adjacency lists via the \code{WT\_MODIFY} API (\autoref{sec:wt-modify}), which stores a change record --- an offset, a length, and replacement bytes --- in the \wt{} cache and write-ahead log (if enabled) instead of rewriting the entire adjacency list value.
+This format allows us to modify adjacency lists via the \code{WT\_MODIFY} API (\autoref{sec:wt-modify}), which stores a change record (an offset, a length, and replacement bytes) in the \wt{} cache and write-ahead log (if enabled) instead of rewriting the entire adjacency list value.
 On an edge insertion, \code{WT\_MODIFY} appends the new neighbor ID to the end of the blob and updates the degree prefix, recording only the delta (the 8-byte neighbor ID and the 4-byte degree update) rather than the full neighbor list.
 This reduces cache pressure and WAL volume, particularly for high-degree vertices where the full adjacency list may span tens of kilobytes.
 
-However, concurrent insertions to high-degree vertices contend because they modify the same blob: each \code{WT\_MODIFY} targets the same key, and under snapshot isolation only one such modification can commit.
+Concurrent insertions to high-degree vertices, however, contend because they modify the same blob: each \code{WT\_MODIFY} targets the same key, and under snapshot isolation only one such modification can commit.
 This motivates the EdgeKey representation (\autoref{arch:edgekey}), where each edge is an independent key-value pair.
 
 Edge deletion in the adjacency list is more expensive than insertion.
 Deleting an edge requires locating the neighbor ID within the blob (a linear scan over the packed array), removing it, shifting the remaining entries, and updating the degree prefix.
 Unlike insertion, deletion cannot use \code{WT\_MODIFY}'s append optimization and requires a full read-modify-write cycle.
 
-This format has implications for property storage discussed in \autoref{arch:prop-embedded}.
+This format has implications for property storage; this is discussed in \autoref{arch:prop-embedded}.
 For undirected graphs, a single adjacency table stores each edge $(a\text{ --- }b)$ as two directed entries: $(a \rightarrow b)$ and $(b \rightarrow a)$.
 
 In read-optimized mode, an additional node table stores each vertex's in-degree and out-degree, avoiding a full adjacency-list scan for degree queries.
@@ -142,7 +142,7 @@ For weighted graphs, a separate edge table with composite key $(src, dst)$ store
 \label{arch:edgekey}
 The EdgeKey representation stores vertices and edges in a single sorted B-tree, keyed by ($src\_id, dst\_id$).
 A reserved out-of-band destination ID (\texttt{0}) marks vertex entries; all other entries are edges.
-Since \texttt{0} is reserved for the node sentinel, every user-provided ID is transparently shifted by $+1$ before storage and shifted back by $-1$ during retrieval.
+Since \texttt{0} is reserved for the node sentinel, \project{} transparently shifts every user-provided ID by $+1$ before storage and by $-1$ during retrieval.
 This is a single-line operation (\code{MAKE\_EKEY(id) = id + 1}).
 
 The value is interpreted as follows:
@@ -155,10 +155,10 @@ To scan the out-neighborhood of \code{src\_id}, we position the cursor at \code{
 
 \paragraph{Evolution to Split EdgeKey.}
 The original EdgeKey design used a single table with an index on \code{(dst\_id, src\_id)} for in-neighborhood access.
-This design required either a full table scan or a secondary index lookup to find a vertex's in-neighbors --- both unacceptably slow for random in-neighborhood seek-and-scan workloads.
+This design required either a full table scan or a secondary index lookup to find a vertex's in-neighbors , both unacceptably slow for random in-neighborhood seek-and-scan workloads.
 To remedy this, \project{} materializes the in-neighborhood in a separate \code{edge\_in} table, keyed on $(dst\_id, src\_id)$, producing the \emph{Split EdgeKey} representation (\autoref{fig:schema:edgekey}).
 The Split EdgeKey trades additional disk space for significantly faster in-neighborhood access, a classic time-space tradeoff.
-The \code{edge\_in} table is maintained internally and is not exposed through the API.
+\project{} maintains the \code{edge\_in} table internally and does not expose it through the API.
 
 \paragraph{Leaf page density.}
 The EdgeKey representation encodes topology entirely in keys: a structural traversal iterates over keys without calling \code{get\_value()}.
@@ -276,12 +276,12 @@ Cursors are created per-thread from \code{GraphBase} and are scoped to a partiti
 
 Analytics algorithms parallelize over the vertex set: each thread processes a disjoint subset of vertices and their neighborhoods.
 Partitioning divides the vertex ID space into non-overlapping ranges so that threads can work independently without synchronization on the structural data.
-For running multi-threaded analytics, \texttt{GraphEngine} pins a read-only checkpoint and divides the vertex set into disjoint key ranges.
+To run multi-threaded analytics, \texttt{GraphEngine} pins a read-only checkpoint and divides the vertex set into disjoint key ranges.
 Each thread receives its assigned range and creates its own topology and property cursors scoped to that range.
 
 \project{} provides three partitioning strategies, each with different cost and load-balance characteristics:
 \begin{itemize}
-  \item \code{NODE\_COUNT}: Divides the vertex set into equal-sized partitions by node count. The partition boundaries are computed in $O(1)$ (evenly spaced ID ranges), but degree skew causes load imbalance --- a partition containing a few high-degree vertices does far more work than one with only low-degree vertices.
+  \item \code{NODE\_COUNT}: Divides the vertex set into equal-sized partitions by node count. The partition boundaries are computed in $O(1)$ (evenly spaced ID ranges), but degree skew causes load imbalance: a partition containing a few high-degree vertices does far more work than one with only low-degree vertices.
 
   \item \code{EDGE\_AWARE} (default): Partitions by accumulated out-degree so that each partition contains roughly the same number of edges, balancing work for degree-skewed graphs. Computing the partition boundaries requires a scan of degree counts ($O(|V|)$) to compute prefix sums, but the resulting partitions distribute edge-processing work evenly.
 
@@ -303,15 +303,15 @@ vs. EDGE\_AWARE on a power-law graph, and the effect of chunk size on BFS with g
 \label{arch:bulkloading}
 
 Bulk loading is the process of inserting a large number of records into the database from an external source.
-Constraint checks, index updates, and logging are typically disabled during bulk loading to maximize throughput.
-Graph databases must support bulk loading because graphs can be very large --- the largest Graphalytics graphs have billions of edges --- and transactional insertion at such scale is prohibitively slow.
+Systems typically disable constraint checks, index updates, and logging during bulk loading to maximize throughput.
+Graph databases must support bulk loading because graphs can be large (the largest Graphalytics graphs have billions of edges) and transactional insertion at such scale is prohibitively slow.
 
 \subsection{Preprocessing Pipeline}
 \label{arch:bulk-preprocess}
 
 Before loading, the raw edge list must be transformed into a format compatible with \project{}'s representations.
 The input is a CSV edge file sorted by source vertex ID.
-The preprocessing is implemented as a single C++ program that replaces what was originally a multi-stage shell pipeline (\texttt{awk}, \texttt{sort}, \texttt{split}) with a two-pass design using in-process parallel sorting.
+A single C++ program replaces the original multi-stage shell pipeline (\texttt{awk}, \texttt{sort}, \texttt{split}) with a two-pass design using in-process parallel sorting.
 
 \paragraph{Pass 1: Forward edges and reverse-edge chunking.}
 The program reads the CSV edge file in a single sequential pass.
@@ -361,7 +361,7 @@ To remove the single-threaded constraint, \project{} uses a modified version of 
 The modification operates in two phases:
 
 \paragraph{Phase 1: Parallel leaf-page creation.}
-The exclusive-access requirement (\code{WT\_DHANDLE\_EXCLUSIVE}) is removed from the bulk cursor open path, allowing multiple threads to open bulk cursors on the same table simultaneously.
+The modification removes the exclusive-access requirement (\code{WT\_DHANDLE\_EXCLUSIVE}) from the bulk cursor open path, allowing multiple threads to open bulk cursors on the same table simultaneously.
 Each thread receives its own reconciliation context and a private backing file.
 Threads write leaf pages independently to their backing files, recording the key and page-address for each leaf page written.
 File IDs are assigned atomically via a spinlock-protected counter.
@@ -385,7 +385,7 @@ This section validates that claim with a controlled experiment that isolates the
 
 We run PageRank (10 iterations) in all four combinations of \{vertex-centric, edge-centric\} $\times$ \{adjacency list, EdgeKey\} on two directed graphs: soc-LiveJournal~\cite{socLiveJournal} (4.84\,M vertices, 68.99\,M edges) and twitter-2010~\cite{twitter2010} (41.65\,M vertices, 1.47\,B edges).
 Both runs use 28 threads with edge-aware partitioning.
-To measure the dominant cost factor---\wt{} B-tree cursor operations---we enable \wt{}'s built-in statistics logging and extract per-run cursor-call counts.
+B-tree cursor operations are the dominant cost here, and we enable \wt{}'s built-in statistics logging to extract per-run cursor-call counts.
 The two datasets differ in edge density ($|E|/|V| \approx 14$ for soc-LiveJournal vs.\ $\approx 35$ for twitter-2010), which stresses the cursor-cost asymmetry at different scales.
 
 The vertex-centric implementation (\autoref{appendix:pagerank_graphapi}) uses the \emph{pull} model: for each destination vertex~$v$, an \code{InCursor} iterates over~$v$'s in-neighbors in the \code{adjlistin} (adjacency list) or \code{edge\_in} (EdgeKey) table, reads source scores (random reads), and writes the destination result (sequential writes).
@@ -415,10 +415,10 @@ The edge-centric implementation (\autoref{appendix:pagerank_ec}) uses the \emph{
 \label{tab:ec_vc_time}
 \end{table}
 
-The cross pattern is consistent across both scales.
+This cross pattern holds at both scales.
 On soc-LiveJournal, vertex-centric on adjacency list is 174$\times$ faster than vertex-centric on EdgeKey; on twitter-2010 the ratio is 41$\times$.
 In both cases, edge-centric processing on EdgeKey drastically outperforms vertex-centric processing on EdgeKey (15$\times$ on soc-LiveJournal, 4$\times$ on twitter-2010).
-\autoref{tab:ec_vc_cursors} shows that these performance differences are explained by the number of \wt{} B-tree cursor operations each combination requires.
+\autoref{tab:ec_vc_cursors} shows that the number of \wt{} B-tree cursor operations explains these performance differences.
 
 \begin{table}[ht]
 \centering
@@ -461,12 +461,12 @@ Neither cost involves additional cursor operations---the gap is pure compute ove
 The overhead ratio narrows from 2.7$\times$ on soc-LiveJournal to 1.8$\times$ on twitter-2010 because the higher edge density ($|E|/|V| \approx 35$ vs.\ 14) makes the fixed per-vertex merge cost a smaller fraction of total work.
 
 \paragraph{EdgeKey: cursor cost paid per edge.}
-On EdgeKey, each edge is an independent B-tree entry, so a full scan requires $O(|V| + |E|)$ cursor~next calls---one per node sentinel and one per edge.
+On EdgeKey, each edge is an independent B-tree entry, so a full scan requires $O(|V| + |E|)$ cursor~next calls, one per node sentinel and one per edge.
 The edge-centric configuration confirms this: 795.7\,M calls on soc-LiveJournal ($\approx 73.8\text{M entries} \times 10$) and 21.8\,B on twitter-2010 ($\approx 1.51\text{B entries} \times 10$), plus thread-positioning overhead in both cases.
 
 Vertex-centric processing on EdgeKey is dramatically more expensive: 4{,}943\,M cursor~next calls on soc-LiveJournal (6.2$\times$ the edge-centric count) and 72{,}882\,M on twitter-2010 (3.3$\times$).
 The overhead arises because vertex-centric processing must reconstruct adjacency lists from individual edge entries.
-For each vertex, the \code{InCursor} collects edge entries from the B-tree into a vector via repeated \texttt{push\_back} calls, and the algorithm then re-iterates this vector---effectively reading every edge twice.
+For each vertex, the \code{InCursor} collects edge entries from the B-tree into a vector via repeated \texttt{push\_back} calls, and the algorithm then re-iterates this vector, effectively reading every edge twice.
 This reconstruction cost, compounded over 10 iterations and 28 threads, inflates the total cursor operations far beyond the single sequential scan that edge-centric processing requires.
 
 \paragraph{The read-path cost of mutation-friendly storage.}
@@ -475,6 +475,6 @@ On soc-LiveJournal, the gap between them is 11.5$\times$ (1.2\,s vs.\ 13.8\,s); 
 This is the \emph{read-path cost} of choosing EdgeKey for its mutation advantages: single-entry B-tree inserts with no read-modify-write, no blob contention under concurrent mutation, and $O(1)$ edge deletion.
 
 Edge-centric processing minimizes this cost by working \emph{with} EdgeKey's grain rather than against it.
-The alternative---vertex-centric on EdgeKey---demonstrates what happens when the computation model fights the representation: the system pays the full $O(|V| + |E|)$ cursor cost of EdgeKey \emph{and} the overhead of reconstructing packed adjacency lists that the representation was designed to avoid storing.
+Vertex-centric on EdgeKey demonstrates what happens when the computation model fights the representation: the system pays the full $O(|V| + |E|)$ cursor cost of EdgeKey \emph{and} the overhead of reconstructing packed adjacency lists that the representation was designed to avoid storing.
 On soc-LiveJournal, edge-centric processing recovers a 15$\times$ speedup over vertex-centric on EdgeKey (13.8\,s vs.\ 208.9\,s); on twitter-2010 the recovery is 4$\times$ (805\,s vs.\ 3{,}220\,s).
-In both cases, choosing the right computation model for the representation transforms EdgeKey from pathologically slow to a practical---if more expensive---alternative to the read-optimized adjacency list.
+In both cases, choosing the right computation model for the representation transforms EdgeKey from pathologically slow to a practical, if more expensive, alternative to the read-optimized adjacency list.
