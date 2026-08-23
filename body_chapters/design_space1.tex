@@ -188,9 +188,9 @@ The design space of static graph processing systems can be split based on these 
 \begin{table}[t]
     \centering
     \small
+    \input{fig/background/vc_ec.tex}
     \caption{Design space of static graph processing systems classified by programming model (columns) and computation model (rows). Hybrid systems are noted below the table.}
     \label{fig:static_ec_vc}
-    \input{fig/background/vc_ec.tex}
 \end{table}
 
 \subsubsection{Subgraph-Centric Models}
@@ -223,8 +223,6 @@ This approach is designed for shared-memory systems and targets cache efficiency
 \begin{table}[t]
 \centering
 \small
-\caption{Comparison of subgraph-centric programming models.}
-\label{tab:subgraph_models}
 \begin{tabular}{llll}
 \toprule
 \textbf{Model} & \textbf{Unit of computation} & \textbf{Target environment} & \textbf{Key optimization} \\
@@ -234,6 +232,8 @@ Path-Centric   & Tree-based partition       & Out-of-core / disk & Sequential I/
 Partition-Centric & Cache-sized vertex set  & Shared memory & Cache residency \\
 \bottomrule
 \end{tabular}
+\caption{Comparison of subgraph-centric programming models.}
+\label{tab:subgraph_models}
 \end{table}
 
 

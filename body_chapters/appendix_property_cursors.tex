@@ -1,0 +1,195 @@
+\chapter{Property Cursor Class Hierarchy}
+\label{chap:appendix:prop-cursors}
+
+This appendix provides the class hierarchy and annotated code listings for the property cursor abstraction introduced in \autoref{arch:prop-cursors}.
+\autoref{fig:prop-cursor-hierarchy} shows the inheritance diagram, and the listings that follow illustrate how the same \code{next()} call leads to different \wt{} operations depending on the storage mode.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Class Hierarchy}
+\label{appendix:prop-cursor-hierarchy}
+
+\autoref{fig:prop-cursor-hierarchy} shows the property cursor inheritance hierarchy.
+The two abstract base classes, \code{NodePropCursor} and \code{EdgePropCursor}, define the mode-agnostic interface.
+Each storage mode provides a pair of concrete implementations.
+Columnar mode uses \code{WTNodePropCursor} and \code{WTEdgePropCursor}.
+Embedded mode uses \code{EmbNodePropCursor} and \code{EmbEdgePropCursor}.
+
+\begin{figure}[htbp]
+  \centering
+  \begin{tikzpicture}[scale=0.85, every node/.style={transform shape},
+    class/.style={rectangle, draw, minimum width=3.0cm, minimum height=0.8cm, font=\small\ttfamily},
+    abstract/.style={class, dashed},
+    arr/.style={-{Triangle[length=8pt, width=6pt]}, thick}
+  ]
+    % NodePropCursor hierarchy
+    \node[abstract] (npc) at (0, 0) {NodePropCursor};
+    \node[class] (wtnpc) at (-2.5, -1.8) {WTNodePropCursor};
+    \node[class] (embnpc) at (2.5, -1.8) {EmbNodePropCursor};
+
+    % EdgePropCursor hierarchy
+    \node[abstract] (epc) at (7.5, 0) {EdgePropCursor};
+    \node[class] (wtepc) at (5.0, -1.8) {WTEdgePropCursor};
+    \node[class] (embepc) at (10.0, -1.8) {EmbEdgePropCursor};
+
+    % Inheritance arrows
+    \draw[arr] (wtnpc) -- (npc);
+    \draw[arr] (embnpc) -- (npc);
+    \draw[arr] (wtepc) -- (epc);
+    \draw[arr] (embepc) -- (epc);
+
+    % Labels
+    \node[font=\scriptsize, below=0.1cm] at (wtnpc.south) {(columnar)};
+    \node[font=\scriptsize, below=0.1cm] at (embnpc.south) {(embedded)};
+    \node[font=\scriptsize, below=0.1cm] at (wtepc.south) {(columnar)};
+    \node[font=\scriptsize, below=0.1cm] at (embepc.south) {(embedded)};
+  \end{tikzpicture}
+  \caption{Property cursor class hierarchy.  Dashed boxes are abstract base classes; solid boxes are concrete implementations selected by the \code{GraphBase} factory methods based on the storage mode.}
+  \label{fig:prop-cursor-hierarchy}
+\end{figure}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Abstract Interfaces}
+\label{appendix:prop-cursor-interfaces}
+
+\autoref{lst:node-prop-cursor} shows the \code{NodePropCursor} abstract interface.
+\code{EdgePropCursor} follows the same pattern, replacing vertex-range positioning with source-vertex pinning.
+
+\begin{lstlisting}[style=cpp, label={lst:node-prop-cursor}, caption={\code{NodePropCursor} abstract interface (from \texttt{iterator.h}).}, captionpos=b]
+class NodePropCursor {
+public:
+    virtual ~NodePropCursor() = default;
+
+    // Positioning
+    virtual void set_range(node_id_t start,
+                           node_id_t end) = 0;
+    virtual void seek(node_id_t id) = 0;
+
+    // Iteration
+    virtual bool next() = 0;
+    virtual node_id_t current_id() const = 0;
+
+    // Typed accessors (column index n)
+    virtual uint64_t get_uint64(int n) const = 0;
+    virtual int64_t  get_int64(int n) const = 0;
+    virtual int32_t  get_int32(int n) const = 0;
+    virtual std::string_view get_string(int n)
+                                       const = 0;
+
+    virtual void close() = 0;
+};
+\end{lstlisting}
+
+\begin{lstlisting}[style=cpp, label={lst:edge-prop-cursor}, caption={\code{EdgePropCursor} abstract interface (from \texttt{iterator.h}).}, captionpos=b]
+class EdgePropCursor {
+public:
+    virtual ~EdgePropCursor() = default;
+
+    // Pin a single source vertex
+    virtual void set_src(node_id_t src) = 0;
+    // Bulk scan over a source range
+    virtual void set_src_range(node_id_t start,
+                               node_id_t end) = 0;
+
+    virtual bool next() = 0;
+    virtual node_id_t current_src() const = 0;
+    virtual node_id_t current_dst() const = 0;
+
+    virtual uint64_t get_uint64(int n) const = 0;
+    virtual int64_t  get_int64(int n) const = 0;
+    virtual int32_t  get_int32(int n) const = 0;
+    virtual std::string_view get_string(int n)
+                                       const = 0;
+
+    virtual void close() = 0;
+};
+\end{lstlisting}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Column-Group Layout Dispatch}
+\label{appendix:colgroup-layout}
+
+Each column group has a value format that determines the arity and types of the \code{get\_value()} call to \wt{}.
+\autoref{lst:colgroup-layout} shows the \code{ColgroupValueLayout} enum and the dispatch logic.
+The layout avoids unpacking columns that belong to a different group: if a column group stores two \code{uint64} values, the cursor calls \code{get\_value(cursor, \&v1, \&v2)} rather than unpacking the full record.
+
+\begin{lstlisting}[style=cpp, label={lst:colgroup-layout}, caption={\code{ColgroupValueLayout} enum and accessor dispatch.}, captionpos=b]
+enum ColgroupValueLayout {
+    CVL_Q,     // single uint64
+    CVL_QQ,    // two uint64s
+    CVL_Qi,    // uint64 + int32
+    CVL_SS,    // two strings
+    CVL_SSS,   // three strings
+    // ... additional layouts as needed
+};
+
+ColgroupValueLayout layout_for(
+    const std::string& colgroup_name,
+    int label_id);
+\end{lstlisting}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Columnar vs.\ Embedded \texttt{next()} Paths}
+\label{appendix:next-paths}
+
+The two storage modes differ in how \code{next()} retrieves the property record.
+\autoref{lst:wt-next} shows the columnar path: the cursor advances the \wt{} column-group cursor and calls \code{get\_value()} with an arity matching the column group's layout.
+\autoref{lst:emb-next} shows the embedded path: the cursor reads the raw property blob from the structural table (or the separate \code{node\_props} table in AdjList mode) and applies extractor function pointers to pull typed fields from fixed byte offsets.
+
+\begin{lstlisting}[style=cpp, label={lst:wt-next}, caption={Columnar path: \code{WTNodePropCursor::next()}.}, captionpos=b]
+bool WTNodePropCursor::next() {
+    int ret = wt_cursor->next(wt_cursor);
+    if (ret != 0) return false;
+
+    // Read key (big-endian vertex ID)
+    WT_ITEM key_item;
+    wt_cursor->get_key(wt_cursor, &key_item);
+    cur_id = decode_be64(key_item.data);
+
+    if (cur_id >= range_end) return false;
+
+    // Read value: arity depends on layout
+    switch (layout) {
+    case CVL_QQ:
+        wt_cursor->get_value(wt_cursor,
+                             &vals_u64[0],
+                             &vals_u64[1]);
+        break;
+    case CVL_Q:
+        wt_cursor->get_value(wt_cursor,
+                             &vals_u64[0]);
+        break;
+    // ... other layouts
+    }
+    return true;
+}
+\end{lstlisting}
+
+\begin{lstlisting}[style=cpp, label={lst:emb-next}, caption={Embedded path: \code{EmbNodePropCursor::next()}.}, captionpos=b]
+bool EmbNodePropCursor::next() {
+    int ret = wt_cursor->next(wt_cursor);
+    if (ret != 0) return false;
+
+    WT_ITEM key_item, val_item;
+    wt_cursor->get_key(wt_cursor, &key_item);
+    cur_id = decode_be64(key_item.data);
+
+    if (cur_id >= range_end) return false;
+
+    // Read raw property blob
+    wt_cursor->get_value(wt_cursor, &val_item);
+    prop_blob = static_cast<const uint8_t*>(
+                    val_item.data);
+
+    // Typed access via extractor pointers:
+    //   get_uint64(n) returns
+    //     extractors_u64[n](prop_blob)
+    // Each extractor reads from a fixed
+    // byte offset in the blob.
+    return true;
+}
+\end{lstlisting}
+
+The key difference is in how data reaches the application.
+In the columnar path, \wt{} itself unpacks the column group's typed format, and only pages belonging to that column group are loaded into the buffer pool.
+In the embedded path, \wt{} delivers an opaque byte array, and the cursor applies schema-specific extractors to interpret it.
+The columnar path trades one layer of indirection for the I/O savings of reading fewer pages.
