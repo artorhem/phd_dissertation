@@ -292,3 +292,79 @@ Query code calls \code{set\_range()}, \code{next()}, and \code{get\_uint64()} wi
 
 This design mirrors the topology cursor abstraction described in \autoref{appendix:iterators}: just as \code{OutCursor} hides whether the underlying representation is AdjList or EdgeKey, \code{NodePropCursor} hides whether properties are stored in column groups or inline with the structure.
 The full class hierarchy and annotated code listings appear in \autoref{chap:appendix:prop-cursors}.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Bulk Loading Properties}
+\label{arch:prop-bulk-load}
+
+Loading the full LDBC SNB dataset into \project{} requires coordinating property writes with edge insertions and managing RAM for ID translation across vertex types.
+This section describes the property-aware bulk loader and explains how the storage decisions from the preceding sections constrain its pipeline.
+
+\subsection{The Ordering Constraint}
+\label{arch:prop-bulk:ordering}
+
+In EdgeKey's embedded mode, a vertex's sentinel row stores both its degree pair and its property blob (\autoref{arch:prop-embedded}).
+Each \code{add\_edge} call updates the degree pair; each \code{set\_node\_properties} call writes the full sentinel value, including the property blob.
+If properties are written before all edges have been inserted, a subsequent \code{add\_edge} overwrites the sentinel and discards the property bytes.
+Property writes must therefore follow all edge insertions.
+
+Columnar mode does not have this constraint, because properties and degrees live in separate tables.
+The loader preserves the stricter ordering regardless of mode so that the same pipeline works for both.
+
+\subsection{Deferred Writes via Spool Files}
+\label{arch:prop-bulk:spool}
+
+The ordering constraint means vertex properties cannot be written during vertex loading.
+Accumulating all property blobs in memory until the edge phase completes is expensive: at SF-10, the Comment type alone has approximately 15 million variable-length records.
+
+The loader instead streams each property record to a binary spool file on disk.
+A node-property record is \texttt{[typed\_id(8\,B)\,|\,size(4\,B)\,|\,data[]]};
+an edge-property record adds source and destination fields: \texttt{[src(8\,B)\,|\,dst(8\,B)\,|\,size(4\,B)\,|\,data[]]}.
+The flush phase reads each spool sequentially and issues one \code{set\_node\_properties} or \code{set\_edge\_properties} call per record, buffering only the current record.
+
+\subsection{ID Translation}
+\label{arch:prop-bulk:id-map}
+
+LDBC SNB CSVs use plain integer IDs.
+The loader translates each CSV ID into a labeled vertex ID (\autoref{arch:typed-ids}) via per-type \code{SnbIdMap}s: sorted vectors of \texttt{(ldbc\_id, typed\_id)} pairs supporting $O(\log n)$ binary-search lookup.
+At 16 bytes per entry, these use less than half the memory of an equivalent \code{std::unordered\_map} (40--50 bytes per entry with bucket overhead).
+At SF-10, the comment ID map drops from approximately 600\,MB to 240\,MB.
+After the vertex phase, each map is read-only; concurrent lookups during edge loading require no synchronization.
+
+\subsection{Pipeline Phases}
+\label{arch:prop-bulk:phases}
+
+The loader runs five phases.
+Each thread creates its own \code{GraphBase} handle (and therefore its own \wt{} session), so there is no handle-level contention.
+
+\paragraph{Phase~1: Vertex loading.}
+All vertex types except Forum load in parallel, one thread per type.
+Each thread reads its CSV, assigns labeled vertex IDs via \code{MAKE\_TYPED\_ID}, inserts vertices with zero initial degrees, and writes property blobs to a per-type spool file.
+Forum vertices load sequentially afterward, because the Forum schema embeds the moderator's typed Person~ID, which requires the Person ID map.
+
+\paragraph{Phase~2: Edge loading.}
+Phase~2a loads all edges not involving Comment vertices in parallel.
+Phase~2b loads Comment-touching edges one type at a time, with internal multi-threading within each type, to avoid write-write contention on high-degree Comment adjacency-list entries (\autoref{arch:prop-bulk:concurrency}).
+
+Edges with properties (\texttt{knows}, \texttt{likes}, \texttt{hasMember}, \texttt{studyAt}, \texttt{workAt}) write their attribute bytes to edge-property spool files during this phase.
+
+\paragraph{Phase~3: Flush vertex properties.}
+Each vertex type's spool is replayed in parallel.
+Person properties receive a patch: the \code{country\_id} field, derived by joining \texttt{person\_isLocatedIn\_place} and \texttt{place\_isPartOf\_place}, is resolved between Phase~2 and Phase~3 and written into the Person blob before it is committed.
+
+\paragraph{Phase~4: Flush edge properties.}
+Edge-property spools are replayed in parallel.
+If an edge was lost to an unrecovered \code{WT\_ROLLBACK} during Phase~2, the flush phase re-inserts it before applying the property record.
+
+\paragraph{Phase~5: Secondary tables.}
+Multi-valued attributes (\code{person\_email}, \code{person\_speaks}) load from their CSVs directly into the secondary tables described in \autoref{arch:prop-columnar}.
+
+\subsection{Concurrency and Conflict Handling}
+\label{arch:prop-bulk:concurrency}
+
+Parallel edge insertion creates write-write conflicts when two threads update the same vertex's degree counter within the same \wt{} snapshot transaction.
+\wt{} detects this and returns \code{WT\_ROLLBACK}, aborting the transaction.
+The loader retries each \code{add\_edge} up to 500 times; after a rollback, the retrying thread sees the winner's committed state and can proceed.
+
+When Comment-touching edge types ran concurrently in early versions of the loader, threads competed on the same high-degree Comment entries, causing retry loops of up to 500 iterations per edge.
+Serializing Comment edge types into Phase~2b eliminated this cross-type contention.
