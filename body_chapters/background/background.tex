@@ -274,4 +274,4 @@ With mmap, the OS can flush dirty pages at any time without the database's knowl
 Combined with I/O stalls from transparent page eviction and page-table contention, mmap is not a viable alternative to a managed buffer pool~\cite{crotty2022you}.
 There are a few graph processing systems/databases that use this approach, e.g., LiveGraph\cite{zhu2019livegraph} and KuzuDB\cite{feng2023kuzu}, but they admit that replacing mmap with a managed page cache is essential for predictable performance\cite[Section 6]{zhu2019livegraph}.
 
-\input{body_chapters/wiredtiger_basics.tex}
+\input{body_chapters/related/wiredtiger_basics.tex}

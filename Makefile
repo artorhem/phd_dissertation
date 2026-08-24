@@ -7,7 +7,17 @@ AUX_SUBDIRS = admin_chapters/committee_page \
               admin_chapters/preface \
               admin_chapters/acknowledgements \
               admin_chapters/dedication \
-              body_chapters
+              body_chapters/introduction \
+              body_chapters/background \
+              body_chapters/related \
+              body_chapters/arch_structural \
+              body_chapters/arch_property \
+              body_chapters/eval_static \
+              body_chapters/eval_dynamic \
+              body_chapters/eval_property \
+              body_chapters/future_work \
+              body_chapters/conclusion \
+              body_chapters/appendix
 
 LATEXMK_OPTS = \
 	-pdf \
