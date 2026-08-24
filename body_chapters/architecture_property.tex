@@ -222,7 +222,7 @@ These are handled by secondary tables with composite keys \texttt{(vertex\_id, i
 \label{arch:prop-choosing}
 
 The embedded and columnar modes represent different points in a performance tradeoff space.
-This section provides a qualitative comparison; we quantify the tradeoff experimentally in \autoref{sec:eval:property}.
+This section provides a qualitative comparison; we quantify the tradeoff experimentally in \autoref{sec:eval:emb-vs-col}.
 
 \paragraph{Point queries.}
 For a single-vertex property lookup, both modes require one cursor seek: embedded mode seeks into the structural table and reads the property blob from the sentinel row (EdgeKey) or the \code{node\_props} table (AdjList); columnar mode seeks into the per-label property table.

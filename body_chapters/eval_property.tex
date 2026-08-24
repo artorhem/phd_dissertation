@@ -212,6 +212,7 @@ X4 (single edge insert with no vertex creation) favors \project{} at $11$\,$\mu$
 NeuG is $1{,}000\times$ slower on all writes ($190$\,ms) because each mutation parses and plans a full Cypher \texttt{CREATE} statement.
 
 \section{Embedded vs.\ Columnar Trade-off}
+\label{sec:eval:emb-vs-col}
 
 The two property storage modes offer a clear, query-dependent trade-off (\autoref{tab:ldbc-queries}, Emb vs.\ Col columns).
 For point queries and single-hop reads, both modes perform similarly (R1: $7$\,$\mu$s embedded, $14$\,$\mu$s columnar), because the dominant cost is the structural cursor seek, not the property read.

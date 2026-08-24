@@ -9,7 +9,7 @@ Since analytics tasks operate primarily on the structural graph while point quer
 
 The chapter breakdown of this thesis mirrors this architectural decision.
 This chapter focuses on how \project{} stores and accesses the structural graph: its design principles, data encoding, two structural representations, the graph API, topology cursors, partitioning for parallel analytics, and bulk loading.
-The next chapter (\autoref{sec:architecture:property}) builds on this foundation to describe how properties and labels are stored.
+The next chapter (\autoref{sec:architecture:property}) builds on this foundation to describe how \project{} stores properties and labels.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \section{What Should a Graph Database Provide?}
@@ -24,7 +24,7 @@ A graph database should provide the following:
 \end{itemize}
 
 To illustrate how these requirements combine in a real application, consider computing PageRank on a graph.
-The pseudocode for the PageRank algorithm is shown in~\autoref{alg:PageRankPullGS}.
+\autoref{alg:PageRankPullGS} shows the pseudocode for the PageRank algorithm.
 \begin{algorithm}
   \begin{algorithmic}[1]
   \Require Graph $G = (V,E)$ where $V$ is the set of nodes and $E$ is the set of edges
@@ -63,26 +63,25 @@ The pseudocode for the PageRank algorithm is shown in~\autoref{alg:PageRankPullG
 Implementing PageRank in a graph database exercises all three requirements:
 \begin{itemize}
 \item \textbf{Formats:} The algorithm must scan the full vertex set (\highlightP{lines 5, 10}) and, for each vertex, iterate over its incoming neighbors (\highlightB{line 12}). The storage format must support both operations efficiently.
-\item \textbf{API:} The application must be able to create vertex iterators for efficient scans over the vertex set and neighborhood iterators for scanning a vertex's in-neighborhood, without knowledge of the underlying storage layout.
-\item \textbf{Framework:} As each vertex is processed, the algorithm reads and writes its score and outgoing value (\highlightM{lines 15, 16, 18}). These per-vertex computations must compose with the iteration primitives to yield an efficient end-to-end implementation.
+\item \textbf{API:} The application must create vertex iterators for efficient scans over the vertex set and neighborhood iterators for scanning a vertex's in-neighborhood, without knowing the underlying storage layout.
+\item \textbf{Framework:} As the algorithm processes each vertex, it reads and writes the vertex's score and outgoing value (\highlightM{lines 15, 16, 18}). These per-vertex computations must compose with the iteration primitives to yield an efficient end-to-end implementation.
 \end{itemize}
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \section{Design Principles}
 \label{arch:design-principles}
 
-A graph database architecture must allow efficient storage and retrieval of both structural and property graphs while supporting the breadth of workloads that we discussed in~\autoref{sec:bg:workloads}.
-Since \mbox{analytics} tasks operate on the structural graph while point and neighborhood queries access properties, a graph database must handle both efficiently.
-A \textbf{graph database should therefore store the graph structure independent of the properties and labels associated with nodes and edges.}
+A graph database must store and retrieve both the structural graph and its properties efficiently, across the full range of workloads discussed in~\autoref{sec:bg:workloads}.
+Because analytics tasks operate on the structural graph and point and neighborhood queries access properties, these two concerns demand different storage layouts.
+A \textbf{graph database should therefore store the graph structure independently of the properties and labels associated with nodes and edges.}
 The structural graph and the property store need different layout optimizations, and separating them widens the optimization space.
-For example, the structural graph benefits from compact, cache-friendly encodings optimized for sequential scans and high fan-out traversals, while properties benefit from columnar layouts that support selective column reads and schema-per-label storage.
+For example, the structural graph benefits from compact, cache-friendly encodings optimized for sequential scans and high fan-out traversals; properties benefit from columnar layouts that support selective column reads and schema-per-label storage.
 
-We use the \wt{} key-value store as our persistence layer, because it provides %key benefits that are crucial for performance:
-excellent multi-threaded (non-blocking) read performance, ACID-compliant MVCC reads, and the ability to scale to datasets larger than RAM.
-These properties matter most for the read-heavy analytics tasks common in graph processing.
+We use the \wt{} key-value store as our persistence layer because it provides three properties essential for graph analytics:
+excellent multi-threaded (non-blocking) read performance, ACID-compliant MVCC reads, and scaling to datasets larger than RAM.
 
 Since \wt{} is an embedded KV store, \project{} runs as a single process: each thread opens a private session with its own cursors, so reads never contend across threads.
-Writes use snapshot isolation; concurrent writes to the same key are resolved by committing one transaction and rolling back the rest.
+Writes use snapshot isolation: when concurrent transactions modify the same key, \wt{} commits one and rolls back the rest.
 
 \project{} addresses the three requirements identified in~\autoref{arch:requirements} as follows.
 \emph{Requirement~1} (formats) is met by providing two structural representations --- Adjacency List and EdgeKey --- each with distinct performance tradeoffs (this chapter).
@@ -98,12 +97,12 @@ Writes use snapshot isolation; concurrent writes to the same key are resolved by
 \subsection{Data Encoding}
 \label{arch:data-encoding}
 
-In \project{}, vertex IDs are 64-bit unsigned integers stored as big-endian 8-byte blobs.
-Storing IDs in big-endian format ensures that \wt{}'s lexicographic key comparison (\texttt{memcmp}) coincides with numeric order.
+\project{} stores vertex IDs as 64-bit unsigned integers in big-endian 8-byte blobs.
+Big-endian encoding ensures that \wt{}'s lexicographic key comparison (\texttt{memcmp}) coincides with numeric order.
 This avoids the overhead of \wt{}'s native variable-length integer encoding (format codes \texttt{I} and \texttt{Q}), which requires decoding during comparison; with raw big-endian blobs, key comparison is a direct \texttt{memcmp} with no per-byte interpretation.
-The byte-swap is performed using the compiler intrinsic \texttt{\_\_builtin\_bswap64} before handing keys to \wt{}.
+The compiler intrinsic \texttt{\_\_builtin\_bswap64} performs the byte-swap before handing keys to \wt{}.
 
-Degree counts are 32-bit unsigned integers, and edge weights are double-precision floats per the Graphalytics specification~\cite{capotua2015graphalytics}.
+\project{} stores degree counts as 32-bit unsigned integers and edge weights as double-precision floats per the Graphalytics specification~\cite{capotua2015graphalytics}.
 
 In~\autoref{arch:typed-ids}, we extend this encoding to embed a label tag in the top 8 bits of the vertex ID, enabling $O(1)$ label extraction without a table lookup.
 
@@ -117,10 +116,11 @@ Concretely, the value format is:
   \texttt{[degree}_{32} \;|\; \texttt{nbr\_id}_1 \;|\; \texttt{nbr\_id}_2 \;|\; \cdots \;|\; \texttt{nbr\_id}_{d}\texttt{]}
 \]
 where $d$ is the degree and each neighbor ID is an 8-byte big-endian blob.
-The table is created with \texttt{value\_format=u} (raw, untyped bytes), which is required by the \code{WT\_MODIFY} API.
+The table uses \texttt{value\_format=u} (raw, untyped bytes), as the \code{WT\_MODIFY} API requires.
 
-This format allows us to modify adjacency lists via the \code{WT\_MODIFY} API (\autoref{sec:wt-modify}), which stores a change record (an offset, a length, and replacement bytes) in the \wt{} cache and write-ahead log (if enabled) instead of rewriting the entire adjacency list value.
-On an edge insertion, \code{WT\_MODIFY} appends the new neighbor ID to the end of the blob and updates the degree prefix, recording only the delta (the 8-byte neighbor ID and the 4-byte degree update) rather than the full neighbor list.
+This format lets us modify adjacency lists via the \code{WT\_MODIFY} API (\autoref{sec:wt-modify}).
+Instead of rewriting the entire value, \code{WT\_MODIFY} stores a change record (an offset, a length, and replacement bytes) in the \wt{} cache and write-ahead log (if enabled).
+On an edge insertion, \code{WT\_MODIFY} appends the new neighbor ID to the blob and updates the degree prefix, recording only the delta (the 8-byte neighbor ID and the 4-byte degree update) rather than the full neighbor list.
 This reduces cache pressure and WAL volume, particularly for high-degree vertices where the full adjacency list may span tens of kilobytes.
 
 Concurrent insertions to high-degree vertices, however, contend because they modify the same blob: each \code{WT\_MODIFY} targets the same key, and under snapshot isolation only one such modification can commit.
@@ -130,7 +130,7 @@ Edge deletion in the adjacency list is more expensive than insertion.
 Deleting an edge requires locating the neighbor ID within the blob (a linear scan over the packed array), removing it, shifting the remaining entries, and updating the degree prefix.
 Unlike insertion, deletion cannot use \code{WT\_MODIFY}'s append optimization and requires a full read-modify-write cycle.
 
-This format has implications for property storage; this is discussed in \autoref{arch:prop-embedded}.
+This format constrains property storage, as \autoref{arch:prop-embedded} describes.
 For undirected graphs, a single adjacency table stores each edge $(a\text{ --- }b)$ as two directed entries: $(a \rightarrow b)$ and $(b \rightarrow a)$.
 
 In read-optimized mode, an additional node table stores each vertex's in-degree and out-degree, avoiding a full adjacency-list scan for degree queries.
@@ -155,7 +155,7 @@ To scan the out-neighborhood of \code{src\_id}, we position the cursor at \code{
 
 \paragraph{Evolution to Split EdgeKey.}
 The original EdgeKey design used a single table with an index on \code{(dst\_id, src\_id)} for in-neighborhood access.
-This design required either a full table scan or a secondary index lookup to find a vertex's in-neighbors , both unacceptably slow for random in-neighborhood seek-and-scan workloads.
+This design required either a full table scan or a secondary index lookup to find a vertex's in-neighbors, both unacceptably slow for random in-neighborhood seek-and-scan workloads.
 To remedy this, \project{} materializes the in-neighborhood in a separate \code{edge\_in} table, keyed on $(dst\_id, src\_id)$, producing the \emph{Split EdgeKey} representation (\autoref{fig:schema:edgekey}).
 The Split EdgeKey trades additional disk space for significantly faster in-neighborhood access, a classic time-space tradeoff.
 \project{} maintains the \code{edge\_in} table internally and does not expose it through the API.
@@ -265,7 +265,7 @@ The two representations implement \code{next()} differently.
 An \code{AdjOutCursor} positions the \wt{} cursor at the adjacency table entry for the current vertex and deserializes neighbor IDs from the packed blob one at a time, advancing to the next vertex when the blob is exhausted.
 A \code{SplitEKeyOutCursor} advances the \wt{} cursor to the next key in the B-tree: each key is one edge, so \code{next()} is a single \wt{} cursor advance.
 
-Cursors are created per-thread from \code{GraphBase} and are scoped to a partition range assigned by the partitioning strategy described below.
+Each thread creates its cursors from \code{GraphBase}, scoped to a partition range that the partitioning strategy described below assigns.
 
 \subsection{Partitioning for Parallel Analytics}
 \label{arch:api:partitioning}
@@ -277,11 +277,11 @@ Each thread receives its assigned range and creates its own topology and propert
 
 \project{} provides three partitioning strategies, each with different cost and load-balance characteristics:
 \begin{itemize}
-  \item \code{NODE\_COUNT}: Divides the vertex set into equal-sized partitions by node count. The partition boundaries are computed in $O(1)$ (evenly spaced ID ranges), but degree skew causes load imbalance: a partition containing a few high-degree vertices does far more work than one with only low-degree vertices.
+  \item \code{NODE\_COUNT}: Divides the vertex set into equal-sized partitions by node count. Computing the partition boundaries costs $O(1)$ (evenly spaced ID ranges), but degree skew causes load imbalance: a partition containing a few high-degree vertices does far more work than one with only low-degree vertices.
 
   \item \code{EDGE\_AWARE} (default): Partitions by accumulated out-degree so that each partition contains roughly the same number of edges, balancing work for degree-skewed graphs. Computing the partition boundaries requires a scan of degree counts ($O(|V|)$) to compute prefix sums, but the resulting partitions distribute edge-processing work evenly.
 
-  \item \code{NODE\_COUNT\_FINE}: A finer-grained variant that creates \texttt{num\_threads} $\times$ \texttt{partition\_scale} partitions.  The partition boundaries are computed at the same $O(1)$ cost as \code{NODE\_COUNT}, but the finer granularity enables work-stealing schedulers to rebalance load dynamically.
+  \item \code{NODE\_COUNT\_FINE}: A finer-grained variant that creates \texttt{num\_threads} $\times$ \texttt{partition\_scale} partitions.  Computing the partition boundaries costs the same $O(1)$ as \code{NODE\_COUNT}, but the finer granularity enables work-stealing schedulers to rebalance load dynamically.
 \end{itemize}
 
 For even finer granularity, \code{get\_work\_chunks(chunk\_size)} returns a vector of small, fixed-size key ranges suitable for task-queue-based parallelism (e.g., Cilk, TBB).
@@ -290,7 +290,7 @@ The choice of strategy depends on the algorithm.
 BFS uses \code{get\_work\_chunks} because direction-optimizing traversal produces irregular, data-dependent load that benefits from dynamic task-queue scheduling.
 PageRank and WCC use \code{EDGE\_AWARE} because their per-vertex work is proportional to edge count and is uniform across iterations, making static edge-balanced partitioning effective.
 
-\autoref{tab:partitioning} illustrates the impact of partitioning strategy on PageRank execution time on the twitter-2010 graph~\cite{twitter2010} (41.65\,M vertices, 1.47\,B edges, 28 threads, 10 iterations).
+\autoref{tab:partitioning} illustrates the effect of partitioning strategy on PageRank execution time on the twitter-2010 graph~\cite{twitter2010} (41.65\,M vertices, 1.47\,B edges, 28 threads, 10 iterations).
 
 \begin{table}[ht]
 \centering
@@ -316,177 +316,101 @@ Vertex-centric processing on the adjacency list benefits dramatically from \code
 Under \code{NODE\_COUNT}, each thread receives the same number of vertex IDs, but twitter-2010's power-law degree distribution concentrates most edges in a few partitions: the thread assigned to the highest-degree vertices processes orders of magnitude more edges than its peers, and all other threads idle at the iteration barrier.
 \code{EDGE\_AWARE} eliminates this straggler effect by balancing edge counts across partitions.
 
-Edge-centric configurations show modest or no improvement because edge partitioning (\code{get\_edge\_range}) already distributes edges evenly by construction---the partitioning strategy governs vertex ranges, which affects edge-centric processing only indirectly through the merge phase.
+Edge-centric configurations show modest or no improvement because edge partitioning (\code{get\_edge\_range}) already distributes edges evenly by construction; the partitioning strategy governs vertex ranges and affects edge-centric processing only indirectly, through the merge phase.
 
 On soc-LiveJournal (4.84\,M vertices, 68.99\,M edges), \code{EDGE\_AWARE} slightly hurts performance across all configurations: the graph's more uniform degree distribution makes the $O(|V|)$ partition-computation cost outweigh any load-balancing benefit.
-This confirms that \code{EDGE\_AWARE} is most valuable on graphs with high degree skew, which is precisely the regime where load imbalance is most severe.
+This confirms that \code{EDGE\_AWARE} is most valuable on graphs with high degree skew, where load imbalance is most severe.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-\section{Bulk Loader}
-\label{arch:bulkloading}
-
-Bulk loading is the process of inserting a large number of records into the database from an external source.
-Systems typically disable constraint checks, index updates, and logging during bulk loading to maximize throughput.
-Graph databases must support bulk loading because graphs can be large (the largest Graphalytics graphs have billions of edges) and transactional insertion at such scale is prohibitively slow.
-
-\subsection{Preprocessing Pipeline}
-\label{arch:bulk-preprocess}
-
-Before loading, the raw edge list must be transformed into a format compatible with \project{}'s representations.
-The input is a CSV edge file sorted by source vertex ID.
-A single C++ program replaces the original multi-stage shell pipeline (\texttt{awk}, \texttt{sort}, \texttt{split}) with a two-pass design using in-process parallel sorting.
-
-\paragraph{Pass 1: Forward edges and reverse-edge chunking.}
-The program reads the CSV edge file in a single sequential pass.
-Forward edges are already sorted by source ID, so they are grouped by source vertex and written directly to binary adjacency list partition files.
-Simultaneously, each edge $(u, v)$ is reversed to $(v, u)$ and buffered in memory.
-When the buffer reaches a configurable size (default 10\,GB, approximately 625M edges), the chunk is sorted in parallel using \texttt{tbb::parallel\_sort} and flushed to a binary run file on disk.
-
-\paragraph{Pass 2: K-way merge of reverse edges.}
-The reverse-edge run files are merged using a min-heap-based $k$-way merge.
-The merged stream is grouped by source vertex and written to binary adjacency list partition files for the in-neighborhood tables.
-
-\paragraph{Output format.}
-The output uses a binary adjacency list format:
-\[
-  \texttt{[node\_id}_{64} \;|\; \texttt{degree}_{32} \;|\; \texttt{dst\_id}_1 \;|\; \cdots \;|\; \texttt{dst\_id}_{d}\texttt{]}
-\]
-where each field is written in its native binary representation.
-This format eliminates text parsing overhead and is approximately 50\% smaller than the equivalent ASCII representation.
-
-\paragraph{Partitioning.}
-Output files are partitioned by vertex ID range: $\text{partition}(v) = \lfloor v \cdot N / |V| \rfloor$, where $N$ is the number of partitions (typically matching the core count).
-Because each adjacency list is assigned to exactly one partition by its source vertex, no adjacency list spans a partition boundary, and no cross-partition merge pass is required.
-
-\subsection{Transactional Loader}
-\label{arch:bulk-txn}
-
-The transactional loader uses standard \wt{} cursor inserts within implicit transactions.
-Each thread opens a separate session and cursor to the target tables, reads its assigned shard of the preprocessed edge list, and inserts records line by line.
-Because no \texttt{bulk} configuration is used, multiple threads can insert into the same table concurrently.
-The transactional loader is simpler to implement and useful for small-to-medium graphs, but it is slower than the bulk-cursor approaches below due to transaction overhead and write-ahead logging.
-
-\subsection{Standard \wt{} Bulk Loader}
-\label{arch:bulk-wt}
-
-\wt{} provides an option to bulk load data into a \emph{newly created} table by opening a cursor with the \texttt{bulk} configuration parameter.
-The bulk cursor bypasses transaction overhead and writes pages directly, but imposes two constraints: (1)~keys must be inserted in sorted order, and (2)~only one bulk cursor may be open on a table at a time, precluding multi-threaded insertion into the same table.
-
-\project{} uses the standard bulk loader by streaming presorted partition files through a single bulk cursor per table.
-Each table is loaded sequentially so that the full \wt{} cache is available during its pass, maximizing page-write throughput.
-The bulk cursor accepts both text and binary adjacency list formats via a templated reader interface.
-This approach serializes insertion into any individual table, but the preprocessing step (\autoref{arch:bulk-preprocess}) ensures that data arrives in the required sorted order.
-
-\subsection{Modified \wt{} Bulk Loader}
-\label{arch:bulk-modified}
-
-To remove the single-threaded constraint, \project{} uses a modified version of the \wt{} bulk loading infrastructure that enables multiple threads to insert into the same table concurrently through bulk cursors.
-The modification operates in two phases:
-
-\paragraph{Phase 1: Parallel leaf-page creation.}
-The modification removes the exclusive-access requirement (\code{WT\_DHANDLE\_EXCLUSIVE}) from the bulk cursor open path, allowing multiple threads to open bulk cursors on the same table simultaneously.
-Each thread receives its own reconciliation context and a private backing file.
-Threads write leaf pages independently to their backing files, recording the key and page-address for each leaf page written.
-File IDs are assigned atomically via a spinlock-protected counter.
-Because each thread writes only to its own backing file, the leaf-page creation phase requires no inter-thread synchronization beyond the file ID allocation.
-
-\paragraph{Phase 2: Hierarchical internal-page merge.}
-When a thread finishes inserting its partition, it reads its backing file and constructs internal B-tree pages one level at a time from the recorded key--address pairs.
-Each thread then contributes its final root-level key--address pairs to a shared array, protected by a spinlock.
-The last thread to complete (detected via an atomic decrement of the open-cursor count) sorts all root-level keys and builds the single root page of the B-tree.
-
-This design maximizes parallelism during the I/O-intensive leaf-page writing phase, with synchronization limited to spinlock-protected metadata operations during the merge phase.
-The modifications are based on \wt{} 3.2.1; porting them to the \wt{} 11.0.0 release used by the rest of \project{} is ongoing work.
-
 \section{Edge-Centric vs.\ Vertex-Centric Read-Path Cost}
 \label{sec:eval:ec_vc}
 
 In~\autoref{design:rep_comp_pairing}, we argued that each structural representation naturally pairs with a computation model: vertex-centric processing consumes the adjacency list's packed blobs efficiently, while edge-centric processing streams EdgeKey's per-edge entries without reconstruction overhead.
-This section validates that claim with two algorithms---PageRank and connected components (WCC)---that isolate the interaction between representation and computation model on the read path.
-
-\subsection{Experiment}
+This section validates that claim with two algorithms (PageRank and connected components (WCC)) that isolate the interaction between representation and computation model on the read path.
 
 We run each algorithm in all four combinations of \{vertex-centric, edge-centric\} $\times$ \{adjacency list, EdgeKey\} on two directed graphs: soc-LiveJournal~\cite{socLiveJournal} (4.84\,M vertices, 68.99\,M edges) and twitter-2010~\cite{twitter2010} (41.65\,M vertices, 1.47\,B edges).
 All runs use 28 threads with \code{NODE\_COUNT} partitioning.
 
 \paragraph{PageRank.}
-The vertex-centric implementation (\autoref{appendix:pagerank_graphapi}) uses the \emph{pull} model: for each destination vertex~$v$, an \code{InCursor} iterates over~$v$'s in-neighbors in the \code{adjlistin} (adjacency list) or \code{edge\_in} (EdgeKey) table, reads source scores (random reads), and writes the destination result (sequential writes).
-The edge-centric implementation (\autoref{appendix:pagerank_ec}) uses the \emph{push} model with per-thread accumulation: each thread streams its partition of the \code{adjlistout} or \code{edge\_out} table via an \code{EdgeCursor}, accumulates source contributions into a private array (no atomics), and a merge phase reduces across threads after each iteration.
-Both implementations run 10 iterations.
+The vertex-centric implementation uses the \emph{pull} model: for each vertex~$v$, an \code{InCursor} iterates over~$v$'s in-neighbors, reads source scores, and writes the destination result.\footnote{Vertex-centric and edge-centric PageRank implementations are listed in \autoref{appendix:pagerank_graphapi} and \autoref{appendix:pagerank_ec}, respectively.}
+The edge-centric implementation uses the \emph{push} model: each thread streams edges via an \code{EdgeCursor}, accumulates contributions into a private array, and a merge phase reduces the thread-local arrays after each iteration.
+Both run 10 iterations.
 
-\paragraph{Connected components.}
+\paragraph{Connected Components.}
 The vertex-centric implementation uses the Shiloach--Vishkin algorithm~\cite{shiloach1982logn}: each thread iterates its partition via \code{OutCursor}, and for each edge hooks the higher-label endpoint to the lower one, followed by a path-compression pass.
-The edge-centric implementation uses label propagation with atomic \texttt{write\_min}: each thread streams edges via \code{EdgeCursor} and atomically propagates the minimum component label along each edge, followed by path compression.
-Both implementations iterate until convergence.
-
-\subsection{PageRank Results}
-
-\autoref{tab:ec_vc_time} shows the PageRank wall-clock time for each combination on both datasets.
+The edge-centric implementation uses label propagation with atomic \texttt{write\_min}: each thread streams edges via \code{EdgeCursor} and propagates the minimum component label along each edge, followed by path compression.
+Both iterate until convergence.
+We record the wall-clock times for both algorithms on both datasets \autoref{tab:ec_vc_time}.
+We use \wt{} statistics to report the underlying \wt{} B-tree cursor counts for PageRank reported in \autoref{tab:ec_vc_cursors}.
 
 \begin{table}[ht]
 \centering
-\begin{tabular}{llrr}
+\begin{tabular}{lllrr}
 \toprule
-\textbf{Dataset} & & \textbf{Adjacency List} & \textbf{EdgeKey} \\
+\textbf{Dataset} & \textbf{Algorithm} & & \textbf{Adjacency List} & \textbf{EdgeKey} \\
 \midrule
-\multirow{2}{*}{soc-LiveJournal}
-  & Vertex-centric &     1.2\,s &    208.9\,s \\
-  & Edge-centric   &     3.2\,s &     13.8\,s \\
+\multirow{4}{*}{soc-LiveJournal}
+  & \multirow{2}{*}{PageRank}
+    & Vertex-centric &     1.2\,s &    208.9\,s \\
+  & & Edge-centric   &     3.2\,s &     13.8\,s \\
+  \cmidrule(l){2-5}
+  & \multirow{2}{*}{WCC}
+    & Vertex-centric &     0.46\,s &     4.2\,s \\
+  & & Edge-centric   &     0.81\,s &     5.3\,s \\
 \midrule
-\multirow{2}{*}{twitter-2010}
-  & Vertex-centric &    78.1\,s &  3{,}220\,s \\
-  & Edge-centric   &   138.3\,s &    805.4\,s \\
+\multirow{4}{*}{twitter-2010}
+  & \multirow{2}{*}{PageRank}
+    & Vertex-centric &    78.1\,s &  3{,}220\,s \\
+  & & Edge-centric   &   138.3\,s &    805.4\,s \\
+  \cmidrule(l){2-5}
+  & \multirow{2}{*}{WCC}
+    & Vertex-centric &    17.0\,s &    301\,s \\
+  & & Edge-centric   &    16.3\,s &    142\,s \\
 \bottomrule
 \end{tabular}
-\caption{PageRank execution time (10 iterations, 28 threads).
-         On both datasets the adjacency list representation favors vertex-centric processing and EdgeKey favors edge-centric processing.}
+\caption{Execution time for PageRank (10 iterations) and connected components (WCC, convergence to fixed point), both with 28 threads.
+         The Shiloach--Vishkin algorithm converges in 3 iterations; the label propagation variant converges in 5.}
 \label{tab:ec_vc_time}
+\label{tab:cc_time}
 \end{table}
 
-This cross pattern holds at both scales.
-On soc-LiveJournal, vertex-centric on adjacency list is 174$\times$ faster than vertex-centric on EdgeKey; on twitter-2010 the ratio is 41$\times$.
-In both cases, edge-centric processing on EdgeKey drastically outperforms vertex-centric processing on EdgeKey (15$\times$ on soc-LiveJournal, 4$\times$ on twitter-2010).
-\autoref{tab:ec_vc_cursors} shows that the number of \wt{} B-tree cursor operations explains these performance differences.
+
+\subsection{Analysis}
+
+\paragraph{Adjacency list: cursor cost amortized across neighbors.}
+On the adjacency list, a single \texttt{cursor->next()} call advances to the next vertex's packed blob, and the algorithm reads all~$d$ neighbors via array indexing within the deserialized buffer.
+A full graph scan therefore requires $O(|V|)$ cursor calls regardless of the number of edges.
+Both computation models confirm this: on soc-LiveJournal, vertex-centric and edge-centric PageRank perform 52.6\,M and 55.8\,M cursor~next calls respectively, consistent with $4.84\text{M} \times 10\text{ iterations}$.
+On twitter-2010, the counts are 574\,M and 570\,M; again proportional to~$|V|$, not~$|E|$.
 
 \begin{table}[ht]
 \centering
 \small
-\begin{tabular}{llrrr}
+\begin{tabular}{ll rrr rrr}
 \toprule
-\textbf{Dataset} & \textbf{Configuration} & \textbf{Time (s)} & \textbf{cursor next} & \textbf{search near} \\
+& & \multicolumn{3}{c}{\textbf{Adjacency List}} & \multicolumn{3}{c}{\textbf{EdgeKey}} \\
+\cmidrule(lr){3-5} \cmidrule(lr){6-8}
+\textbf{Dataset} & & {Time (s)} & {\code{next()}} & {\code{seek()}} & {Time (s)} & {\code{next()}} & {\code{seek()}} \\
 \midrule
-\multirow{4}{*}{\rotatebox[origin=c]{90}{\footnotesize soc-LJ}}
-& VC on adjacency list &     1.2 &          52.6\,M &         314 \\
-& EC on adjacency list &     3.2 &          55.8\,M &         314 \\
-& EC on EdgeKey        &    13.8 &         795.7\,M &     9.64\,M \\
-& VC on EdgeKey        &   208.9 &       4{,}943\,M &     9.64\,M \\
+\multirow{2}{*}{soc-LiveJournal}
+  & VC &     1.2 &    52.6\,M &     314 &    208.9 &  4{,}943\,M &  9.64\,M \\
+  & EC &     3.2 &    55.8\,M &     314 &     13.8 &    795.7\,M &  9.64\,M \\
 \midrule
-\multirow{4}{*}{\rotatebox[origin=c]{90}{\footnotesize twitter}}
-& VC on adjacency list &    78.1 &           574\,M &         315 \\
-& EC on adjacency list &   138.3 &           570\,M &         314 \\
-& EC on EdgeKey        &   805.4 &        21{,}806\,M &   104.8\,M \\
-& VC on EdgeKey        & 3{,}220 &        72{,}882\,M &   104.8\,M \\
+\multirow{2}{*}{twitter-2010}
+  & VC &    78.1 &     574\,M &     315 &  3{,}220 & 72{,}882\,M & 104.8\,M \\
+  & EC &   138.3 &     570\,M &     314 &    805.4 & 21{,}806\,M & 104.8\,M \\
 \bottomrule
 \end{tabular}
-\caption{\wt{} cursor call counts for each configuration in~\autoref{tab:ec_vc_time}, ordered by execution time within each dataset.
-         \emph{cursor next} is the number of \texttt{cursor->next()} calls (B-tree leaf-page advances);
-         \emph{search near} is the number of \texttt{cursor->search\_near()} calls (B-tree seeks).
-         M~denotes millions.}
+\caption{\wt{} cursor call counts for PageRank. \code{cursor->next()} advances the cursor position to the next record in the B-tree leaf-page; \code{cursor->search\_near()} positions the cursor at a requested key.
+M~denotes millions.}
 \label{tab:ec_vc_cursors}
 \end{table}
 
-\subsection{PageRank Analysis}
-
-\paragraph{Adjacency list: cursor cost amortized across neighbors.}
-On the adjacency list representation, a single \texttt{cursor->next()} call advances to the next vertex's packed blob, and all~$d$ neighbors are read via array indexing within the deserialized buffer.
-A full graph scan therefore requires $O(|V|)$ cursor calls regardless of the number of edges.
-Both computation models confirm this: on soc-LiveJournal, vertex-centric and edge-centric perform 52.6\,M and 55.8\,M cursor~next calls respectively, consistent with $4.84\text{M} \times 10\text{ iterations}$.
-On twitter-2010, the counts are 574\,M and 570\,M---again proportional to~$|V|$, not~$|E|$.
-
 The vertex-centric implementation is faster despite nearly identical cursor counts (1.2\,s vs.\ 3.2\,s on soc-LiveJournal; 78.1\,s vs.\ 138.3\,s on twitter-2010) because it consumes each packed adjacency list directly: the inner loop indexes into the deserialized neighbor array with no per-edge function-call overhead.
 The edge-centric implementation pays two additional costs: (1)~the \code{AdjEdgeCursor} yields edges one at a time via \texttt{edgelist[pos{+}{+}]}, adding a virtual call per edge, and (2)~the push model requires a merge phase that reduces 28 thread-local accumulator arrays after each iteration.
-Neither cost involves additional cursor operations---the gap is pure compute overhead, not I/O.
+Neither cost involves additional cursor operations; the gap is pure compute overhead, not I/O.
 The overhead ratio narrows from 2.7$\times$ on soc-LiveJournal to 1.8$\times$ on twitter-2010 because the higher edge density ($|E|/|V| \approx 35$ vs.\ 14) makes the fixed per-vertex merge cost a smaller fraction of total work.
+Connected components extends this pattern: on twitter-2010, edge-centric on the adjacency list (16.3\,s) matches vertex-centric (17.0\,s) despite running two additional iterations, because the lower per-edge compute (a comparison and conditional CAS vs.\ floating-point accumulation) narrows the gap to near zero.
 
 \paragraph{EdgeKey: cursor cost paid per edge.}
 On EdgeKey, each edge is an independent B-tree entry, so a full scan requires $O(|V| + |E|)$ cursor~next calls, one per node sentinel and one per edge.
@@ -496,61 +420,27 @@ Vertex-centric processing on EdgeKey is dramatically more expensive: 4{,}943\,M 
 The overhead arises because vertex-centric processing must reconstruct adjacency lists from individual edge entries.
 For each vertex, the \code{InCursor} collects edge entries from the B-tree into a vector via repeated \texttt{push\_back} calls, and the algorithm then re-iterates this vector, effectively reading every edge twice.
 This reconstruction cost, compounded over 10 iterations and 28 threads, inflates the total cursor operations far beyond the single sequential scan that edge-centric processing requires.
+Connected components confirms the pattern: on twitter-2010, edge-centric on EdgeKey is 2.1$\times$ faster than vertex-centric (142\,s vs.\ 301\,s).
+The speedup is smaller than PageRank's 4$\times$ because connected components performs less compute per edge, making cursor overhead a larger fraction of total work.
 
 \paragraph{The read-path cost of mutation-friendly storage.}
-The natural pairings---vertex-centric on adjacency list and edge-centric on EdgeKey---represent the best each representation can offer.
-On soc-LiveJournal, the gap between them is 11.5$\times$ (1.2\,s vs.\ 13.8\,s); on twitter-2010 it is 10.3$\times$ (78.1\,s vs.\ 805.4\,s).
+The natural pairings (vertex-centric on adjacency list, edge-centric on EdgeKey) represent the best each representation can offer.
+Across both algorithms, the gap between these pairings ranges from 8$\times$ to 12$\times$.
 This is the \emph{read-path cost} of choosing EdgeKey for its mutation advantages: single-entry B-tree inserts with no read-modify-write, no blob contention under concurrent mutation, and $O(1)$ edge deletion.
 
 Edge-centric processing minimizes this cost by working \emph{with} EdgeKey's grain rather than against it.
-Vertex-centric on EdgeKey demonstrates what happens when the computation model fights the representation: the system pays the full $O(|V| + |E|)$ cursor cost of EdgeKey \emph{and} the overhead of reconstructing packed adjacency lists that the representation was designed to avoid storing.
-On soc-LiveJournal, edge-centric processing recovers a 15$\times$ speedup over vertex-centric on EdgeKey (13.8\,s vs.\ 208.9\,s); on twitter-2010 the recovery is 4$\times$ (805\,s vs.\ 3{,}220\,s).
-In both cases, choosing the right computation model for the representation transforms EdgeKey from pathologically slow to a practical, if more expensive, alternative to the read-optimized adjacency list.
+Vertex-centric on EdgeKey demonstrates what happens when the computation model fights the representation: the system pays the full $O(|V| + |E|)$ cursor cost of EdgeKey \emph{and} the overhead of reconstructing packed adjacency lists that the representation avoids storing by design.
+Choosing the right computation model transforms EdgeKey from pathologically slow to a practical, if more expensive, alternative to the adjacency list.
 
-\subsection{Connected Components}
-
-\autoref{tab:cc_time} shows the same $2 \times 2$ matrix for connected components.
-
-\begin{table}[ht]
-\centering
-\begin{tabular}{llrr}
-\toprule
-\textbf{Dataset} & & \textbf{Adjacency List} & \textbf{EdgeKey} \\
-\midrule
-\multirow{2}{*}{soc-LiveJournal}
-  & Vertex-centric &     0.46\,s &     4.2\,s \\
-  & Edge-centric   &     0.81\,s &     5.3\,s \\
-\midrule
-\multirow{2}{*}{twitter-2010}
-  & Vertex-centric &    17.0\,s &    301\,s \\
-  & Edge-centric   &    16.3\,s &    142\,s \\
-\bottomrule
-\end{tabular}
-\caption{Connected-components execution time (28 threads, convergence to fixed point).
-         The vertex-centric Shiloach--Vishkin algorithm converges in 3 iterations; the edge-centric label propagation variant converges in 5.}
-\label{tab:cc_time}
-\end{table}
-
-The most striking result is \textbf{ec\_adj on twitter-2010}: edge-centric processing on the adjacency list (16.3\,s) matches vertex-centric (17.0\,s) despite running two additional iterations.
-On soc-LiveJournal, vertex-centric is faster on both representations (1.8$\times$ on adjacency list, 1.3$\times$ on EdgeKey); the smaller graph does not generate enough work per iteration to amortize the edge-centric overhead.
-
-On EdgeKey, edge-centric processing is 2.1$\times$ faster than vertex-centric on twitter-2010 (142\,s vs.\ 301\,s), confirming the pattern seen with PageRank: the sequential edge scan avoids the per-vertex \code{search\_near} cost that vertex-centric processing incurs on EdgeKey.
-The speedup is smaller than PageRank's 4$\times$ because connected components performs less compute per edge (a single comparison and conditional CAS vs.\ floating-point accumulation and damping), making cursor overhead a larger fraction of total work.
-
-\subsection{Synthesis}
-
-\autoref{tab:ec_vc_time} and \autoref{tab:cc_time} confirm the representation--computation-model interaction across two algorithms with different computational characteristics.
-Three patterns emerge:
+\subsection{Takeaway}
 
 \begin{enumerate}
   \item \textbf{Vertex-centric on adjacency list is consistently the fastest configuration}, because the adjacency list amortizes B-tree cursor calls across all neighbors in a single packed blob.
-  For PageRank on twitter-2010, it is 2.6$\times$ faster than edge-centric on the same representation; for connected components the two are essentially tied (17.0\,s vs.\ 16.3\,s).
 
-  \item \textbf{Edge-centric processing recovers most of EdgeKey's read-path cost.}
-  On twitter-2010, edge-centric on EdgeKey is 4$\times$ faster than vertex-centric on EdgeKey for PageRank and 2.1$\times$ faster for connected components.
-  The vertex-centric penalty arises from reconstructing adjacency lists from individual edge entries---a cost that edge-centric processing avoids entirely.
+  \item \textbf{Edge-centric processing recovers most of EdgeKey's read-path cost} by streaming per-edge B-tree entries sequentially, avoiding the reconstruction overhead that vertex-centric processing incurs.
 
-  \item \textbf{The gap between the natural pairings (VC--adjacency list vs.\ EC--EdgeKey) is the irreducible read-path cost of mutation-friendly storage.}
-  For PageRank this gap is roughly 10$\times$; for connected components it is roughly 8$\times$.
-  This is the price of EdgeKey's constant-time edge insertion and deletion, and it can be budgeted at design time based on the expected read--write ratio of the workload.
+  \item \textbf{The gap between the natural pairings (VC--adjacency list vs.\ EC--EdgeKey) is the irreducible read-path cost of mutation-friendly storage,} and it can be budgeted at design time based on the expected read--write ratio of the workload.
 \end{enumerate}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\input{body_chapters/bulk_loader}
