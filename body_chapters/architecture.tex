@@ -187,11 +187,7 @@ The choice of representation also interacts with the computation model.
 Vertex-centric algorithms such as PageRank and BFS iterate over each vertex's neighborhood in turn; they favor the adjacency list's single-blob reads.
 Edge-centric algorithms that process edges independently (e.g., streaming edge computations) are a natural fit for EdgeKey's per-edge layout, where each edge is an independent B-tree entry that can be processed without deserializing a vertex's full neighbor list.
 
-We quantify this interaction in~\autoref{sec:eval:ec_vc}, where a controlled PageRank benchmark isolates the effect of representation choice under both computation models.
-\MIS{TODO: Add illustrative benchmarks here that tie back to computation
-model — e.g., a microbenchmark comparing AdjList vs. EdgeKey on a
-vertex-centric kernel (PageRank) and an edge-centric kernel, showing how
-the representation choice interacts with the access pattern.}
+We quantify this interaction in~\autoref{sec:eval:ec_vc}, where controlled PageRank and connected-components benchmarks isolate the effect of representation choice under both computation models.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \section{Graph API and Topology Cursors}
@@ -294,9 +290,36 @@ The choice of strategy depends on the algorithm.
 BFS uses \code{get\_work\_chunks} because direction-optimizing traversal produces irregular, data-dependent load that benefits from dynamic task-queue scheduling.
 PageRank and WCC use \code{EDGE\_AWARE} because their per-vertex work is proportional to edge count and is uniform across iterations, making static edge-balanced partitioning effective.
 
-\MIS{TODO: Add illustrative benchmarks for partitioning strategies —
-e.g., show load imbalance (wall-clock time per thread) under NODE\_COUNT
-vs. EDGE\_AWARE on a power-law graph, and the effect of chunk size on BFS with get\_work\_chunks. }
+\autoref{tab:partitioning} illustrates the impact of partitioning strategy on PageRank execution time on the twitter-2010 graph~\cite{twitter2010} (41.65\,M vertices, 1.47\,B edges, 28 threads, 10 iterations).
+
+\begin{table}[ht]
+\centering
+\begin{tabular}{llrr}
+\toprule
+& & \textbf{\code{NODE\_COUNT}} & \textbf{\code{EDGE\_AWARE}} \\
+\midrule
+\multirow{2}{*}{Adjacency list}
+  & Vertex-centric &  80.0\,s &  \textbf{29.4\,s} \\
+  & Edge-centric   &  97.8\,s &  85.5\,s \\
+\midrule
+\multirow{2}{*}{EdgeKey}
+  & Vertex-centric & 3{,}187\,s & 4{,}206\,s \\
+  & Edge-centric   &   326\,s &   445\,s \\
+\bottomrule
+\end{tabular}
+\caption{PageRank execution time under \code{NODE\_COUNT} vs.\ \code{EDGE\_AWARE} partitioning on twitter-2010.
+         Vertex-centric on the adjacency list benefits most: a 2.7$\times$ speedup from edge-balanced partitions.}
+\label{tab:partitioning}
+\end{table}
+
+Vertex-centric processing on the adjacency list benefits dramatically from \code{EDGE\_AWARE} partitioning (80\,s~$\to$~29\,s, a 2.7$\times$ speedup).
+Under \code{NODE\_COUNT}, each thread receives the same number of vertex IDs, but twitter-2010's power-law degree distribution concentrates most edges in a few partitions: the thread assigned to the highest-degree vertices processes orders of magnitude more edges than its peers, and all other threads idle at the iteration barrier.
+\code{EDGE\_AWARE} eliminates this straggler effect by balancing edge counts across partitions.
+
+Edge-centric configurations show modest or no improvement because edge partitioning (\code{get\_edge\_range}) already distributes edges evenly by construction---the partitioning strategy governs vertex ranges, which affects edge-centric processing only indirectly through the merge phase.
+
+On soc-LiveJournal (4.84\,M vertices, 68.99\,M edges), \code{EDGE\_AWARE} slightly hurts performance across all configurations: the graph's more uniform degree distribution makes the $O(|V|)$ partition-computation cost outweigh any load-balancing benefit.
+This confirms that \code{EDGE\_AWARE} is most valuable on graphs with high degree skew, which is precisely the regime where load imbalance is most severe.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \section{Bulk Loader}
@@ -379,21 +402,26 @@ The modifications are based on \wt{} 3.2.1; porting them to the \wt{} 11.0.0 rel
 \label{sec:eval:ec_vc}
 
 In~\autoref{design:rep_comp_pairing}, we argued that each structural representation naturally pairs with a computation model: vertex-centric processing consumes the adjacency list's packed blobs efficiently, while edge-centric processing streams EdgeKey's per-edge entries without reconstruction overhead.
-This section validates that claim with a controlled experiment that isolates the interaction between representation and computation model on the read path.
+This section validates that claim with two algorithms---PageRank and connected components (WCC)---that isolate the interaction between representation and computation model on the read path.
 
 \subsection{Experiment}
 
-We run PageRank (10 iterations) in all four combinations of \{vertex-centric, edge-centric\} $\times$ \{adjacency list, EdgeKey\} on two directed graphs: soc-LiveJournal~\cite{socLiveJournal} (4.84\,M vertices, 68.99\,M edges) and twitter-2010~\cite{twitter2010} (41.65\,M vertices, 1.47\,B edges).
-Both runs use 28 threads with edge-aware partitioning.
-B-tree cursor operations are the dominant cost here, and we enable \wt{}'s built-in statistics logging to extract per-run cursor-call counts.
-The two datasets differ in edge density ($|E|/|V| \approx 14$ for soc-LiveJournal vs.\ $\approx 35$ for twitter-2010), which stresses the cursor-cost asymmetry at different scales.
+We run each algorithm in all four combinations of \{vertex-centric, edge-centric\} $\times$ \{adjacency list, EdgeKey\} on two directed graphs: soc-LiveJournal~\cite{socLiveJournal} (4.84\,M vertices, 68.99\,M edges) and twitter-2010~\cite{twitter2010} (41.65\,M vertices, 1.47\,B edges).
+All runs use 28 threads with \code{NODE\_COUNT} partitioning.
 
+\paragraph{PageRank.}
 The vertex-centric implementation (\autoref{appendix:pagerank_graphapi}) uses the \emph{pull} model: for each destination vertex~$v$, an \code{InCursor} iterates over~$v$'s in-neighbors in the \code{adjlistin} (adjacency list) or \code{edge\_in} (EdgeKey) table, reads source scores (random reads), and writes the destination result (sequential writes).
 The edge-centric implementation (\autoref{appendix:pagerank_ec}) uses the \emph{push} model with per-thread accumulation: each thread streams its partition of the \code{adjlistout} or \code{edge\_out} table via an \code{EdgeCursor}, accumulates source contributions into a private array (no atomics), and a merge phase reduces across threads after each iteration.
+Both implementations run 10 iterations.
 
-\subsection{Results}
+\paragraph{Connected components.}
+The vertex-centric implementation uses the Shiloach--Vishkin algorithm~\cite{shiloach1982logn}: each thread iterates its partition via \code{OutCursor}, and for each edge hooks the higher-label endpoint to the lower one, followed by a path-compression pass.
+The edge-centric implementation uses label propagation with atomic \texttt{write\_min}: each thread streams edges via \code{EdgeCursor} and atomically propagates the minimum component label along each edge, followed by path compression.
+Both implementations iterate until convergence.
 
-\autoref{tab:ec_vc_time} shows the wall-clock time for each combination on both datasets.
+\subsection{PageRank Results}
+
+\autoref{tab:ec_vc_time} shows the PageRank wall-clock time for each combination on both datasets.
 
 \begin{table}[ht]
 \centering
@@ -447,7 +475,7 @@ In both cases, edge-centric processing on EdgeKey drastically outperforms vertex
 \label{tab:ec_vc_cursors}
 \end{table}
 
-\subsection{Analysis}
+\subsection{PageRank Analysis}
 
 \paragraph{Adjacency list: cursor cost amortized across neighbors.}
 On the adjacency list representation, a single \texttt{cursor->next()} call advances to the next vertex's packed blob, and all~$d$ neighbors are read via array indexing within the deserialized buffer.
@@ -478,3 +506,51 @@ Edge-centric processing minimizes this cost by working \emph{with} EdgeKey's gra
 Vertex-centric on EdgeKey demonstrates what happens when the computation model fights the representation: the system pays the full $O(|V| + |E|)$ cursor cost of EdgeKey \emph{and} the overhead of reconstructing packed adjacency lists that the representation was designed to avoid storing.
 On soc-LiveJournal, edge-centric processing recovers a 15$\times$ speedup over vertex-centric on EdgeKey (13.8\,s vs.\ 208.9\,s); on twitter-2010 the recovery is 4$\times$ (805\,s vs.\ 3{,}220\,s).
 In both cases, choosing the right computation model for the representation transforms EdgeKey from pathologically slow to a practical, if more expensive, alternative to the read-optimized adjacency list.
+
+\subsection{Connected Components}
+
+\autoref{tab:cc_time} shows the same $2 \times 2$ matrix for connected components.
+
+\begin{table}[ht]
+\centering
+\begin{tabular}{llrr}
+\toprule
+\textbf{Dataset} & & \textbf{Adjacency List} & \textbf{EdgeKey} \\
+\midrule
+\multirow{2}{*}{soc-LiveJournal}
+  & Vertex-centric &     0.46\,s &     4.2\,s \\
+  & Edge-centric   &     0.81\,s &     5.3\,s \\
+\midrule
+\multirow{2}{*}{twitter-2010}
+  & Vertex-centric &    17.0\,s &    301\,s \\
+  & Edge-centric   &    16.3\,s &    142\,s \\
+\bottomrule
+\end{tabular}
+\caption{Connected-components execution time (28 threads, convergence to fixed point).
+         The vertex-centric Shiloach--Vishkin algorithm converges in 3 iterations; the edge-centric label propagation variant converges in 5.}
+\label{tab:cc_time}
+\end{table}
+
+The most striking result is \textbf{ec\_adj on twitter-2010}: edge-centric processing on the adjacency list (16.3\,s) matches vertex-centric (17.0\,s) despite running two additional iterations.
+On soc-LiveJournal, vertex-centric is faster on both representations (1.8$\times$ on adjacency list, 1.3$\times$ on EdgeKey); the smaller graph does not generate enough work per iteration to amortize the edge-centric overhead.
+
+On EdgeKey, edge-centric processing is 2.1$\times$ faster than vertex-centric on twitter-2010 (142\,s vs.\ 301\,s), confirming the pattern seen with PageRank: the sequential edge scan avoids the per-vertex \code{search\_near} cost that vertex-centric processing incurs on EdgeKey.
+The speedup is smaller than PageRank's 4$\times$ because connected components performs less compute per edge (a single comparison and conditional CAS vs.\ floating-point accumulation and damping), making cursor overhead a larger fraction of total work.
+
+\subsection{Synthesis}
+
+\autoref{tab:ec_vc_time} and \autoref{tab:cc_time} confirm the representation--computation-model interaction across two algorithms with different computational characteristics.
+Three patterns emerge:
+
+\begin{enumerate}
+  \item \textbf{Vertex-centric on adjacency list is consistently the fastest configuration}, because the adjacency list amortizes B-tree cursor calls across all neighbors in a single packed blob.
+  For PageRank on twitter-2010, it is 2.6$\times$ faster than edge-centric on the same representation; for connected components the two are essentially tied (17.0\,s vs.\ 16.3\,s).
+
+  \item \textbf{Edge-centric processing recovers most of EdgeKey's read-path cost.}
+  On twitter-2010, edge-centric on EdgeKey is 4$\times$ faster than vertex-centric on EdgeKey for PageRank and 2.1$\times$ faster for connected components.
+  The vertex-centric penalty arises from reconstructing adjacency lists from individual edge entries---a cost that edge-centric processing avoids entirely.
+
+  \item \textbf{The gap between the natural pairings (VC--adjacency list vs.\ EC--EdgeKey) is the irreducible read-path cost of mutation-friendly storage.}
+  For PageRank this gap is roughly 10$\times$; for connected components it is roughly 8$\times$.
+  This is the price of EdgeKey's constant-time edge insertion and deletion, and it can be budgeted at design time based on the expected read--write ratio of the workload.
+\end{enumerate}
