@@ -1,0 +1,69 @@
+% Shared TikZ styles for Flexograph table-layout diagrams.
+% Include with \input{schema_styles} in each standalone figure.
+
+\usetikzlibrary{shapes.multipart, arrows.meta, positioning, fit, calc, backgrounds}
+
+% ── Colour palette ──────────────────────────────────────────────────
+\definecolor{tblheader}{HTML}{2C3E50}   % dark blue-grey header bar
+\definecolor{tblbody}{HTML}{ECF0F1}     % light grey table body
+\definecolor{sentbg}{HTML}{D5DBDB}      % sentinel row shading
+\definecolor{cgTemporal}{HTML}{AED6F1}  % column group: temporal
+\definecolor{cgName}{HTML}{A9DFBF}      % column group: name
+\definecolor{cgContact}{HTML}{F9E79F}   % column group: contact
+\definecolor{cgLocation}{HTML}{F5CBA7}  % column group: location
+\definecolor{cgContent}{HTML}{D2B4DE}   % column group: content
+\definecolor{structClr}{HTML}{85929E}   % structural table border
+\definecolor{propClr}{HTML}{2980B9}     % property table border
+\definecolor{secClr}{HTML}{27AE60}      % secondary table border
+\definecolor{arrowClr}{HTML}{7F8C8D}    % relationship arrows
+
+% ── Node styles ─────────────────────────────────────────────────────
+\tikzset{
+  % Table header bar
+  tblhdr/.style={
+    rectangle, draw=tblheader, fill=tblheader,
+    text=white, font=\sffamily\bfseries\footnotesize,
+    minimum width=#1, minimum height=5mm, inner sep=2pt,
+    align=center,
+  },
+  tblhdr/.default=38mm,
+  % Table body (single cell / row)
+  tblcell/.style={
+    rectangle, draw=tblheader!40, fill=tblbody,
+    font=\sffamily\scriptsize, minimum width=#1,
+    minimum height=4.5mm, inner sep=2pt, align=center,
+  },
+  tblcell/.default=38mm,
+  % Sentinel-row variant
+  sentcell/.style={
+    tblcell=#1, fill=sentbg,
+  },
+  sentcell/.default=38mm,
+  % Column-group cell (coloured)
+  cgcell/.style 2 args={
+    tblcell=#1, fill=#2,
+  },
+  % Key column (narrower, left-aligned)
+  keycell/.style={
+    tblcell=#1, font=\sffamily\scriptsize\itshape,
+  },
+  keycell/.default=18mm,
+  % Format annotation
+  fmtlabel/.style={
+    font=\sffamily\tiny\color{tblheader!70}, anchor=north west,
+  },
+  % Dashed grouping box
+  groupbox/.style={
+    rectangle, rounded corners=2pt, draw=#1, densely dashed,
+    line width=0.6pt, inner sep=3pt,
+  },
+  groupbox/.default=structClr,
+  % Relationship arrow
+  relarrow/.style={
+    -{Stealth[length=2.5mm]}, arrowClr, line width=0.5pt,
+  },
+  % Label for relationship
+  rellabel/.style={
+    font=\sffamily\tiny\color{arrowClr}, midway, fill=white, inner sep=1pt,
+  },
+}

@@ -1,0 +1,182 @@
+% SplitEdgeKey — Columnar property storage layout
+\documentclass[tikz,border=4mm]{standalone}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\input{schema_styles}
+
+\begin{document}
+\begin{tikzpicture}[node distance=0mm]
+
+% ════════════════════════════════════════════════════════════════════
+%  STRUCTURAL: edge_out  (degrees only, no property bytes)
+% ════════════════════════════════════════════════════════════════════
+\node[tblhdr=62mm] (eout-hdr) {\texttt{table:edge\_out} {\footnotesize(structural)}};
+
+\node[tblcell=18mm, below=1mm of eout-hdr.south west, anchor=north west,
+      fill=tblheader!15, font=\sffamily\scriptsize\bfseries] (ch-src) {src};
+\node[tblcell=14mm, right=0mm of ch-src,
+      fill=tblheader!15, font=\sffamily\scriptsize\bfseries] (ch-dst) {dst};
+\node[tblcell=28mm, right=0mm of ch-dst,
+      fill=tblheader!15, font=\sffamily\scriptsize\bfseries] (ch-val) {attr};
+
+\node[sentcell=18mm, below=0mm of ch-src] (r1-src) {\texttt{EKEY(id)}};
+\node[sentcell=14mm, right=0mm of r1-src] (r1-dst) {\texttt{0}};
+\node[sentcell=28mm, right=0mm of r1-dst] (r1-val)
+  {\texttt{in\_d\;|\;out\_d} {\tiny(8\,B)}};
+\node[font=\sffamily\tiny\itshape, text=tblheader!70,
+      left=1mm of r1-src.west, anchor=east] {sentinel};
+
+\node[tblcell=18mm, below=0mm of r1-src] (r2-src) {\texttt{EKEY(src)}};
+\node[tblcell=14mm, right=0mm of r2-src] (r2-dst) {\texttt{EKEY(dst)}};
+\node[tblcell=28mm, right=0mm of r2-dst] (r2-val)
+  {\texttt{0x00} {\tiny(1\,B)}};
+\node[font=\sffamily\tiny\itshape, text=tblheader!70,
+      left=1mm of r2-src.west, anchor=east] {edge};
+
+% ════════════════════════════════════════════════════════════════════
+%  PROPERTY TABLE: person_props  (4 column groups → 4 B-trees)
+% ════════════════════════════════════════════════════════════════════
+\node[tblhdr=105mm, below=10mm of r2-src.south west, anchor=north west,
+      xshift=-1mm] (pp-hdr) {\texttt{table:person\_props}};
+\node[fmtlabel, below right=0.5mm and 0mm of pp-hdr.south west]
+  {\texttt{key\_format=Q\ \ value\_format=QQb32s32s32s32sQ}};
+
+% Column group sub-headers
+\node[cgcell={12mm}{white}, below=4.5mm of pp-hdr.south west,
+      anchor=north west,
+      fill=tblheader!15, font=\sffamily\scriptsize\bfseries] (pp-k) {vid};
+
+\node[cgcell={22mm}{cgTemporal}, right=0mm of pp-k,
+      font=\sffamily\scriptsize\bfseries] (pp-cg1)
+  {\textcolor{tblheader}{temporal}};
+\node[cgcell={28mm}{cgName}, right=0mm of pp-cg1,
+      font=\sffamily\scriptsize\bfseries] (pp-cg2)
+  {\textcolor{tblheader}{name}};
+\node[cgcell={22mm}{cgContact}, right=0mm of pp-cg2,
+      font=\sffamily\scriptsize\bfseries] (pp-cg3)
+  {\textcolor{tblheader}{contact}};
+\node[cgcell={17mm}{cgLocation}, right=0mm of pp-cg3,
+      font=\sffamily\scriptsize\bfseries] (pp-cg4)
+  {\textcolor{tblheader}{location}};
+
+% Field names
+\node[keycell=12mm, below=0mm of pp-k] (pp-fk) {\texttt{Q}};
+\node[cgcell={22mm}{cgTemporal!40}, right=0mm of pp-fk] (pp-f1)
+  {cDate, bday};
+\node[cgcell={28mm}{cgName!40}, right=0mm of pp-f1] (pp-f2)
+  {first, last, gender};
+\node[cgcell={22mm}{cgContact!40}, right=0mm of pp-f2] (pp-f3)
+  {browser, IP};
+\node[cgcell={17mm}{cgLocation!40}, right=0mm of pp-f3] (pp-f4)
+  {country\_id};
+
+% B-tree labels
+\node[font=\sffamily\tiny, text=tblheader!60, below=0.5mm of pp-f1]
+  {B-tree 1 {\tiny(16\,B/row)}};
+\node[font=\sffamily\tiny, text=tblheader!60, below=0.5mm of pp-f2]
+  {B-tree 2 {\tiny(65\,B/row)}};
+\node[font=\sffamily\tiny, text=tblheader!60, below=0.5mm of pp-f3]
+  {B-tree 3 {\tiny(64\,B/row)}};
+\node[font=\sffamily\tiny, text=tblheader!60, below=0.5mm of pp-f4]
+  {B-tree 4 {\tiny(8\,B/row)}};
+
+% ════════════════════════════════════════════════════════════════════
+%  PROPERTY TABLE: post_props  (2 column groups)
+% ════════════════════════════════════════════════════════════════════
+\node[tblhdr=62mm, below=14mm of pp-fk.south west, anchor=north west]
+  (post-hdr) {\texttt{table:post\_props}};
+\node[fmtlabel, below right=0.5mm and 0mm of post-hdr.south west]
+  {\texttt{key\_format=Q\ \ value\_format=QibS}};
+
+\node[cgcell={12mm}{white}, below=4.5mm of post-hdr.south west,
+      anchor=north west,
+      fill=tblheader!15, font=\sffamily\scriptsize\bfseries] (po-k) {vid};
+\node[cgcell={24mm}{cgTemporal}, right=0mm of po-k,
+      font=\sffamily\scriptsize\bfseries] (po-cg1)
+  {\textcolor{tblheader}{temporal}};
+\node[cgcell={24mm}{cgContent}, right=0mm of po-cg1,
+      font=\sffamily\scriptsize\bfseries] (po-cg2)
+  {\textcolor{tblheader}{content}};
+
+\node[keycell=12mm, below=0mm of po-k] (po-fk) {\texttt{Q}};
+\node[cgcell={24mm}{cgTemporal!40}, right=0mm of po-fk] (po-f1)
+  {cDate, length};
+\node[cgcell={24mm}{cgContent!40}, right=0mm of po-f1] (po-f2)
+  {tag, content};
+
+\node[font=\sffamily\tiny, text=tblheader!60, below=0.5mm of po-f1]
+  {B-tree 1 {\tiny(12\,B/row)}};
+\node[font=\sffamily\tiny, text=tblheader!60, below=0.5mm of po-f2]
+  {B-tree 2 {\tiny(var)}};
+
+% ════════════════════════════════════════════════════════════════════
+%  EDGE PROP TABLES: knows_props, likes_props  (compact)
+% ════════════════════════════════════════════════════════════════════
+\coordinate (edge-anchor) at ($(post-hdr.east) + (5mm, 0)$);
+
+\node[tblhdr=38mm, anchor=north west] at (edge-anchor) (kp-hdr)
+  {\texttt{table:knows\_props}};
+\node[cgcell={12mm}{white}, below=1mm of kp-hdr.south west,
+      anchor=north west,
+      fill=tblheader!15, font=\sffamily\scriptsize\bfseries] (kp-k1) {src};
+\node[cgcell={10mm}{white}, right=0mm of kp-k1,
+      fill=tblheader!15, font=\sffamily\scriptsize\bfseries] (kp-k2) {dst};
+\node[cgcell={14mm}{cgTemporal}, right=0mm of kp-k2,
+      font=\sffamily\scriptsize\bfseries] (kp-cg)
+  {\textcolor{tblheader}{temporal}};
+\node[keycell=12mm, below=0mm of kp-k1] (kp-fk1) {\texttt{Q}};
+\node[keycell=10mm, right=0mm of kp-fk1] (kp-fk2) {\texttt{Q}};
+\node[cgcell={14mm}{cgTemporal!40}, right=0mm of kp-fk2] (kp-f1) {cDate};
+\node[font=\sffamily\tiny, text=tblheader!60, below=0.5mm of kp-f1]
+  {{\tiny 8\,B/row}};
+
+\node[tblhdr=38mm, below=8mm of kp-fk1.south west, anchor=north west]
+  (lp-hdr) {\texttt{table:likes\_props}};
+\node[cgcell={12mm}{white}, below=1mm of lp-hdr.south west,
+      anchor=north west,
+      fill=tblheader!15, font=\sffamily\scriptsize\bfseries] (lp-k1) {src};
+\node[cgcell={10mm}{white}, right=0mm of lp-k1,
+      fill=tblheader!15, font=\sffamily\scriptsize\bfseries] (lp-k2) {dst};
+\node[cgcell={14mm}{cgTemporal}, right=0mm of lp-k2,
+      font=\sffamily\scriptsize\bfseries] (lp-cg)
+  {\textcolor{tblheader}{temporal}};
+\node[keycell=12mm, below=0mm of lp-k1] (lp-fk1) {\texttt{Q}};
+\node[keycell=10mm, right=0mm of lp-fk1] (lp-fk2) {\texttt{Q}};
+\node[cgcell={14mm}{cgTemporal!40}, right=0mm of lp-fk2] (lp-f1) {cDate};
+
+% ════════════════════════════════════════════════════════════════════
+%  SECONDARY TABLES: person_email, person_speaks (compact)
+% ════════════════════════════════════════════════════════════════════
+\node[tblhdr=38mm, below=8mm of lp-fk1.south west, anchor=north west]
+  (pe-hdr) {\texttt{table:person\_email}};
+\node[tblcell=12mm, below=1mm of pe-hdr.south west, anchor=north west,
+      fill=tblheader!15, font=\sffamily\scriptsize\bfseries] (pe-k1) {pid};
+\node[tblcell=10mm, right=0mm of pe-k1,
+      fill=tblheader!15, font=\sffamily\scriptsize\bfseries] (pe-k2) {idx};
+\node[tblcell=14mm, right=0mm of pe-k2,
+      fill=tblheader!15, font=\sffamily\scriptsize\bfseries] (pe-v) {email};
+
+\node[tblhdr=38mm, below=4mm of pe-k1.south west, anchor=north west]
+  (ps-hdr) {\texttt{table:person\_speaks}};
+\node[tblcell=12mm, below=1mm of ps-hdr.south west, anchor=north west,
+      fill=tblheader!15, font=\sffamily\scriptsize\bfseries] (ps-k1) {pid};
+\node[tblcell=10mm, right=0mm of ps-k1,
+      fill=tblheader!15, font=\sffamily\scriptsize\bfseries] (ps-k2) {idx};
+\node[tblcell=14mm, right=0mm of ps-k2,
+      fill=tblheader!15, font=\sffamily\scriptsize\bfseries] (ps-v) {lang};
+
+% ── Grouping boxes ──────────────────────────────────────────────
+\begin{pgfonlayer}{background}
+  \node[groupbox=structClr, fit=(eout-hdr)(r2-val), label={[font=\sffamily\tiny,
+        text=structClr]above left:structural}] {};
+  \node[groupbox=propClr, fit=(pp-hdr)(pp-f4),
+        label={[font=\sffamily\tiny, text=propClr]above left:vertex props}] {};
+  \node[groupbox=propClr, fit=(post-hdr)(po-f2)] {};
+  \node[groupbox=propClr, fit=(kp-hdr)(lp-f1),
+        label={[font=\sffamily\tiny, text=propClr]above left:edge props}] {};
+  \node[groupbox=secClr, fit=(pe-hdr)(ps-v),
+        label={[font=\sffamily\tiny, text=secClr]above left:secondary}] {};
+\end{pgfonlayer}
+
+\end{tikzpicture}
+\end{document}

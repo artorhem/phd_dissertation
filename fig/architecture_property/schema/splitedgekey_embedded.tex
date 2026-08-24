@@ -1,0 +1,93 @@
+% SplitEdgeKey — Embedded property storage layout
+\documentclass[tikz,border=4mm]{standalone}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\input{schema_styles}
+
+\begin{document}
+\begin{tikzpicture}[node distance=0mm]
+
+% ════════════════════════════════════════════════════════════════════
+%  TABLE: edge_out
+% ════════════════════════════════════════════════════════════════════
+\node[tblhdr=92mm] (eout-hdr) {\texttt{table:edge\_out}};
+\node[fmtlabel, below right=0.5mm and 0mm of eout-hdr.south west]
+  (eout-fmt) {\texttt{key\_format=uu\ \ value\_format=u}};
+
+% Column headers
+\node[tblcell=18mm, below=4mm of eout-hdr.south west, anchor=north west,
+      fill=tblheader!15, font=\sffamily\scriptsize\bfseries] (ch-src) {src};
+\node[tblcell=14mm, right=0mm of ch-src,
+      fill=tblheader!15, font=\sffamily\scriptsize\bfseries] (ch-dst) {dst};
+\node[tblcell=58mm, right=0mm of ch-dst,
+      fill=tblheader!15, font=\sffamily\scriptsize\bfseries] (ch-val) {attr (value blob)};
+
+% ── Person sentinel row ─────────────────────────────────────────
+\node[sentcell=18mm, below=0mm of ch-src, minimum height=10mm] (r1-src) {\texttt{EKEY(id)}};
+\node[sentcell=14mm, right=0mm of r1-src, minimum height=10mm] (r1-dst) {\texttt{0}};
+\node[sentcell=58mm, right=0mm of r1-dst, align=left, text width=55mm,
+      minimum height=10mm] (r1-val) {%
+  \texttt{in\_deg\;|\;out\_deg\;|\;prop[153\,B]}\\[0.5mm]
+  {\tiny\itshape cDate\,$\cdot$\,bday\,$\cdot$\,gender\,$\cdot$\,first\,$\cdot$\,last\,$\cdot$\,browser\,$\cdot$\,IP\,$\cdot$\,country}};
+
+% annotation
+\node[font=\sffamily\tiny\itshape, text=tblheader!70,
+      left=1mm of r1-src.west, anchor=east] {Person\\[-0.5mm]sentinel};
+
+% ── Post sentinel row ───────────────────────────────────────────
+\node[sentcell=18mm, below=0mm of r1-src, minimum height=10mm] (r2-src) {\texttt{EKEY(id)}};
+\node[sentcell=14mm, right=0mm of r2-src, minimum height=10mm] (r2-dst) {\texttt{0}};
+\node[sentcell=58mm, right=0mm of r2-dst, align=left, text width=55mm,
+      minimum height=10mm] (r2-val) {%
+  \texttt{in\_deg\;|\;out\_deg\;|\;prop[var]}\\[0.5mm]
+  {\tiny\itshape cDate\,$\cdot$\,length\,$\cdot$\,tag\,$\cdot$\,content}};
+
+\node[font=\sffamily\tiny\itshape, text=tblheader!70,
+      left=1mm of r2-src.west, anchor=east] {Post\\[-0.5mm]sentinel};
+
+% ── Edge row (knows / likes) ────────────────────────────────────
+\node[tblcell=18mm, below=0mm of r2-src] (r3-src) {\texttt{EKEY(src)}};
+\node[tblcell=14mm, right=0mm of r3-src] (r3-dst) {\texttt{EKEY(dst)}};
+\node[tblcell=58mm, right=0mm of r3-dst] (r3-val) {%
+  \texttt{creationDate} {\tiny(8\,B)}};
+
+\node[font=\sffamily\tiny\itshape, text=tblheader!70,
+      left=1mm of r3-src.west, anchor=east] {knows /\\[-0.5mm]likes};
+
+% ── Edge row (hasCreator — no props) ────────────────────────────
+\node[tblcell=18mm, below=0mm of r3-src] (r4-src) {\texttt{EKEY(src)}};
+\node[tblcell=14mm, right=0mm of r4-src] (r4-dst) {\texttt{EKEY(dst)}};
+\node[tblcell=58mm, right=0mm of r4-dst] (r4-val) {%
+  \texttt{0x00} {\tiny(1\,B sentinel)}};
+
+\node[font=\sffamily\tiny\itshape, text=tblheader!70,
+      left=1mm of r4-src.west, anchor=east] {hasCreator};
+
+% ════════════════════════════════════════════════════════════════════
+%  TABLE: edge_in
+% ════════════════════════════════════════════════════════════════════
+\node[tblhdr=92mm, below=8mm of r4-src.south west, anchor=north west,
+      xshift=-1mm] (ein-hdr) {\texttt{table:edge\_in} {\footnotesize(directed only)}};
+\node[fmtlabel, below right=0.5mm and 0mm of ein-hdr.south west]
+  {\texttt{key\_format=uu\ \ value\_format=u}};
+
+\node[tblcell=18mm, below=4mm of ein-hdr.south west, anchor=north west,
+      fill=tblheader!15, font=\sffamily\scriptsize\bfseries] (ei-ch-dst) {dst};
+\node[tblcell=14mm, right=0mm of ei-ch-dst,
+      fill=tblheader!15, font=\sffamily\scriptsize\bfseries] (ei-ch-src) {src};
+\node[tblcell=58mm, right=0mm of ei-ch-src,
+      fill=tblheader!15, font=\sffamily\scriptsize\bfseries] (ei-ch-val) {attr};
+
+\node[tblcell=18mm, below=0mm of ei-ch-dst] (ei-r1-dst) {\texttt{EKEY(dst)}};
+\node[tblcell=14mm, right=0mm of ei-r1-dst] (ei-r1-src) {\texttt{EKEY(src)}};
+\node[tblcell=58mm, right=0mm of ei-r1-src] (ei-r1-val)
+  {identical prop bytes {\tiny(reverse index, no sentinels)}};
+
+% ── Caption ─────────────────────────────────────────────────────
+\node[font=\sffamily\footnotesize, text=tblheader, anchor=north west,
+      below=5mm of ein-hdr.south west |- ei-r1-dst.south, text width=90mm]
+  {All structural data \emph{and} property bytes co-located in two B-trees.
+   Degree updates rewrite the full sentinel blob (161\,B for Person).};
+
+\end{tikzpicture}
+\end{document}
