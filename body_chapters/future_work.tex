@@ -1,4 +1,155 @@
 \chapter{Future Work}
 \label{sec:future-work}
 
-\PM{TODO: Write future work chapter. Topics from outline: high-level query language integration, concurrent analytics under mutation, learned layout selection, graph storage for machine learning workloads.}
+This chapter describes three directions that extend \project{}'s architecture beyond the scope of this thesis: integrating a high-level query language, automating layout and property mode selection through learned optimization, and serving graph machine learning workloads directly from the storage layer.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{High-Level Query Language Integration}
+\label{sec:future:query-lang}
+
+\project{} currently exposes only a C++ cursor API.
+All queries in the evaluation chapters (\autoref{sec:eval:inmem}--\autoref{sec:eval:dynamic}) are written as imperative programs that open cursors, position them, and iterate.
+This low-level interface gives fine-grained control over the access path, but it places the burden of query planning entirely on the programmer.
+
+A declarative query language would let users express graph queries without specifying how to traverse the underlying tables.
+The natural target is GQL, the ISO standard for property graph queries~\cite{francis2023gql_standard}, or openCypher~\cite{openCypher}, which is already supported by Neo4j, Memgraph, and several other systems.
+Compilation would map declarative pattern matching and path expressions down to \project{}'s cursor-level operations: vertex iterators for full scans, neighborhood iterators for adjacency traversal, and property cursors for predicate evaluation.
+
+The main challenge is query planning and optimization.
+Traditional graph databases maintain a catalog of statistics (label cardinalities, degree histograms, index selectivity estimates) and use these to choose join orderings and access paths.
+\project{} does not maintain such a catalog; \wt{} provides low-level statistics (table size, cache residency), but not the graph-level statistics a query planner needs.
+Building a lightweight catalog that tracks per-label vertex counts, degree distributions, and property value histograms is a prerequisite for cost-based query planning.
+
+A second question is whether a language model can serve as a stopgap query planner.
+Recent work on LLM-based text-to-SQL and text-to-Cypher translation~\cite{neo4j_neodash} demonstrates that language models can generate syntactically correct graph queries from natural language.
+Extending this approach to \project{} would require the model to select between AdjList and EdgeKey access paths, choose between embedded and columnar property reads, and decide on scan direction (in-neighbors vs.\ out-neighbors) based on the workload context.
+Whether an LLM-assisted approach can produce plans competitive with a conventional cost-based optimizer is an open question, but it could inform the design of a future query planner by identifying which plan choices matter most in practice.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Learned Indexes and Adaptive Layout Selection}
+\label{sec:future:learned}
+
+A central claim of this thesis is that data layout is the primary performance determinant for graph analytics (\autoref{chap:design_space}).
+The evaluation chapters confirm this: AdjList outperforms EdgeKey on read-heavy analytics (\autoref{sec:eval:inmem}), while EdgeKey provides faster transactional mutation (\autoref{sec:eval:dynamic}); columnar property mode outperforms embedded mode on selective column access (\autoref{sec:architecture:property}).
+However, the user must currently select the structural representation and property mode at graph creation time, and this choice is fixed for the lifetime of the graph.
+
+The system could instead observe the query workload and data distribution and adapt its physical layout automatically.
+There are four concrete decision points amenable to learned optimization:
+
+\begin{enumerate}
+\item \textbf{AdjList vs.\ EdgeKey selection.}
+The read/write ratio and the degree distribution of each label determine which structural representation is more efficient.
+A workload monitor could track the ratio of traversal operations to edge insertions and deletions per label and recommend switching representations when the observed ratio crosses a threshold.
+The checkpoint-based migration path described in Section~\ref{sec:future:learned:migration} would enable such a switch without downtime.
+
+\item \textbf{Embedded vs.\ columnar property mode.}
+The choice depends on which properties are co-accessed by queries.
+If most queries access all properties of a vertex (e.g., full profile lookups), embedded mode avoids the overhead of opening multiple column group cursors.
+If queries consistently access a single property column (e.g., scanning creation dates), columnar mode avoids reading unneeded columns.
+A per-label workload profile that tracks which property columns are accessed together would identify when to switch modes.
+
+\item \textbf{Column group composition.}
+Within columnar mode, the assignment of properties to column groups determines I/O isolation.
+Properties that are frequently co-accessed should share a column group (one B-tree read retrieves both), while properties accessed independently should be in separate column groups.
+This is the graph-property analogue of the column-group selection problem in column stores~\cite{copeland1985decomposition}, and query co-access frequency matrices provide the input signal for optimization.
+
+\item \textbf{Cursor prefetching hints.}
+\project{}'s topology cursors iterate over adjacency structures stored in \wt{} B-trees.
+If the system can predict the next traversal step (e.g., a BFS will access all neighbors of the current frontier), it can issue prefetch hints to \wt{}, bringing pages into the cache before they are needed.
+Learned traversal pattern models could generate such hints, reducing cache miss stalls during analytics.
+\end{enumerate}
+
+\subsection{Checkpoint-Triggered Layout Migration}
+\label{sec:future:learned:migration}
+
+Adaptive layout selection requires a mechanism for migrating data between representations without stopping the system.
+\project{} can support this because its \code{GraphBase} API abstracts over both AdjList and EdgeKey: application code that uses topology cursors does not depend on the underlying representation.
+
+A migration procedure tied to \wt{}'s checkpoint mechanism would work as follows.
+At checkpoint time, \wt{} writes a consistent snapshot to disk.
+A background process reads from the source representation in the checkpoint snapshot and bulk-loads the data into the target representation, using the existing bulk loader infrastructure.
+On completion, the engine swaps the active graph handle from the source representation to the target.
+New writes resume in the target representation; read queries that were in flight against the old representation drain against the snapshot.
+
+The cost model for such a migration is an open question.
+The research contribution would be to identify the breakeven point: for a given read-to-write ratio, the analytics speedup from switching to AdjList must exceed the migration cost.
+Validating this cost model against LDBC SNB workloads that mix Interactive (write-heavy) and BI (analytics-heavy) phases would quantify when migration pays for itself.
+
+A complication is that migration introduces a lag between the source and target representations.
+Writes that arrive after the migration checkpoint exist only in the source; queries against the target must merge results from both representations until the next migration cycle.
+This dual-format read problem is analogous to the stable-plus-durable view merging in log-structured systems like GraphOne~\cite{graphone2019kumar}.
+
+Related work on adaptive data structures includes the learned index structures of Kraska et al.~\cite{kraska2018case}, SageDB~\cite{kraska2019sagedb}, and Bao~\cite{marcus2021bao} (learned query optimization for relational databases).
+Extending these ideas to graph-specific layout decisions, where the choice space includes topology format, property mode, and column group assignment, is an open area with no prior work.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Graph Storage for Machine Learning Workloads}
+\label{sec:future:gnn}
+
+Graph Neural Networks (GNNs) have become the dominant approach for machine learning on graph-structured data, with applications in fraud detection, recommendation systems, drug discovery, and knowledge graph completion~\cite{hamilton2017graphsage, velickovic2018gat, kipf2017gcn}.
+GNN training and inference impose specific demands on graph storage that current practice handles with ad hoc solutions: DGL~\cite{wang2019dgl} and PyG~\cite{fey2019pyg} maintain their own in-memory graph representations, while production systems add separate graph sampling services in front of the primary store.
+\project{}'s architecture addresses these requirements without such auxiliary infrastructure.
+
+\subsection{Training: Neighborhood Sampling on Large Graphs}
+\label{sec:future:gnn:training}
+
+GNN training proceeds via mini-batch neighbor sampling.
+For each mini-batch, the system selects a batch of target nodes, samples $k$ neighbors per node for 2--3 hops to construct a computation subgraph, loads the feature vectors (node properties) for every node in the subgraph, and runs the neural network forward and backward passes.
+The access pattern is highly random: random target selection followed by pointer-chasing through the adjacency structure, then a batch of random point lookups for feature vectors.
+This is closer to OLTP than OLAP and favors B-tree point lookups over sequential CSR scans.
+
+Current practice requires loading the entire graph into memory or using framework-specific out-of-core storage.
+Disk-based GNN training is an active area of research.
+HUGE~\cite{yang2022huge}, GNNLab~\cite{yang2022gnnlab}, MariusGNN~\cite{mohoney2023mariusgnn}, and BGL~\cite{liu2023bgl} address neighbor sampling and feature loading from disk, but all assume a static graph snapshot loaded before training begins.
+
+\project{} can serve this workload directly.
+For graphs exceeding main memory, \project{}'s out-of-core capability provides snapshot-consistent neighborhood iteration through \wt{}'s buffer pool, without requiring the entire graph to reside in memory.
+Columnar property mode fits the training access pattern: loading a single feature column (e.g., node embeddings or edge weights) across many vertices in a mini-batch requires only a sequential scan of the corresponding column group B-tree, touching none of the unneeded property columns.
+
+Snapshot isolation adds a second benefit.
+Each mini-batch can read from the same \wt{} snapshot timestamp, giving reproducible training semantics even as the graph is being concurrently updated.
+This \emph{transactional GNN training}, consistent snapshots per mini-batch on a mutating graph, is not possible with CSR-based systems (HUGE, GNNLab) that lack MVCC, nor with in-memory frameworks (PyG, DGL) that lack persistence.
+No existing disk-based GNN system combines durable out-of-core storage with MVCC-consistent reads.
+
+
+\subsection{Inference: Low-Latency Neighborhood Lookups on Live Graphs}
+\label{sec:future:gnn:inference}
+
+Real-time GNN inference, for example classifying a new transaction as fraudulent or generating a recommendation for an active user, requires low-latency neighborhood lookups on a graph that is simultaneously being mutated.
+This is the \ac{HGTAP} use case: transactional writes (new edges, updated properties) proceed concurrently while inference queries read consistent snapshots via MVCC.
+
+\project{}'s property cursors provide the feature vectors needed for inference without a separate feature store.
+An inference query opens a read transaction at the current timestamp, samples the target node's neighborhood using topology cursors, loads the required feature columns via property cursors, and produces an embedding.
+The entire pipeline runs against a single consistent snapshot of the graph, with no coordination with concurrent writers beyond \wt{}'s standard MVCC protocol.
+
+
+\subsection{Open Problems}
+\label{sec:future:gnn:open}
+
+Serving GNN workloads from \project{} raises several concrete engineering and research problems.
+
+\paragraph{Language bridge.}
+\project{} has a C++ API; ML frameworks (PyTorch, JAX) are Python-based.
+Bridging the two requires a Python binding layer.
+The PyTorch Geometric (PyG) framework defines two abstract interfaces, \texttt{FeatureStore} for node properties as tensors and \texttt{GraphStore} for edge indices in COO format, that enable a graph database to serve as a remote backend for GNN training~\cite{fey2023pyg_remote_backend}.
+Implementing these interfaces for \project{} would involve a pybind11 layer that exposes \wt{} cursor scans to Python via NumPy buffers: scanning a property column fills a pre-allocated NumPy array in place, and \texttt{torch.from\_numpy()} shares the memory without copying.
+Edge extraction would scan the adjacency column with a \wt{} cursor, batch results into a pre-allocated array, and reshape to the $[2, |E|]$ COO tensor format that PyG expects.
+
+\paragraph{Batched sampling.}
+GNN training requires batches of multi-hop neighborhoods, not single traversals.
+\project{}'s current iterator API processes one traversal at a time: the caller opens a neighborhood cursor, iterates over neighbors, and closes the cursor.
+A batched sampling primitive that accepts a set of source nodes and a fan-out specification ($k$ neighbors per hop for $h$ hops) and returns the entire computation subgraph in one call would reduce per-cursor overhead and enable I/O coalescing across the batch.
+
+\paragraph{Feature materialization.}
+Some GNN architectures require pre-computed aggregate features (e.g., mean neighbor embeddings, degree-weighted sums) as inputs.
+Materializing these derived features as additional property columns in \project{}'s columnar store would avoid redundant computation during training.
+The materialized columns would function as graph-aware materialized views: invalidated when the underlying topology or source properties change, and refreshed either eagerly (on write) or lazily (on next read transaction).
+
+\paragraph{Embedding storage and vector similarity.}
+After training, GNN models produce dense embedding vectors for each node (typically 128--768 dimensions, 512\,B--3\,KB per node).
+Storing embeddings as a \wt{} property column works for point lookups by node ID, which covers the training and inference access pattern.
+However, similarity queries (``find the $K$ nodes most similar to this one'') require approximate nearest neighbor (ANN) search, which cannot be expressed as a B-tree range scan.
+An in-process side-car HNSW index~\cite{malkov2018hnsw}, rebuilt from a \wt{} snapshot and atomically swapped into service, would provide sub-millisecond ANN queries with snapshot-consistent semantics.
+No other graph database currently supports this.
