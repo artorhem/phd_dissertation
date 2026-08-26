@@ -16,20 +16,20 @@ Embedded mode uses \code{EmbNodePropCursor} and \code{EmbEdgePropCursor}.
 
 \begin{figure}[htbp]
   \centering
-  \begin{tikzpicture}[scale=0.85, every node/.style={transform shape},
+  \begin{tikzpicture}[
     class/.style={rectangle, draw, minimum width=3.0cm, minimum height=0.8cm, font=\small\ttfamily},
     abstract/.style={class, dashed},
     arr/.style={-{Triangle[length=8pt, width=6pt]}, thick}
   ]
     % NodePropCursor hierarchy
     \node[abstract] (npc) at (0, 0) {NodePropCursor};
-    \node[class] (wtnpc) at (-2.5, -1.8) {WTNodePropCursor};
-    \node[class] (embnpc) at (2.5, -1.8) {EmbNodePropCursor};
+    \node[class] (wtnpc) at (-3.5, -1.8) {WTNodePropCursor};
+    \node[class] (embnpc) at (3.5, -1.8) {EmbNodePropCursor};
 
-    % EdgePropCursor hierarchy
-    \node[abstract] (epc) at (7.5, 0) {EdgePropCursor};
-    \node[class] (wtepc) at (5.0, -1.8) {WTEdgePropCursor};
-    \node[class] (embepc) at (10.0, -1.8) {EmbEdgePropCursor};
+    % EdgePropCursor hierarchy (stacked below to avoid overlap)
+    \node[abstract] (epc) at (0, -4.5) {EdgePropCursor};
+    \node[class] (wtepc) at (-3.5, -6.3) {WTEdgePropCursor};
+    \node[class] (embepc) at (3.5, -6.3) {EmbEdgePropCursor};
 
     % Inheritance arrows
     \draw[arr] (wtnpc) -- (npc);
