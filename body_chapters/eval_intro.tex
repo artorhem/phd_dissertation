@@ -1,0 +1,295 @@
+\chapter{Evaluation Overview}
+\label{ch:eval-overview}
+
+% TODO: Once this chapter is integrated, remove the hardware descriptions from
+%       evaluation_static.tex (\autoref{sec:eval:static:setup}),
+%       evaluation_dynamic.tex (\autoref{sec:eval:dynamic:setup}), and
+%       evaluation_property.tex (\autoref{sec:eval:property:setup}).
+%       Also remove the datasets table from evaluation_static.tex (it now
+%       lives here as \autoref{tab:datasets}).
+
+\project{} claims to serve the full spectrum of graph workloads---from
+whole-graph analytics to fine-grained transactional queries---on a single
+persistent representation, without data movement or ETL\@.
+Most existing systems optimize for one operating point: in-memory graph
+processing systems build purpose-built layouts for analytics but require
+offline preprocessing and cannot handle mutations; dynamic graph containers
+sustain high ingest throughput but sacrifice analytical performance or
+persistence; graph databases handle OLTP queries well but collapse on iterative
+analytics.
+If \project{} merely matched one class of system while failing on another, it
+would reproduce the specialization problem it is designed to solve.
+The evaluation must therefore test \project{} on each class of workload,
+measuring it against the systems that specialize in that class.
+
+We organize the evaluation into four workload classes, each targeting a
+distinct operating regime:
+
+\begin{enumerate}
+  \item \textbf{In-memory graph analytics} (\autoref{sec:eval:inmem}).
+        Can \project{} match specialized graph processing systems that build
+        purpose-built in-memory layouts?
+        We compare against GAPBS, Galois, Ligra, and Gemini on PageRank,
+        connected components, BFS, and betweenness centrality, measuring both
+        kernel execution time and the preprocessing overhead that each system
+        requires before it can run algorithms.
+
+  \item \textbf{Out-of-core graph analytics} (\autoref{sec:eval:ooc}).
+        Does \project{} remain competitive when the graph exceeds available
+        memory?
+        We compare against GraphChi, X-Stream, and Blaze under constrained
+        memory budgets, measuring kernel execution time, preprocessing
+        overhead, and I/O bandwidth utilization.
+
+  \item \textbf{Dynamic structural graphs} (\autoref{sec:eval:dynamic}).
+        Can \project{} sustain mutation throughput and deliver analytics on a
+        live, changing graph?
+        We compare against Teseo, LiveGraph, and GraphOne on insertion
+        scalability, mixed insert-delete workloads, and post-ingestion
+        analytics (PageRank, BFS, weakly connected components).
+
+  \item \textbf{Property graph queries} (\autoref{sec:eval:property}).
+        Can \project{}'s property storage layer compete with mature graph
+        databases on transactional queries?
+        We compare against Neo4j, ArangoDB, NeuG, and others on individual
+        structural and property CRUD operations, composite LDBC SNB queries,
+        and full-graph algorithms.
+\end{enumerate}
+
+\noindent
+The first two classes form \autoref{sec:eval:static} (static graph analytics);
+the third forms \autoref{sec:eval:dynamic:chapter} (dynamic structural graphs)
+and the fourth forms \autoref{sec:eval:property:chapter} (property graph
+workloads).
+The sections below describe the experimental environment, datasets, and
+comparison systems shared across all four evaluations.
+
+%% --------------------------------------------------------------------------
+\section{Experimental Environment}
+\label{sec:eval:env}
+
+\autoref{tab:eval-hardware} summarizes the two machines used across all
+experiments.
+Machine~A runs the structural graph experiments (static analytics and dynamic
+graph operations), where parallelism across many cores and large memory
+capacity test scalability.
+Machine~B runs the property graph experiments (microbenchmarks, LDBC SNB
+queries, and graph algorithm comparisons against graph databases), where
+single-threaded query latency matters more than core count.
+Both machines run Ubuntu~22.04~LTS with Linux~6.8.0; we compile all
+\project{} code and comparison systems with GCC~13.3.0 using
+\texttt{-O3~-march=native~-mtune=native}.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{table}[h]
+  \centering
+  \footnotesize
+  \begin{tabular*}{\columnwidth}{@{\extracolsep{\fill}}lll@{}}
+    \toprule
+    & Machine~A & Machine~B \\
+    \midrule
+    Processor & AMD EPYC 7643 ($\times$2) & Intel Xeon W-2275 \\
+    Clock     & 2.30\,GHz                 & 3.30\,GHz \\
+    Cores / threads & 96 / 192            & 14 / 28 \\
+    Memory    & 2\,TB                     & 128\,GB \\
+    Storage   & 2\,TB NAND Flash SSD      & 1\,TB NVMe SSD \\
+    \bottomrule
+  \end{tabular*}
+  \caption{Hardware configurations.  Hyperthreading enabled on both machines.}
+  \label{tab:eval-hardware}
+\end{table}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+Each comparison system runs inside a Docker container.
+For the static and dynamic experiments on Machine~A, we restrict each container
+to one NUMA node (96~threads) with local memory; the out-of-core experiments
+further cap each container's memory to force disk-backed execution
+(\autoref{sec:eval:ooc} details the memory budgets).
+
+%% --------------------------------------------------------------------------
+\section{Datasets}
+\label{sec:eval:datasets}
+
+\paragraph{Structural graphs.}
+\autoref{tab:datasets} lists the structural graphs used in the static and
+dynamic evaluations.
+They span three orders of magnitude in edge count (51\,M to 17\,B) and in
+on-disk size (0.8\,GB to 339\,GB).
+We generate the Graph500 and uniform random graphs with the Teseo graph
+generator~\cite{teseo2021deLeo}; Dota~League, Twitter~MPI, and com-friendster
+come from the LDBC Graphalytics benchmark
+suite~\cite{LDBCGrapalytics22:online}; uk-2007 comes from the Koblenz Network
+Collection~\cite{kunegis2013konect}.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{table}[h]
+  \footnotesize
+  \begin{tabular*}{\columnwidth}{@{\extracolsep{\fill}}lrrrr@{}}
+  \toprule
+  Dataset Name &
+    Vertices $|V|$ &
+    Edges $|E|$ &
+    Avg.\ Degree &
+    Size (GB) \\ \midrule
+  Dota-league             & 61.17\,K  & 50.87\,M  & 831.45 & 0.8    \\
+  graph500-22, uniform-22 & 2.39\,M   & 64.15\,M  & 26.84  & 0.95   \\
+  graph500-24, uniform-24 & 8.87\,M   & 260.38\,M & 29.36  & 4.34   \\
+  graph500-26, uniform-26 & 32.80\,M  & 1.05\,B   & 32.01  & 18.59  \\
+  Twitter MPI             & 52.58\,M  & 1.96\,B   & 37.28  & 29.63  \\
+  com-friendster          & 65.60\,M  & 1.80\,B   & 27.44  & 32.36  \\
+  uk-2007                 & 105.15\,M & 3.30\,B   & 31.38  & 54.10  \\
+  Graph500-28             & 121.24\,M & 4.23\,B   & 34.89  & 75.64  \\
+  Graph500-30             & 447.80\,M & 17.02\,B  & 38.00  & 339.25 \\ \bottomrule
+  \end{tabular*}
+  \caption{Structural graph datasets.
+    Vertices $|V|$, edges $|E|$, average degree ($|E|/|V|$), and raw
+    edge-list size on disk.}
+  \label{tab:datasets}
+  \end{table}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\paragraph{Property graphs.}
+The property graph evaluation uses five datasets beyond the structural graphs
+listed above.
+The LDBC Social Network Benchmark (SNB) at scale factor~3 defines a property
+graph with ${\sim}800$\,K vertices and ${\sim}3.5$\,M edges across 4~entity
+types (Person, Post, Comment, Forum) and 7~relation types (schema in
+\autoref{fig:ldbc-snb-schema}).
+We use cit-Patents (3.77\,M vertices, 16.5\,M edges) for graph algorithm
+comparisons against graph databases.
+The microbenchmarks use two structural graphs, DBLP co-authorship
+(${\sim}317$\,K vertices, ${\sim}1$\,M edges) and WikiTalk (${\sim}2.4$\,M
+vertices, ${\sim}5$\,M edges), and two property graphs from the AsterDB
+artifact, LDBC and Freebase.
+
+%% --------------------------------------------------------------------------
+\section{Comparison Systems and Benchmark Suites}
+\label{sec:eval:systems}
+
+\autoref{tab:comparison-systems} lists all comparison systems organized by
+evaluation context.
+\autoref{sec:related-work} describes each system in detail; this section
+identifies the benchmark framework for each context.
+
+\paragraph{Static analytics.}
+The in-memory (\autoref{sec:eval:inmem}) and out-of-core
+(\autoref{sec:eval:ooc}) experiments use LDBC Graphalytics benchmark
+kernels~\cite{LDBCGrapalytics22:online} (BFS, PageRank, connected components,
+triangle counting, and SSSP), each implemented against the system's native
+API\@.
+GAPBS provides reference implementations on native CSR; Galois, Ligra, and
+Gemini each provide their own implementations.
+The out-of-core systems (GraphChi, X-Stream, Blaze) also implement these
+kernels natively.
+
+\paragraph{Dynamic graphs.}
+The dynamic experiments (\autoref{sec:eval:dynamic}) use the GFE benchmarking
+driver~\cite{teseo2021deLeo}, which exposes a uniform insertion and analytics
+interface across Teseo, LiveGraph, GraphOne, and \project{}.
+
+\paragraph{Property graphs.}
+The property graph experiments (\autoref{sec:eval:property}) use the AsterDB
+evaluation artifact~\cite{moAsterEnhancingLSMstructures2025}, a Docker-based
+benchmark suite with Apache TinkerPop's Gremlin traversal language as a uniform
+query interface.
+Each graph database implements a TinkerPop \emph{provider} that translates
+Gremlin traversals into its native storage operations.
+\project{} bypasses this layer and runs benchmarks through its native C++ API;
+we quantify the overhead of the Gremlin layer
+in~\autoref{sec:eval:property-ldbc}.
+The LDBC SNB queries are additionally compared against
+NeuG~\cite{NeuG2025Alibaba}, an embedded mmap-based CSR system that accepts
+Cypher queries.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{table}[t]
+  \centering
+  \footnotesize
+  \begin{tabular*}{\columnwidth}{@{\extracolsep{\fill}}lll@{}}
+    \toprule
+    Context & System & Key Characteristic \\
+    \midrule
+    \multirow{4}{*}{\shortstack[l]{In-memory\\analytics}}
+    & GAPBS   & Native CSR reference implementations \\
+    & Galois  & Priority-driven irregular parallelism \\
+    & Ligra   & Direction-optimizing traversal \\
+    & Gemini  & Chunk-based partitioning \\
+    \midrule
+    \multirow{3}{*}{\shortstack[l]{Out-of-core\\analytics}}
+    & GraphChi  & Parallel sliding windows \\
+    & X-Stream  & Edge-centric streaming \\
+    & Blaze     & NVMe-targeted scatter-gather \\
+    \midrule
+    \multirow{3}{*}{\shortstack[l]{Dynamic\\graphs}}
+    & Teseo     & Fat-tree, optimistic latching \\
+    & LiveGraph & Transactional edge log, mmap-backed \\
+    & GraphOne  & Lock-free ring buffer, background archiver \\
+    \midrule
+    \multirow{7}{*}{\shortstack[l]{Property\\graph}}
+    & Neo4j      & Native graph database (Cypher) \\
+    & ArangoDB   & Multi-model document store (AQL) \\
+    & NeuG       & Embedded mmap-based CSR (Cypher) \\
+    & AsterDB    & LSM-tree backed (native API) \\
+    & JanusGraph & Distributed, pluggable backends \\
+    & OrientDB   & Multi-model database \\
+    & PostgreSQL & Relational via SQLG \\
+    \bottomrule
+  \end{tabular*}
+  \caption{Comparison systems by evaluation context.}
+  \label{tab:comparison-systems}
+\end{table}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% --------------------------------------------------------------------------
+\section{\project{} Configurations}
+\label{sec:eval:configs}
+
+\project{} supports two structural representations, Adjacency~List
+(\autoref{arch:adjlist}) and EdgeKey (\autoref{arch:edgekey}), and two
+property storage modes, embedded (\autoref{arch:prop-embedded}) and columnar
+(\autoref{arch:prop-columnar}).
+Each experiment uses a subset of the four combinations:
+
+\begin{itemize}
+  \item \textbf{Static analytics}: Adjacency~List only.
+        EdgeKey stores each edge as an independent B-tree row; iterating every
+        edge in the graph requires visiting each row individually, yielding
+        scan performance orders of magnitude slower than the packed adjacency
+        list format for full-graph iterative algorithms.
+
+  \item \textbf{Dynamic graphs}: Both Adjacency~List and EdgeKey.
+        EdgeKey's per-edge rows allow concurrent, contention-free insertion;
+        Adjacency~List's packed rows deliver faster post-ingestion analytics.
+        The tradeoff between ingest throughput and analytical performance is a
+        central result of the dynamic evaluation
+        (\autoref{sec:eval:dynamic}).
+
+  \item \textbf{Property graph queries}: All four combinations
+        (Adjacency~List and EdgeKey, each with embedded and columnar
+        properties).
+        The embedded-vs-columnar tradeoff is query-dependent: embedded
+        mode favors multi-hop traversals that access properties at each hop;
+        columnar mode favors analytical scans over single property columns.
+        \autoref{sec:eval:emb-vs-col} quantifies this tradeoff.
+\end{itemize}
+
+%% --------------------------------------------------------------------------
+\section{General Methodology}
+\label{sec:eval:methodology}
+
+Unless a specific evaluation section states otherwise:
+
+\begin{itemize}
+  \item All experiments run after warmup.
+        We report the mean of five trials for static analytics, the mean of
+        four warm trials for out-of-core experiments, and the median (p50)
+        latency for property graph queries and microbenchmarks.
+  \item We set timeouts at 2~hours for graph algorithm benchmarks.
+  \item Static and dynamic experiments use all cores on one NUMA node
+        (96~threads on Machine~A).
+        Property graph queries run single-threaded to measure per-query latency.
+  \item Each evaluation section describes its own experiment-specific
+        methodology (memory budgets for out-of-core execution, query parameter
+        curation for LDBC SNB, and batching strategies for client-server
+        systems).
+\end{itemize}
