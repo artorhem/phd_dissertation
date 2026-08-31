@@ -23,11 +23,11 @@ For example, Person properties split into four groups: \emph{temporal} (\code{cr
 Post and Comment properties split into \emph{temporal} (\code{creationDate}, \code{length}; 12~bytes) and \emph{content} (\code{tag}, \code{content}; variable-length).
 Multi-valued attributes (Person email addresses and spoken languages) are stored in secondary \wt{} tables with composite keys \code{(person\_id, index)}.
 
-Edge property schemas follow the same pattern.
+Edge property schemas follow a similar pattern.
 Five of the 20 edge types carry properties: \textsc{knows}, \textsc{likes}, and \textsc{hasMember} each store a \code{creationDate} (8~bytes); \textsc{studyAt} stores \code{classYear} (4~bytes); \textsc{workAt} stores \code{workFrom} (4~bytes).
 The remaining 15 edge types are structural-only and use a 1-byte sentinel value.
 Edge types are disambiguated by endpoint vertex types: \textsc{knows} connects \code{VT\_PERSON}$\to$\code{VT\_PERSON}, \textsc{likes} connects \code{VT\_PERSON}$\to$\code{VT\_POST} or \code{VT\_COMMENT}, and so on.
-The LLM generated the routing function that dispatches \code{get\_edge\_properties} to the correct \wt{} property table based on the \code{(src\_type, dst\_type)} pair extracted from the vertex IDs.
+The LLM generated the routing functions: \code{get\_edge\_properties} calls access the appropriate property tables by first extracting the \code{(src\_type, dst\_type)} pair from the given vertex IDs.
 
 \paragraph{Query logic synthesis.}
 The second stage translated each LDBC query specification into a C++ function operating on \project{}'s cursor API.
@@ -39,7 +39,7 @@ BI queries (BI-1, BI-12) use sequential column-group cursor scans over all verti
 The generated code totals approximately 2{,}500 lines of C++ across 18~query functions.
 
 \paragraph{Verification and conformance.}
-Each \project{} query implementation was validated against Neo4j by running both systems on the same LDBC SNB SF-3 dataset and comparing results field-by-field.
+Each query we implemented in \project{} was validated against Neo4j by running both systems on the same LDBC SNB SF-3 dataset and comparing results field-by-field.
 A Python script (\code{validate\_results.py}) invokes \project{}'s benchmark binary in validation mode and the corresponding Cypher query on Neo4j, parses both outputs into sorted JSON records, and reports any discrepancies in values, sort order, or result-set cardinality.
 Validation runs across all four \project{} storage configurations (Adjacency~List and EdgeKey, each with embedded and columnar properties) to confirm that query semantics are independent of the underlying storage layout.
 All 18 query functions must produce identical results across all four configurations before any benchmark timing is collected.
@@ -54,7 +54,7 @@ The final conformant set covers 14 queries from the LDBC SNB Interactive v1 spec
 The remaining 4 query functions (R1, X1, A2, A3, X5) are targeted microbenchmarks that isolate individual access patterns (single-vertex property fetches and edge-count aggregates with temporal predicates) that the LDBC complex queries bundle with multi-hop traversal, making it difficult to attribute latency to the property layer alone.
 
 \paragraph{Rationale.}
-For a novel storage system without a query engine, the alternative to LLM-assisted generation is manual implementation of each benchmark query, the approach used by prior cursor-based systems such as GraphflowDB~\cite{kankanamge2017graphflow} and LiveGraph~\cite{zhu2019livegraph}, which publish hand-written query harnesses for their evaluations.
+For a novel storage system without a query engine, the alternative to LLM-assisted generation is manual implementation of each benchmark query, the approach used by prior cursor-based systems such as GraphflowDB~\cite{graphflowdb2021Gupta} and LiveGraph~\cite{zhu2019livegraph}, which publish hand-written query harnesses for their evaluations.
 The LLM-assisted approach derives query logic from the same LDBC specification that other systems implement through their query engines.
 The conformance errors caught during verification exposed a secondary value of this pipeline: the same cross-system comparison that validates correctness also enforces spec compliance, catching semantic drift that would otherwise go unnoticed in a hand-written harness until benchmark results are questioned.
 Cross-system verification against Neo4j ensures that any performance differences reflect storage-layer behavior, not divergent query semantics.

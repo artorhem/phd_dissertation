@@ -1,7 +1,7 @@
 \chapter{Introduction}
 \label{sec:intro}
 
-\section{Graphs Are Ubiquitous}
+\paragraph{Graphs Are Ubiquitous.}
 \label{sec:intro:ubiquitous}
 
 New data are being generated rapidly, and there is an ever-present and growing need to store and analyze them efficiently.
@@ -11,8 +11,8 @@ RDBMSs are well-suited for storing and querying structured or semi-structured da
 Larger scale data analysis frequently requires full dataset scans and extensive join processing, and these data warehouse or \ac{BI} workloads are called \ac{OLAP}.
 Several relational OLAP databases and data warehousing solutions exist to enable such enterprise-scale workloads~\cite{Redshift2015,boncz2005monetdb,vertica, raasveldt2019duckdb}.
 
-However, in some applications, the relationships captured in the data are themselves a fundamentally important object of study. 
-Graphs are a natural data model for relationships between entities in social networks, the World Wide Web, recommendation systems, fraud detection, and biological networks~\cite{ubiquityLargeGraphsVLDB2017}.
+However, in some applications, the relationships captured in the data are themselves a fundamentally important object of study.
+Graphs are a natural way to model such relationships, and are widely used to to model interactions on social networks, hyperlinks on the World Wide Web, recommendation systems, financial transactions for fraud detection, and protein interactions in biological studies~\cite{ubiquityLargeGraphsVLDB2017}.
 As the data volumes grow, so do the graphs these relationships form.
 Applications now routinely store and analyze graphs with billions of nodes and trillions of edges~\cite{ching2015oneTrillion,besta2020demystifying, lin2018shentu, gupta2024graphscale, zhou2025redtao}.
 
@@ -21,7 +21,7 @@ Each vertex and edge in such a graph has a \emph{label} that assigns it a type (
 Graphs in which the nodes have properties and the edges have labels are called Labeled Property Graphs~\cite{besta2020demystifying}.
 The labels and properties give the graph \emph{semantic meaning}, while the nodes and edges alone form the \emph{structure} of the graph.
 
-\section{Graph Workloads: OLTP vs.\ OLAP}
+\paragraph{Graph Workloads: OLTP vs.\ OLAP}
 \label{sec:intro:workloads}
 
 Graph workloads fall into categories analogous to conventional database workloads.

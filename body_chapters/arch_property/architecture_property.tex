@@ -28,9 +28,19 @@ Separating properties into their own tables eliminates this overhead but adds on
 
 This tension motivates offering both an embedded mode (properties co-located with structure) and a columnar mode (properties in separate per-label tables with column-group isolation).
 
-\PM{Add an LDBC SNB schema figure (or compact table) here showing vertex types (Person, Post, Comment, Forum), their fields, types, and byte sizes. This anchors the running example used throughout the chapter: the 153-byte Person struct, the column-group assignments, and the write-amplification arithmetic all reference these fields.}
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=\textwidth]{fig/schema.png}
+  \caption{LDBC Social Network Benchmark schema~\cite[Figure 3.1]{angles2024ldbcsocialnetworkbenchmark}. Vertex types carry typed property fields; edge types connect specific endpoint pairs and may carry their own properties.}
+  \label{fig:ldbc-snb-schema}
+\end{figure}
 
-Before describing these modes, we must answer a prior question: how does the database determine which schema applies to a given vertex?
+\autoref{fig:ldbc-snb-schema} shows the LDBC SNB schema that serves as the running example throughout this chapter.
+Two features of this schema surface design problems that a property storage layer must solve.
+First, vertex types are independently numbered: a Person and a Post may share the same source ID, so the storage layer must disambiguate them.
+Second, each pair of endpoint labels maps to exactly one edge type (\textsc{knows} connects only Person$\to$Person, \textsc{hasCreator} connects only Post$\to$Person), so edge labels can be inferred from endpoint labels without an explicit label column.
+
+Both storage modes require knowing which schema applies to a given vertex, so we begin with label encoding before describing either mode.
 The remainder of this chapter addresses four design questions:
 \begin{enumerate}
   \item How to identify each vertex's label efficiently.
@@ -130,7 +140,7 @@ After this byte-swap, the label tag occupies the first byte of the stored key, s
 A label-filtered scan is therefore a simple key-range bound.
 
 Edge labels are determined implicitly from the labels of their endpoints.
-We assume that each pair of endpoint labels maps to exactly one edge label, a condition that holds in the LDBC Social Network Benchmark~\cite{erling2015ldbc} schema.
+We assume that each pair of endpoint labels maps to exactly one edge label, a condition that holds in the LDBC SNB schema (\autoref{fig:ldbc-snb-schema}).
 Under this assumption, no label column is needed in the edge key, and the edge label is recovered by inspecting \code{VTYPE\_OF(src)} and \code{VTYPE\_OF(dst)}.
 
 This design contrasts with two alternatives.
@@ -175,11 +185,11 @@ Each vertex label gets its own property table (e.g., \code{person\_props}, \code
 \paragraph{Column groups in \wt{}.}
 A \wt{} column group physically splits a table's value columns into a separate B-tree.
 When a table has multiple column groups, each group's data lives in its own B-tree file; a cursor opened on one column group reads only that group's pages (e.g., \code{colgroup:person\_props:temporal} reads only that temporal column).
-The key point is that omitting a \code{get\_value()} call on a column group is not sufficient to avoid I/O: \wt{} loads entire pages into its buffer pool regardless of whether the application reads the value.
+Omitting a \code{get\_value()} call on a column group is not sufficient to avoid I/O: \wt{} loads entire pages into its buffer pool regardless of whether the application reads the value.
 Column groups fix this by placing different columns in physically separate B-trees, so pages from one group are never loaded during a scan that targets a different group.
 
 \paragraph{Column-group assignments.}
-The central design principle is to \textbf{separate fixed-size, scan-friendly columns from variable-length ones}: fixed-size groups yield high row density per page, while isolating variable-length columns keeps large blobs out of the buffer pool during narrow scans.
+We \textbf{separate fixed-size, scan-friendly columns from variable-length ones}: fixed-size groups yield high row density per page, while isolating variable-length columns keeps large blobs out of the buffer pool during narrow scans.
 
 For the LDBC SNB schema, we assign column groups as follows:
 \begin{itemize}

@@ -150,13 +150,12 @@ When a read operation encounters an update, it checks the update's transaction I
 If the ID appears in the snapshot's in-flight set, or is larger than the snapshot's upper bound, the update is not visible.
 The reader then continues down the version chain to find an older, visible version.
 
-Visibility is also governed by \emph{timestamps}---user-specified 64-bit
-sequence numbers associated with operations.
-A transaction may be given a \emph{read timestamp}, and it will only see updates whose commit timestamps are at or before that value.
-An update is visible only when \emph{both} its transaction ID and its timestamp satisfy the visibility rules.
-Timestamps are optional; when not used, visibility is determined solely by transaction IDs and snapshots.
+% Visibility is also governed by \emph{timestamps}---user-specified 64-bit
+% sequence numbers associated with operations.
+% A transaction may be given a \emph{read timestamp}, and it will only see updates whose commit timestamps are at or before that value.
+% An update is visible only when \emph{both} its transaction ID and its timestamp satisfy the visibility rules.
+% Timestamps are optional; when not used, visibility is determined solely by transaction IDs and snapshots.
 
-\PM{this is pending investigation}
 For \project{}, read-heavy workloads (e.g.\ graph traversals and analytics queries) can operate at read-committed isolation, which carries lower overhead because snapshots are shorter-lived and fewer old versions need to be retained.
 Any thread that performs mutations must use snapshot isolation.
 Since each thread has its own session, the isolation level can be chosen independently per thread.
@@ -205,7 +204,7 @@ Eviction worker threads dequeue and process pages concurrently.
 
 Evicting a \emph{clean} (unmodified) page is inexpensive: \wt{} simply
 frees the page's memory.
-Evicting a \emph{dirty} page first requires \emph{reconciliation}---converting the page from its in-memory format to the on-disk format---and writing it to storage (see Section~\ref{sec:wt-reconcile}).
+Evicting a \emph{dirty} page first requires \emph{reconciliation}, i.e., converting the page from its in-memory format to the on-disk format, and writing it to storage (see Section~\ref{sec:wt-reconcile}).
 
 %% -------------------------------------------------------------------
 \subsection{In-Memory Page Structure: Skip Lists and Update Chains}
@@ -231,8 +230,7 @@ A \texttt{WT\_UPDATE} records:
   \item The update type: \texttt{STANDARD} (a complete new value),
     \texttt{TOMBSTONE} (a deletion), \texttt{MODIFY} (a partial/delta update),
     or \texttt{RESERVE}.
-  \item A variable-length data payload appended immediately after the fixed
-    47-byte structure header (using a C99 flexible array member).
+  \item A variable-length data payload appended immediately after the fixed 47-byte structure header.
 \end{itemize}
 
 To read a key, \wt{} walks the update chain from head to tail until it finds an update whose transaction ID and timestamps are visible under the current transaction's snapshot.

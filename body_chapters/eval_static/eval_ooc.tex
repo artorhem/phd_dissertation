@@ -18,7 +18,13 @@ WiredTiger relies on the OS page cache for file blocks and allocating the full b
 We drop the page cache before the first (cold) trial and report the mean of four warm trials.
 Iostat traces (\autoref{fig:iostat-read-bw}) show constant disk I/O, confirming steady-state out-of-core execution.
 
-% fig:ooc-results is placed side-by-side with tab:analytics-main in evaluation.tex
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=\columnwidth]{fig/ooc/flexograph_ooc_results.pdf}
+  \caption{Out-of-core graph analytics. Solid bars: combined PageRank + CC time. Hatched: preprocessing time. Note the log Y axis; preprocessing time often dominates runtime.}
+  \label{fig:ooc-results}
+\end{figure}
+
 On kernel execution time alone, \project{} outperforms all systems except Blaze (\autoref{fig:ooc-results}).
 Blaze uses direct I/O and a lock-free scatter-gather scheme called \emph{online binning}~\cite{kim2022blaze}, in which scatter threads read edge pages and route updates (PageRank contributions, not a graph mutation) into destination-partitioned bins that gather threads consume independently, avoiding atomic contention on vertex state.
 This allows Blaze to fully saturate SSD bandwidth on Kronecker graphs,
@@ -28,7 +34,7 @@ On connected components, Blaze is 9\% to 46\% faster than \project{} on all grap
 For PageRank, Blaze wins on synthetic Graph500 datasets by 31\% to 37\%, but \project{} outperforms Blaze on real-world graphs: 9\% on Twitter, 17\% on uk-2007, and 65\% on com-friendster.
 If we include the time to build each system's on-disk layout, \project{} is 1.3$\times$ to 6.5$\times$ faster than any other system.
 
-\begin{figure}
+\begin{figure}[h]
   \centering
   \includegraphics[width=\columnwidth]{fig/ooc/iostat_read_bandwidth.pdf}
   \caption{Read BW vs.\ time for PR on graph500-26. Dashed line marks 540\,MB/s device peak sequential read bandwidth. \PM{add error bars}}

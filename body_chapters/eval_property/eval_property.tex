@@ -2,65 +2,36 @@
 \section{Property Graph Queries}
 \label{sec:eval:property}
 
-We integrate \project{} into the AsterDB evaluation artifact~\cite{moAsterEnhancingLSMstructures2025}, which provides a reproducible Docker-based benchmark suite that compares seven graph storage systems: Neo4j, ArangoDB, JanusGraph, OrientDB, PostgreSQL (via SQLG), NebulaGraph, and AsterDB on structural and property graph workloads.
+We integrate \project{} into the AsterDB evaluation artifact~\cite{moAsterEnhancingLSMstructures2025}, a reproducible Docker-based benchmark suite comparing seven graph storage systems---Neo4j, ArangoDB, JanusGraph, OrientDB, PostgreSQL (via SQLG), NebulaGraph, and AsterDB---on structural and property graph workloads.
 The AsterDB artifact uses Apache TinkerPop's Gremlin traversal language~\cite{apachetinkerpop} as a uniform query interface: each graph database implements a TinkerPop \emph{provider} that translates Gremlin traversals into its native storage operations, enabling an apples-to-apples comparison across backends.
-\project{} bypasses this layer entirely, running benchmarks through its native C++ API; we quantify the overhead this avoids in~\autoref{sec:eval:property-ldbc}.
-We evaluate \project{}'s property graph capabilities in two complementary experiments.
-First, we run graph analytics benchmarks on a rather small structural graph (cit-Patents).
-Second, we design a query benchmark using 14 queries derived from the LDBC Social Network Benchmark (SNB)~\cite{erling2015ldbc} at scale factor~3 (${\sim}800$\,K vertices, ${\sim}3.5$\,M edges across 4~entity types and 7~relation types).
-We compare four \project{} configurations (Adjacency List and EdgeKey, each with embedded and columnar property storage; \autoref{arch:prop-embedded}, \autoref{arch:prop-columnar}) to Neo4j (Cypher), ArangoDB (AQL), and NeuG~\cite{NeuG2025Alibaba} (Cypher, embedded mmap-based CSR).
+We quantify the overhead of this layer in~\autoref{sec:eval:property-ldbc}; \project{} bypasses it entirely, running all benchmarks through its native C++ API.
+We evaluate \project{}'s property graph capabilities in three experiments of increasing scope.
+First, we measure individual structural and property operations in isolation~(\autoref{sec:eval:microbenchmarks}).
+Second, we benchmark 14 composite queries that combine structural traversal with property access, derived from the LDBC Social Network Benchmark (SNB)~\cite{erling2015ldbc} at scale factor~3~(\autoref{sec:eval:property-ldbc}).
+The dataset contains ${\sim}800$\,K vertices and ${\sim}3.5$\,M edges across 4~entity types and 7~relation types (schema in \autoref{fig:ldbc-snb-schema}).
+Third, we run iterative algorithms on the full cit-Patents graph and compare \project{} against graph database baselines~(\autoref{sec:eval:property-graphalytics}).
 
-We exclude AsterDB from the LDBC comparison: although its RocksDB backend persists properties, the Gremlin bridge reads vertex properties from an in-memory map that is never populated from storage, so property lookups return null; additionally, all edges are stored under a single default label, preventing label-filtered traversals.
-% AsterDB's property write path and indexed \code{has()} lookups are fully wired, so it participates in the CRUD microbenchmarks.
-
-\section{Graph algorithms.}
-\label{sec:eval:property-graphalytics}
-\autoref{tab:graph-algorithms} reports algorithm runtimes on cit-Patents (3.77\,M vertices, 16.5\,M edges).
-PageRank (PR), community detection (CDLP), and weakly-connected components (WCC) are full-graph iterative algorithms; BFS and shortest path (SP) are single-pair traversals matching the Gremlin baselines.
-\project{} Adjacency~List completes PageRank in 0.3\,s, more than a $1000\times$ faster than Neo4j (429\,s) and nearly $8000\times$ faster than OrientDB (2{,}560\,s).
-WCC finishes in 0.3\,s vs.\ Neo4j's 998\,s ($\approx 3000\times$).
-These systems are designed for OLTP queries and assume that when analytics are necessary, they are part of an ETL workflow, exporting the structural graph for external processing using a specialized graph processing system.
-\project{} lets us bypass this costly ETL process without jeopardizing query performance.
-ArangoDB and JanusGraph exceed the 2-hour timeout on all iterative algorithms but complete the single-pair traversals quickly (BFS in 28 to 97\,ms, SP in 35 to 110\,ms) where their native shortest-path implementations apply.
-PostgreSQL also times out on all iterative algorithms and takes $\approx$11\,s for the single-pair traversals.
-\project{} runs parallel C++ algorithm implementations directly on the \wt{} B-tree; graph databases execute these benchmarks using the TinkerPop abstraction layer. %graph databases execute interpreted procedures through their query engines, adding per-iteration overhead that compounds across the thousands of supersteps these algorithms require.
-To quantify the per-call overhead of the Gremlin/TinkerPop query layer, we decompose Neo4j's PageRank execution into three variants on cit-patents:
-(1)~\emph{no-op}, which measures the round-trip latency between the TinkerPop client and the database server with no graph access;
-(2)~\emph{vertex-lookup}, which additionally resolves a vertex by its index; and
-(3)~the full PageRank step, which traverses the vertex's neighbors.
-The per-call costs are 4.34 µs, 6.41 µs, and 12.75 µs respectively, revealing that 50\% of Neo4j's PageRank time is spent on Gremlin framework overhead (34\%) and vertex index resolution (16\%) rather than actual edge traversal.
-Even if this overhead were entirely eliminated, \project{} remains $\approx700\times$ faster.
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-\begin{table}[h!]
-  \centering
-  \footnotesize
-  \setlength{\tabcolsep}{2pt}
-  \begin{tabular*}{\columnwidth}{@{\extracolsep{\fill}}lrrrrr@{}}
-    \toprule
-    System & PR & CDLP & WCC & SP & BFS \\
-    \midrule
-    FG:AdjList & \textbf{0.32} & \textbf{1.67} & \textbf{0.32} & \textbf{0.02} & 0.23 \\
-    FG:EdgeKey & 9.60 & 3.24 & 1.03 & 0.02 & 0.29 \\
-    AsterDB & 908.53 & 626.14 & 2{,}219.91 & 0.34 & 0.06 \\
-    Neo4j & 428.73 & 652.04 & 998.41 & 0.41 & 0.13 \\
-    ArangoDB & t/o & t/o & t/o & 0.03 & \textbf{0.03} \\
-    OrientDB & 2{,}559.81 & 4{,}750.27 & t/o & 0.22 & 0.06 \\
-    PostgreSQL & t/o & t/o & t/o & 11.26 & 11.45 \\
-    JanusGraph & t/o & t/o & t/o & 0.11 & 0.10 \\
-    \bottomrule
-  \end{tabular*}
-  \caption{Graph algorithm runtimes (s) on cit-Patents. PR, CDLP, WCC are full-graph iterative; BFS, SP are single-pair. Timout ~=~2\,h.\PM{check the numbers. Also match the prose.}}
-  \label{tab:graph-algorithms}
-\end{table}
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-
+\input{body_chapters/eval_property/eval_microbenchmarks.tex}
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-\begin{table}[t]
+\section{LDBC SNB Query Performance}
+\label{sec:eval:property-ldbc}
+
+The microbenchmarks above isolate individual primitives; we now examine how those primitives compose under realistic query workloads.
+We compare four \project{} configurations (Adjacency List and EdgeKey, each with embedded and columnar property storage; \autoref{arch:prop-embedded}, \autoref{arch:prop-columnar}) to Neo4j (Cypher), ArangoDB (AQL), and NeuG~\cite{NeuG2025Alibaba} (Cypher, embedded mmap-based CSR).
+We exclude AsterDB from this comparison: although its RocksDB backend persists properties, the Gremlin bridge reads vertex properties from an in-memory map that is never populated from storage, so property lookups return null; additionally, all edges are stored under a single default label, preventing label-filtered traversals.
+% AsterDB's property write path and indexed \code{has()} lookups are fully wired, so it participates in the CRUD microbenchmarks.
+
+% We run 10~queries derived from the LDBC SNB specification, organized into four categories (\autoref{tab:ldbc-queries}).
+% \emph{Point queries} (R1, X1) fetch all properties of a single vertex.
+% \emph{Aggregates} (A2, A3, X5) count edges matching a date-range predicate.
+% \emph{Multi-hop traversals} (X3, IC-3, IC-9) combine 2-hop structural traversal with property filters.
+% \emph{BI scans} (BI-1, BI-12) aggregate over all vertices of a type.
+% We also measure write operations (W1, W2).
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{table}[h]
   \centering
-  \footnotesize
+  % \footnotesize
   \setlength{\tabcolsep}{3pt}
   \begin{tabular*}{\columnwidth}{@{\extracolsep{\fill}}ll rrrrr@{}}
     \toprule
@@ -104,14 +75,6 @@ Even if this overhead were entirely eliminated, \project{} remains $\approx700\t
 \end{table}
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-\section{LDBC SNB Query Performance}
-\label{sec:eval:property-ldbc}
-% We run 10~queries derived from the LDBC SNB specification, organized into four categories (\autoref{tab:ldbc-queries}).
-% \emph{Point queries} (R1, X1) fetch all properties of a single vertex.
-% \emph{Aggregates} (A2, A3, X5) count edges matching a date-range predicate.
-% \emph{Multi-hop traversals} (X3, IC-3, IC-9) combine 2-hop structural traversal with property filters.
-% \emph{BI scans} (BI-1, BI-12) aggregate over all vertices of a type.
-% We also measure write operations (W1, W2).
 
 We benchmark 14 queries organized into five categories
 (\autoref{tab:ldbc-queries}): point reads, aggregates, multi-hop traversals,
@@ -225,3 +188,50 @@ Embedded mode is impractical for these queries, because every row's full propert
 
 This trade-off suggests a deployment strategy: use embedded mode for OLTP-style queries (point lookups, narrow multi-hop traversals) and columnar mode for analytical scans over single property columns.
 In practice, the choice can be made per edge or vertex label, since each label's property table is independent.
+
+\section{Graph Algorithms}
+\label{sec:eval:property-graphalytics}
+
+The experiments above measure per-operation and per-query latency on moderately sized property graphs.
+We now scale to cit-Patents (3.77\,M vertices, 16.5\,M edges), a structural graph an order of magnitude larger than the LDBC SNB dataset, and test full-graph iterative algorithms against the same baselines.
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{table}[h!]
+  \centering
+  % \footnotesize
+  \setlength{\tabcolsep}{2pt}
+  \begin{tabular*}{\columnwidth}{@{\extracolsep{\fill}}lrrrrr@{}}
+    \toprule
+    System & PR & CDLP & WCC & SP & BFS \\
+    \midrule
+    FG:AdjList & \textbf{0.32} & \textbf{1.67} & \textbf{0.32} & \textbf{0.02} & 0.23 \\
+    FG:EdgeKey & 9.60 & 3.24 & 1.03 & 0.02 & 0.29 \\
+    AsterDB & 908.53 & 626.14 & 2{,}219.91 & 0.34 & 0.06 \\
+    Neo4j & 428.73 & 652.04 & 998.41 & 0.41 & 0.13 \\
+    ArangoDB & t/o & t/o & t/o & 0.03 & \textbf{0.03} \\
+    OrientDB & 2{,}559.81 & 4{,}750.27 & t/o & 0.22 & 0.06 \\
+    PostgreSQL & t/o & t/o & t/o & 11.26 & 11.45 \\
+    JanusGraph & t/o & t/o & t/o & 0.11 & 0.10 \\
+    \bottomrule
+  \end{tabular*}
+  \caption{Graph algorithm runtimes (s) on cit-Patents. PR, CDLP, WCC are full-graph iterative; BFS, SP are single-pair. Timout ~=~2\,h.\PM{check the numbers. Also match the prose.}}
+  \label{tab:graph-algorithms}
+\end{table}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\autoref{tab:graph-algorithms} reports algorithm runtimes.
+PageRank (PR), community detection (CDLP), and weakly-connected components (WCC) are full-graph iterative algorithms; BFS and shortest path (SP) are single-pair traversals matching the Gremlin baselines.
+\project{} Adjacency~List completes PageRank in 0.3\,s, more than a $1000\times$ faster than Neo4j (429\,s) and nearly $8000\times$ faster than OrientDB (2{,}560\,s).
+WCC finishes in 0.3\,s vs.\ Neo4j's 998\,s ($\approx 3000\times$).
+These systems are designed for OLTP queries and assume that when analytics are necessary, they are part of an ETL workflow, exporting the structural graph for external processing using a specialized graph processing system.
+\project{} lets us bypass this costly ETL process without jeopardizing query performance.
+ArangoDB and JanusGraph exceed the 2-hour timeout on all iterative algorithms but complete the single-pair traversals quickly (BFS in 28 to 97\,ms, SP in 35 to 110\,ms) where their native shortest-path implementations apply.
+PostgreSQL also times out on all iterative algorithms and takes $\approx$11\,s for the single-pair traversals.
+\project{} runs parallel C++ algorithm implementations directly on the \wt{} B-tree; graph databases execute these benchmarks using the TinkerPop abstraction layer. %graph databases execute interpreted procedures through their query engines, adding per-iteration overhead that compounds across the thousands of supersteps these algorithms require.
+To quantify the per-call overhead of the Gremlin/TinkerPop query layer, we decompose Neo4j's PageRank execution into three variants on cit-patents:
+(1)~\emph{no-op}, which measures the round-trip latency between the TinkerPop client and the database server with no graph access;
+(2)~\emph{vertex-lookup}, which additionally resolves a vertex by its index; and
+(3)~the full PageRank step, which traverses the vertex's neighbors.
+The per-call costs are 4.34 µs, 6.41 µs, and 12.75 µs respectively, revealing that 50\% of Neo4j's PageRank time is spent on Gremlin framework overhead (34\%) and vertex index resolution (16\%) rather than actual edge traversal.
+Even if this overhead were entirely eliminated, \project{} remains $\approx700\times$ faster.
+
+

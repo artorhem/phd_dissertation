@@ -19,7 +19,7 @@ The datasets used for the dynamic evaluation are listed in \autoref{tab:datasets
   \begin{minipage}[t]{\columnwidth}
     \vspace{0pt}
     \centering
-    \footnotesize
+    % \footnotesize
     \setlength{\tabcolsep}{2pt}\renewcommand{\arraystretch}{1.0}
     \begin{tabular}{c l rrr | c l rrr}
     \toprule
@@ -47,14 +47,6 @@ The datasets used for the dynamic evaluation are listed in \autoref{tab:datasets
     \vfill
     \captionof{table}{Cross-system Graphalytics kernel time (s), median over warm runs. FG = FlexoGraph, PR = PageRank.}
     \label{tab:analytics-main}
-  \end{minipage}%
-  \hfill
-  \begin{minipage}[t]{\columnwidth}
-    \vspace{0pt}
-    \centering
-    \includegraphics[width=\textwidth]{fig/ooc/flexograph_ooc_results.pdf}
-    \captionof{figure}{Out-of-core graph analytics. Solid bars: combined PageRank + CC time. Hatched: preprocessing time. Note the log Y axis; preprocessing time often dominates runtime.}
-    \label{fig:ooc-results}
   \end{minipage}
 \end{figure*}
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
