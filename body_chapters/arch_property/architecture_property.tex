@@ -271,6 +271,46 @@ After positioning, \code{next()} advances to the next vertex, and typed accessor
 \code{EdgePropCursor} supports \code{set\_src(src)} to pin a source vertex and iterate over its outgoing edges' properties, and \code{set\_src\_range(start, end)} for bulk scans.
 It provides the same typed accessors as \code{NodePropCursor}.
 
+\autoref{tab:propapi} summarizes the property \ac{API}.
+The first group lists \code{GraphBase} methods for raw property access and cursor creation; the remaining groups list the abstract cursor interfaces.
+
+\begin{table}[ht!]
+\centering
+  \small
+  \begin{tabularx}{\textwidth}{|>{\hsize=\dimexpr 0.35\hsize+0.1\tabcolsep+0.2\arrayrulewidth\relax}X
+    |>{\hsize=\dimexpr 0.65\hsize-0.1\tabcolsep-0.2\arrayrulewidth\relax}X|}
+  \hline
+  \rowcolor[HTML]{FFE135}
+  \textbf{Operation}        &\textbf{Interface}                                       \\ \hline
+  Set vertex properties     &\apicall{void set_node_properties(node_id_t id, const uint8_t* data, size_t size)}  \\ \hline
+  Get vertex properties     &\apicall{prop_blob get_node_properties(node_id_t id)}    \\ \hline
+  Set edge properties       &\apicall{void set_edge_properties(node_id_t src, node_id_t dst, const uint8_t* data, size_t size)}  \\ \hline
+  Get edge properties       &\apicall{prop_blob get_edge_properties(node_id_t src, node_id_t dst)}  \\ \hline
+  Create node property cursor &\apicall{NodePropCursor *get_node_prop_cursor(string table, string colgroup)}  \\ \hline
+  Create edge property cursor &\apicall{EdgePropCursor *get_edge_prop_cursor(string table, string colgroup)}  \\ \hline
+  \rowcolor[HTML]{FFE135}
+  \textbf{NodePropCursor}   &\textbf{}                                                \\ \hline
+  Set scan range            &\apicall{void set_range(node_id_t start, node_id_t end)} \\ \hline
+  Point lookup              &\apicall{bool seek(node_id_t id)}                        \\ \hline
+  Advance to next vertex    &\apicall{bool next()}                                    \\ \hline
+  Current vertex ID         &\apicall{node_id_t key()}                                \\ \hline
+  Read \code{uint64} column &\apicall{uint64_t get_uint64(int n)}                     \\ \hline
+  Read \code{int32} column  &\apicall{int32_t get_int32(int n)}                       \\ \hline
+  \rowcolor[HTML]{FFE135}
+  \textbf{EdgePropCursor}   &\textbf{}                                                \\ \hline
+  Pin source vertex         &\apicall{void set_src(node_id_t src)}                    \\ \hline
+  Set source range          &\apicall{void set_src_range(node_id_t start, node_id_t end)}  \\ \hline
+  Point lookup              &\apicall{bool seek(node_id_t src, node_id_t dst)}        \\ \hline
+  Advance to next edge      &\apicall{bool next()}                                    \\ \hline
+  Current source            &\apicall{node_id_t src()}                                \\ \hline
+  Current destination       &\apicall{node_id_t dst()}                                \\ \hline
+  Read \code{uint64} column &\apicall{uint64_t get_uint64(int n)}                     \\ \hline
+
+  \end{tabularx}
+\caption{Property \ac{API}.  The first group extends the \code{GraphBase} interface from \autoref{tab:graphapi} with property access and cursor factory methods.  \code{NodePropCursor} and \code{EdgePropCursor} are abstract base classes; columnar and embedded implementations are described in \autoref{arch:prop-cursors:columnar} and \autoref{arch:prop-cursors:embedded}.}
+\label{tab:propapi}
+\end{table}
+
 \subsection{Columnar Implementation}
 \label{arch:prop-cursors:columnar}
 
