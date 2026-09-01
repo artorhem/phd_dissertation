@@ -73,3 +73,6 @@ The last thread to complete (detected via an atomic decrement of the open-cursor
 
 This design maximizes parallelism during the I/O-intensive leaf-page writing phase, with synchronization limited to spinlock-protected metadata operations during the merge phase.
 The modifications are based on \wt{} 3.2.1; porting them to the \wt{} 11.0.0 release used by the rest of \project{} is ongoing work.
+\PM{I ported it using claude. Still need to test it.}
+
+\PM{Insert numbers comparing these 3 bulk-loaders.}

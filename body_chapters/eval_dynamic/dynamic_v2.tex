@@ -86,26 +86,26 @@ More specifically, as De Leo et al. noted in their paper, updates trigger fewer 
   \label{fig:throughput-update}
 \end{figure*}
 
-However, GraphOne, despite leading the insertion benchmark, collapses to 0.05 \, M~ops/s, a \textcolor{red}{114}$\times$ drop.
+However, GraphOne, despite leading the insertion benchmark, collapses to 0.05 \, M~ops/s, a 114$\times$ drop.
 The root cause is deletions: GraphOne's background archiver must locate the target edge to set a tombstone, and its append-only layout has no index for this lookup; on power-law graphs the resulting linear scan stalls the archiver and back-pressures writers.
-\project{} EdgeKey sustains \textcolor{red}{1.07}\,M~ops/s, and LiveGraph sustains 0.42\,M~ops/s.
+\project{} EdgeKey sustains 1.07\,M~ops/s, and LiveGraph sustains 0.42\,M~ops/s.
 In LiveGraph, both edge additions and deletions are bottlenecked on finding the edge; the actual mutation is an append or a timestamp flip respectively. 
 Vertex deletions simply tombstone the vertex block: incident edges are left in place and reclaimed by background compaction.
 \project{}, by contrast, performs immediate cleanup: every incident edge is removed in a single transaction. 
 Under the Adjacency List layout, this requires rewriting each affected neighbor's packed list; under SplitEdgeKey, each edge is an independent B-tree row, so removal is a point delete.
-\textcolor{red}{The uniform-24 dataset, which lacks high-degree hub vertices, reveals how much of the update behaviour is driven by degree skew.
+The uniform-24 dataset, which lacks high-degree hub vertices, reveals how much of the update behaviour is driven by degree skew.
 GraphOne recovers to 0.87\,M~ops/s---only a 5.3$\times$ drop from its insertion rate, compared with the 114$\times$ collapse on graph500-24.
 Without power-law hubs, the archiver's linear scan terminates quickly, so it no longer back-pressures writers.
 Teseo sustains 6.0\,M~ops/s, roughly 14\% below its graph500-24 rate, likely because the more uniform key distribution triggers fewer in-place reuses of freed space.
 LiveGraph is essentially insensitive to degree distribution, sustaining 0.41\,M~ops/s (vs.\ 0.42 on graph500-24).
 \project{} EdgeKey drops modestly to 0.95\,M~ops/s (from 1.07 on graph500-24); because each edge is an independent B-tree row, degree skew has little effect on contention.
 The largest shift is in Adjacency List: with 72 writer threads it reaches 0.58\,M~ops/s on uniform-24, outperforming its own 48-thread arm (0.46\,M~ops/s) and reversing the thread-count ordering seen on graph500-24, where 48 threads (0.28\,M~ops/s) beats 72 (0.18\,M~ops/s).
-Absent high-degree vertices, concurrent appends spread evenly across adjacency records rather than concentrating on a few hot lists, eliminating the contention that penalised the wider thread pool on the power-law graph.}
+Absent high-degree vertices, concurrent appends spread evenly across adjacency records rather than concentrating on a few hot lists, eliminating the contention that penalised the wider thread pool on the power-law graph.
 
 \project{}'s two layouts present a clear tradeoff.
 EdgeKey stores one B-tree row per edge; inserts are independent, carry no read-modify-write overhead, and incur essentially zero transaction aborts, scaling monotonically to 72~threads.
 Adjacency List stores one record per vertex, so every edge insert appends to the source vertex's record.
-Under power-law degree distributions, concurrent writers issue conflicting modifications to the records of high-degree vertices, producing a high rollback rate that \textcolor{red}{peaks near ${\sim}$1.0\,M~edges/s at ${\sim}$48 threads and declines to ${\sim}$0.72\,M~edges/s at 72~threads}.
+Under power-law degree distributions, concurrent writers issue conflicting modifications to the records of high-degree vertices, producing a high rollback rate that peaks near ${\sim}$1.0\,M~edges/s at ${\sim}$48 threads and declines to ${\sim}$0.72\,M~edges/s at 72~threads.
 On the other hand, Adjacency List performs better with 72 writer threads on the uniform-24 dataset due to reduced conflicts absent any high-degree vertices.
 
 \section{Post-Ingestion Analytics}

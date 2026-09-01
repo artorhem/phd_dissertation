@@ -12,7 +12,7 @@ All queries in the evaluation chapters (\autoref{sec:eval:inmem}--\autoref{sec:e
 This low-level interface gives fine-grained control over the access path, but it places the burden of query planning entirely on the programmer.
 
 A declarative query language would let users express graph queries without specifying how to traverse the underlying tables.
-The natural target is GQL, the ISO standard for property graph queries~\cite{francis2023gql_standard}, or openCypher~\cite{openCypher}, which is already supported by Neo4j, Memgraph, and several other systems.
+The natural target is GQL, the ISO standard for property graph queries~\cite{francis2023gql-standard}, or openCypher~\cite{openCypher}, which is already supported by Neo4j, Memgraph, and several other systems.
 Compilation would map declarative pattern matching and path expressions down to \project{}'s cursor-level operations: vertex iterators for full scans, neighborhood iterators for adjacency traversal, and property cursors for predicate evaluation.
 
 The main challenge is query planning and optimization.
@@ -21,7 +21,7 @@ Traditional graph databases maintain a catalog of statistics (label cardinalitie
 Building a lightweight catalog that tracks per-label vertex counts, degree distributions, and property value histograms is a prerequisite for cost-based query planning.
 
 A second question is whether a language model can serve as a stopgap query planner.
-Recent work on LLM-based text-to-SQL and text-to-Cypher translation~\cite{neo4j_neodash} demonstrates that language models can generate syntactically correct graph queries from natural language.
+Recent work on LLM-based text-to-GQL and text-to-Cypher translation~\cite{mandilara2025text2cypher, lyu2026text2graphquerybench} demonstrates that language models can generate syntactically correct graph queries from natural language.
 Extending this approach to \project{} would require the model to select between AdjList and EdgeKey access paths, choose between embedded and columnar property reads, and decide on scan direction (in-neighbors vs.\ out-neighbors) based on the workload context.
 Whether an LLM-assisted approach can produce plans competitive with a conventional cost-based optimizer is an open question, but it could inform the design of a future query planner by identifying which plan choices matter most in practice.
 
@@ -52,7 +52,7 @@ A per-label workload profile that tracks which property columns are accessed tog
 \item \textbf{Column group composition.}
 Within columnar mode, the assignment of properties to column groups determines I/O isolation.
 Properties that are frequently co-accessed should share a column group (one B-tree read retrieves both), while properties accessed independently should be in separate column groups.
-This is the graph-property analogue of the column-group selection problem in column stores~\cite{copeland1985decomposition}, and query co-access frequency matrices provide the input signal for optimization.
+This is the graph-property analogue of the column-group selection problem in column stores~\cite{Rasin2013colstoreselection}, and query co-access frequency matrices provide the input signal for optimization.
 
 \item \textbf{Cursor prefetching hints.}
 \project{}'s topology cursors iterate over adjacency structures stored in \wt{} B-trees.
@@ -80,7 +80,7 @@ A complication is that migration introduces a lag between the source and target 
 Writes that arrive after the migration checkpoint exist only in the source; queries against the target must merge results from both representations until the next migration cycle.
 This dual-format read problem is analogous to the stable-plus-durable view merging in log-structured systems like GraphOne~\cite{graphone2019kumar}.
 
-Related work on adaptive data structures includes the learned index structures of Kraska et al.~\cite{kraska2018case}, SageDB~\cite{kraska2019sagedb}, and Bao~\cite{marcus2021bao} (learned query optimization for relational databases).
+Related work on adaptive data structures includes the learned index structures of Kraska et al.~\cite{kraska2018case}, SageDB~\cite{kraska2019SageDB}, and Bao~\cite{marcus2021bao} (learned query optimization for relational databases).
 Extending these ideas to graph-specific layout decisions, where the choice space includes topology format, property mode, and column group assignment, is an open area with no prior work.
 
 
@@ -88,7 +88,7 @@ Extending these ideas to graph-specific layout decisions, where the choice space
 \section{Graph Storage for Machine Learning Workloads}
 \label{sec:future:gnn}
 
-Graph Neural Networks (GNNs) have become the dominant approach for machine learning on graph-structured data, with applications in fraud detection, recommendation systems, drug discovery, and knowledge graph completion~\cite{hamilton2017graphsage, velickovic2018gat, kipf2017gcn}.
+Graph Neural Networks (GNNs) have become the dominant approach for machine learning on graph-structured data, with applications in fraud detection, recommendation systems, drug discovery, and knowledge graph completion~\cite{hamilton2017graphsage, velivckovic2017gat, kipf2016gcn}.
 GNN training and inference impose specific demands on graph storage that current practice handles with ad hoc solutions: DGL~\cite{wang2019dgl} and PyG~\cite{fey2019pyg} maintain their own in-memory graph representations, while production systems add separate graph sampling services in front of the primary store.
 \project{}'s architecture addresses these requirements without such auxiliary infrastructure.
 
@@ -102,7 +102,7 @@ This is closer to OLTP than OLAP and favors B-tree point lookups over sequential
 
 Current practice requires loading the entire graph into memory or using framework-specific out-of-core storage.
 Disk-based GNN training is an active area of research.
-HUGE~\cite{yang2022huge}, GNNLab~\cite{yang2022gnnlab}, MariusGNN~\cite{mohoney2023mariusgnn}, and BGL~\cite{liu2023bgl} address neighbor sampling and feature loading from disk, but all assume a static graph snapshot loaded before training begins.
+DiskGNN~\cite{Liu2025DiskGNN}, GNNLab~\cite{Yang2022GNNLab}, MariusGNN~\cite{Waleffe2023MariusGNN}, ByteGNN~\cite{Zheng2022ByteGNN}, and BGL~\cite{liu2023bgl} address neighbor sampling and feature loading from disk, but all assume a static graph snapshot loaded before training begins.
 
 \project{} can serve this workload directly.
 For graphs exceeding main memory, \project{}'s out-of-core capability provides snapshot-consistent neighborhood iteration through \wt{}'s buffer pool, without requiring the entire graph to reside in memory.
@@ -133,7 +133,7 @@ Serving GNN workloads from \project{} raises several concrete engineering and re
 \paragraph{Language bridge.}
 \project{} has a C++ API; ML frameworks (PyTorch, JAX) are Python-based.
 Bridging the two requires a Python binding layer.
-The PyTorch Geometric (PyG) framework defines two abstract interfaces, \texttt{FeatureStore} for node properties as tensors and \texttt{GraphStore} for edge indices in COO format, that enable a graph database to serve as a remote backend for GNN training~\cite{fey2023pyg_remote_backend}.
+The PyTorch Geometric (PyG) framework defines two abstract interfaces, \texttt{FeatureStore} for node properties as tensors and \texttt{GraphStore} for edge indices in COO format, that enable a graph database to serve as a remote backend for GNN training~\cite{chen2023kuzu-pyg-backend}.
 Implementing these interfaces for \project{} would involve a pybind11 layer that exposes \wt{} cursor scans to Python via NumPy buffers: scanning a property column fills a pre-allocated NumPy array in place, and \texttt{torch.from\_numpy()} shares the memory without copying.
 Edge extraction would scan the adjacency column with a \wt{} cursor, batch results into a pre-allocated array, and reshape to the $[2, |E|]$ COO tensor format that PyG expects.
 
@@ -151,5 +151,5 @@ The materialized columns would function as graph-aware materialized views: inval
 After training, GNN models produce dense embedding vectors for each node (typically 128--768 dimensions, 512\,B--3\,KB per node).
 Storing embeddings as a \wt{} property column works for point lookups by node ID, which covers the training and inference access pattern.
 However, similarity queries (``find the $K$ nodes most similar to this one'') require approximate nearest neighbor (ANN) search, which cannot be expressed as a B-tree range scan.
-An in-process side-car HNSW index~\cite{malkov2018hnsw}, rebuilt from a \wt{} snapshot and atomically swapped into service, would provide sub-millisecond ANN queries with snapshot-consistent semantics.
+An in-process side-car HNSW index~\cite{malkov2020hnsw}, rebuilt from a \wt{} snapshot and atomically swapped into service, would provide sub-millisecond ANN queries with snapshot-consistent semantics.
 No other graph database currently supports this.

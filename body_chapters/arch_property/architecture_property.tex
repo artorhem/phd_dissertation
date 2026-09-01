@@ -73,7 +73,7 @@ Traversing that edge requires a lookup into the destination label's table, an op
 
 \begin{figure}[htbp]
   \centering
-  \includegraphics[width=0.7\textwidth]{two_reps.pdf}
+  \includegraphics[width=\textwidth]{fig/architecture_property/alternative1_duplicate.pdf}
   \caption{Duplicating representations: iterating the neighborhood of a source vertex requires cross-table lookups when edges span label boundaries.}
   \label{fig:label:two-reps}
 \end{figure}
@@ -84,18 +84,20 @@ This eliminates cross-table joins, but filtering a vertex's neighborhood by dest
 The scan is no longer sequential with respect to a single edge type.
 \autoref{fig:label:embed-type} shows how both the EdgeKey and Adjacency List representations suffer from non-sequential access when the type attribute is embedded.
 
-\begin{figure}[htbp]
+\begin{figure}[]
   \centering
-  \begin{subfigure}[b]{0.25\textwidth}
+  \begin{subfigure}[b]{\textwidth}
     \centering
-    \includegraphics[width=\linewidth]{relational_scenario_2a.pdf}
+    \includegraphics[scale=0.75]{fig/architecture_property/alternative2a_embed.pdf}
     \caption{EdgeKey}
     \label{fig:label:embed-type:ekey}
   \end{subfigure}
-  \hfill
-  \begin{subfigure}[b]{0.70\textwidth}
+
+  \vspace{1em}
+
+  \begin{subfigure}[b]{\textwidth}
     \centering
-    \includegraphics[width=\linewidth]{relational_scenario_2b.pdf}
+    \includegraphics[scale=0.75]{fig/architecture_property/alternative2_embed.pdf}
     \caption{Adjacency List}
     \label{fig:label:embed-type:adjlist}
   \end{subfigure}
@@ -110,12 +112,12 @@ Because \wt{} stores keys in sorted order, all vertices of a given label are con
 
 The drawback is that the range boundaries depend on vertex counts at load time: the system must decide up front how many IDs to reserve for each label.
 If a label's allocation is exhausted, re-partitioning is expensive.
-Our candidacy prototype implemented this approach as a user-space framework that re-mapped original vertex IDs into partitioned ranges and maintained a bidirectional mapping table.
+An initial prototype implemented this approach as a user-space framework that re-mapped original vertex IDs into partitioned ranges and maintained a bidirectional mapping table.
 \autoref{fig:label:relabel} illustrates the re-labelled ID space.
 
 \begin{figure}[htbp]
   \centering
-  \includegraphics[width=\textwidth]{relational_scenario_3.pdf}
+  \includegraphics[width=\textwidth]{fig/architecture_property/alternative3_relabel.pdf}
   \caption{Vertex re-labelling: partitioning the vertex ID space by label gives sequential access within a type but requires boundaries fixed at load time.}
   \label{fig:label:relabel}
 \end{figure}
