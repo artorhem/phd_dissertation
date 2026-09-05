@@ -172,7 +172,7 @@ The cache is allocated from the process heap, and \wt{} does not use memory-mapp
 The cache stores only B-tree data: the on-disk page images (decrypted and
 decompressed) together with their associated in-memory indexing structures
 (insert lists, update chains, etc.).
-Other \wt{} metadata---session objects, cursor objects, data handles---live outside the cache and do not count against \texttt{cache\_size}.
+Other \wt{} metadata, such as session objects, cursor objects, and data handles,  live outside the cache and do not count against \texttt{cache\_size}.
 
 Pages are loaded into the cache \emph{on demand}.
 When \wt{} opens a B-tree, it loads the root page and the first level of internal pages.
@@ -197,10 +197,9 @@ The cache separately tracks total bytes in memory, bytes of dirty (modified) dat
 The back-pressure mechanism (application threads assisting with eviction) is important for performance analysis: under sustained write pressure, application threads may experience latency spikes while they help evict pages to bring the cache back within its target.
 
 \textbf{Eviction} follows an approximate LRU strategy. 
-The eviction server periodically walks the in-memory B-trees, scoring pages by their \emph{read generation} (a counter incremented each time a page is accessed).
-It collects candidates, sorts them by read generation, and selects the oldest third as eviction candidates.
-These candidates are placed into eviction queues (two ordinary queues plus an urgent queue for pages that require forced eviction).
-Eviction worker threads dequeue and process pages concurrently.
+The eviction server periodically walks the in-memory B-trees, scoring pages by their \emph{read generation}, which is a counter incremented each time a page is accessed.
+It collects candidates, sorts them by read generation, and selects eviction candidates.
+These candidates are placed into eviction queues and the eviction worker threads dequeue and process pages concurrently.
 
 Evicting a \emph{clean} (unmodified) page is inexpensive: \wt{} simply
 frees the page's memory.
@@ -230,7 +229,7 @@ A \texttt{WT\_UPDATE} records:
   \item The update type: \texttt{STANDARD} (a complete new value),
     \texttt{TOMBSTONE} (a deletion), \texttt{MODIFY} (a partial/delta update),
     or \texttt{RESERVE}.
-  \item A variable-length data payload appended immediately after the fixed 47-byte structure header.
+  \item A variable-length data payload appended immediately after the fixed structure header.
 \end{itemize}
 
 To read a key, \wt{} walks the update chain from head to tail until it finds an update whose transaction ID and timestamps are visible under the current transaction's snapshot.

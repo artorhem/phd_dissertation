@@ -1,0 +1,158 @@
+\section{Pricing Durability: A Configuration Ablation}
+\label{sec:eval:dynamic:durability}
+
+\autoref{sec:eval:dynamic:dirty} showed that the configuration used throughout
+this chapter \emph{defers} the cost of persistence rather than avoiding it.
+We disable the write-ahead log and periodic checkpointing so that \project{}
+behaves as much like an in-memory system as its architecture permits.
+This section measures what those mechanisms cost, by ablation: starting from
+\project{} configured with both persistence mechanisms enabled, we remove one
+at a time.
+
+None of the intermediate configurations are used for any comparison reported in
+this chapter; \textsc{none} is, and it is the fastest. The ablation eliminates
+a hypothesis: if \project{}'s persistence machinery were expensive, the
+throughput gap against Teseo, LiveGraph, and GraphOne (none of which are run
+durably either) would need no further explanation. The measurements below show
+that the machinery is cheap, which forces the explanation elsewhere.
+
+\subsection{The configurations}
+\label{sec:eval:dynamic:durability:configs}
+
+\wt{} exposes two independent persistence mechanisms, a write-ahead log and
+periodic checkpointing, which cross to give the four configurations in
+\autoref{tab:durability-configs}, ordered by the strength of the guarantee each
+provides.
+
+The log alone provides a guarantee worth noting.
+\project{} commits with \wt{}'s \texttt{sync=off}, which does not disable
+syncing; it weakens the \emph{commit contract}. The redo record is buffered in
+memory and the commit returns immediately, but the record is still forced to
+disk when a log file fills and rotates, and again at every checkpoint. A crash
+loses a \emph{bounded} suffix of recent commits rather than the whole run.
+Describing this configuration as offering ``no durability'' is wrong; describing
+it as offering the durability of a synchronous commit is equally wrong.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{table}[t]
+  \centering
+  \setlength{\tabcolsep}{4pt}\renewcommand{\arraystretch}{1.05}
+  \small
+  \begin{tabular}{l l l l}
+  \toprule
+  Configuration & Redo log & Checkpoints & A crash loses \\
+  \midrule
+  \textsc{wal-ckpt} & yes & yes & since the last rotation or checkpoint \\
+  \textsc{wal}      & yes & no  & since the last log rotation \\
+  \textsc{ckpt}     & no  & yes & since the last checkpoint \\
+  \textsc{none}     & no  & no  & the entire run \\
+  \bottomrule
+  \end{tabular}
+  \caption{The durability ladder, strongest guarantee first. Each row removes
+  one guarantee from the row above it. \textsc{wal-ckpt} binds more tightly than
+  \textsc{wal} despite an identical commit contract, because a checkpoint forces
+  a synchronous flush of the log in addition to writing the data files.
+  \textsc{none} is the configuration used elsewhere in this chapter.}
+  \label{tab:durability-configs}
+\end{table}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\subsection{Method}
+\label{sec:eval:dynamic:durability:method}
+
+All cells insert the 260\,M edges of \texttt{graph500-24} into an initially
+empty graph using the split edge-key layout with 72 writer threads, on the
+machine described in \autoref{sec:eval:dynamic:setup}. The \wt{} cache is sized
+at 800\,GiB so that the graph is resident throughout and eviction pressure never
+binds; degree caching is disabled; memory-mapped I/O and statistics collection
+are both off, as they perturb the ingest path. We interleave configurations
+rather than running them in blocks, and report medians. Only the persistence
+configuration varies between cells; we hold every other parameter, and the binary
+itself, fixed.
+
+\subsection{Results}
+\label{sec:eval:dynamic:durability:results}
+
+\autoref{tab:durability-ablation} gives the ablation. \project{}'s full
+persistence machinery costs $1.67\times$ on ingest throughput: enabling both the
+redo log and checkpointing takes the system from $1.70$ to $1.02$\,M edges/s.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{table}[t]
+  \centering
+  \setlength{\tabcolsep}{5pt}\renewcommand{\arraystretch}{1.05}
+  \small
+  \begin{tabular}{l l r r r}
+  \toprule
+  Configuration & Guarantee removed & Throughput & Gain over & Relative \\
+                &                   & (M edges/s) & previous  & to \textsc{none} \\
+  \midrule
+  \textsc{wal-ckpt} & ---                         & 1.019 & ---       & $-40.1\%$ \\
+  \textsc{wal}      & checkpoints                 & 1.071 & $+5.1\%$  & $-37.0\%$ \\
+  \textsc{ckpt}     & redo log (checkpoints back) & 1.611 & $+50.5\%$ & $-5.2\%$  \\
+  \textsc{none}     & checkpoints                 & 1.700 & $+5.5\%$  & --- \\
+  \bottomrule
+  \end{tabular}
+  \caption{Durability ablation on \texttt{graph500-24}, 72 writers. Each row
+  removes one guarantee from the row above; throughput rises monotonically as
+  guarantees are given up.}
+  \label{tab:durability-ablation}
+\end{table}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\paragraph{The redo log is the expensive mechanism; checkpointing is not.}
+Almost the whole of the $1.67\times$ is attributable to the log. Removing it
+(\textsc{wal}\,$\rightarrow$\,\textsc{ckpt}) is worth $50\%$, while the two
+steps that add or remove checkpointing are worth about $5\%$ each, at the edge
+of what these measurements resolve, and we do not claim the members of either
+pair are distinguishable. This is a consequence of \project{}'s update
+granularity. Each inserted edge is its own \wt{} transaction, so the log
+receives one record per edge and its cost scales with the edge count, whereas a
+checkpoint's cost scales with the volume of dirty pages it must reconcile and is
+amortised over everything that accumulated since the last one.
+
+\paragraph{Checkpointing is cheap at this scale, and only at this scale.}
+The near-equality of \textsc{ckpt} and \textsc{none} should not be extrapolated.
+\wt{}'s \texttt{checkpoint=(wait=$n$)} specifies the interval \emph{between} the
+end of one checkpoint and the start of the next, not a period; as the graph
+grows each checkpoint takes longer, so the duty cycle degrades over the life of
+a run. In these ingests the observed interval stretches from roughly $78$\,s
+early in the run to $479$\,s near its end. A \texttt{graph500-24} ingest
+completes before that divergence has run its course, so the figures above
+understate the steady-state cost of checkpointing on a longer or larger ingest.
+
+\subsection{On synchronous commits}
+\label{sec:eval:dynamic:durability:sync}
+
+\wt{} can additionally be asked to make each commit durable before it returns,
+rather than buffering the redo record. We measured this configuration and do not
+report it as a rung of the ablation, because at \project{}'s transaction
+granularity it does not measure what the ladder is measuring. \project{} commits
+one edge per transaction, so a synchronous commit forces a durability wait per
+edge ($260$\,M of them for the ingest above), and the resulting slowdown of
+roughly $40\times$ is dominated by that granularity rather than by durability as
+such. A system intending to ingest durably would batch many edges into each
+transaction and amortise the wait across the batch; that is a different
+experiment, and one we have not run. We note the measurement here so that its
+absence from \autoref{tab:durability-ablation} is not mistaken for an oversight.
+
+\subsection{Residual cost}
+\label{sec:eval:dynamic:durability:residual}
+
+\textsc{none} removes every persistence mechanism: no redo log, no
+checkpointing, a cache large enough that the graph never approaches an eviction
+threshold. Removing them was worth $1.67\times$ in total.
+Yet \textsc{none} is the configuration behind every \project{} number reported
+elsewhere in this chapter, including those where the gap against the in-memory
+comparison systems is widest. The ablation therefore excludes the write-ahead
+log and checkpointing as explanations for that gap.
+
+The remaining cost cannot be switched off. Disabling the log and
+the checkpoint server stops \wt{} from \emph{writing}, but leaves the
+representation untouched: the graph is still held as page-oriented,
+block-aligned B-tree images with byte-comparable keys, still reconciled when
+pages are released, still governed by an extent allocator and an always-on
+eviction protocol. \project{} pays for remaining \emph{persistable},
+and \autoref{sec:eval:dynamic:dirty} shows the same thing from the other
+direction: the deferred work does not disappear but accumulates. That cost is a property of the storage format, and no configuration
+removes it.

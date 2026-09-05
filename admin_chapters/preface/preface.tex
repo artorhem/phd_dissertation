@@ -1,16 +1,16 @@
 \chapter{Preface}
 
-\paragraph{Work intended for Publication:} A version of the work presented in this thesis has been submitted and is currently under review at the ACM  ACM SIGMOD/PODS International Conference on Management of Data under the title “Flexograph: Have your Graph OLTP and OLAP too”.
+\paragraph{Work intended for Publication:} A version of the work presented in this thesis has been submitted and is currently under review at the ACM SIGMOD/PODS International Conference on Management of Data under the title “Flexograph: Have your Graph OLTP and OLAP too”.
 
-\paragraph{Research and Collaboration:} The idea for this dissertation is based upon a research proposal developed by Prof. Seltzer to synthesize efficient data structures for persistent graph storage similar to work done by Idreos et al.~\cite{dataCalculator-StratosIdreos}.
+\paragraph{Research and Collaboration:} The idea for this dissertation is based on a research proposal developed by Prof. Seltzer to synthesize efficient data structures for persistent graph storage similar to work done by Idreos et al.~\cite{dataCalculator-StratosIdreos}.
 However, this dissertation quickly branched away from that idea into developing a hybrid transactional and analytics graph database.
 
-The implementation of \project{} was done primarily by Puneet Mehrotra.
+Puneet Mehrotra primarily implemented \project{}.
 Haotian (Jack) Gong contributed code for topology cursors and led the effort to translate a few edge-centric algorithms to work with the \project{} API.
-The code for property graph storage and query generation was done largely with the help of Generative AI and is documented as such in~\autoref{sec:eval:query-impl}.
+Generative AI assisted with property graph storage and query generation code and is documented as such in~\autoref{sec:eval:query-impl}.
 
 Keith Bostic wrote a \wt{} patch that allows multi-threaded bulk insertions.
-This is primarily a utility to accelerate the pace of research and is not a contribution this thesis claims.
+This is primarily a utility to accelerate the research and is not a contribution this thesis claims.
 
-\paragraph{Use of Generative AI:} Generative AI tools were used to assist with the code, test infrastructure and scripts, and figure generation for the work discussed in this dissertation.
-Claude Opus 4.6~\cite{anthropic2026claudecodedocs} was used for this work and all gnerated code, scripts, code, and results were reviewed and verified by the author.
+\paragraph{Use of Generative AI:} Generative AI tools assisted with code, test infrastructure, scripts, and figure generation.
+Claude Opus 4.6~\cite{anthropic2026claudecodedocs} was used for this work and the author reviewed and verified all generated code, scripts, and results.

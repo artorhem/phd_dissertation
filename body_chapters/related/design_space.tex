@@ -12,7 +12,7 @@ We discuss representative systems in each category, highlighting what each provi
 Our overarching characterization of the design space is defined by two features: whether the system manages property graphs or structural graphs and whether the graphs under management are static or dynamic.
 Recall that a structural graph results from selections and projections on the labels and properties of an underlying property graph~\cite{RodriguezNeubauer2010}.
 One might select edges of a certain type to form a structural graph, for instance, a structural graph of follower relationships in a social network.
-The structural graph so constructed ``is homogeneous, composed simply of vertices, edges and, possibly, a weight attached to their elements''~\cite{teseo2021deLeo}.
+The structural graph so constructed ``is homogeneous, composed simply of vertices, edges and, possibly, a weight attached to their elements''~\cite[Section 1]{teseo2021deLeo}.
 The structural graph is a useful abstraction for many graph algorithms and queries. It provides a simple graph model that can be used to reason about the graph's structure.
 For instance, the structural graph can be used to compute the connectivity of the graph or to compute the influence of a node in the graph.
 
@@ -76,7 +76,7 @@ Other out-of-core systems include CLIP~\cite{ai2018clip}, V-part~\cite{elyasi201
 All static systems, whether in-memory or out-of-core, require an offline preprocessing step to build their layout and are batch-only, supporting no mutations during processing.
 FlexoGraph operates directly on its persistent representation, eliminating the preprocessing step entirely; we include preprocessing time in all comparisons to capture this advantage.
 FlexoGraph relies on WiredTiger's buffer pool to spill to secondary storage, achieving competitive out-of-core performance without a dedicated I/O framework.
-These two classes of graph processing systems constitute the \textit{third classification feature} of our design space of graph data management systems.
+\PM{Needs review}These two classes of graph processing systems constitute the \textit{third classification feature} of our design space of graph data management systems.
 
 \section{Dynamic Graph Processing Systems}
 \label{design:dynamic_structural}
