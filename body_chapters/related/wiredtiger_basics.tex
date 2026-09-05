@@ -33,7 +33,7 @@ The trade-off is that random access within a leaf page requires walking the RLE 
 
 Internally, \wt{} uses the same object \texttt{WT\_BTREE} to reference both row-store and column-store B-trees and uses a \texttt{type} field to distinguish between them.
 
-\project{} uses row-store tables for storing the structural graphs, and provides the option of using column-store tables for storing
+\project{} uses row-store tables for storing the structural graphs and provides the option of using column-store tables for storing
 vertex and edge properties.
 Property storage using column stores is discussed in \autoref{sec:architecture:property}.
 
@@ -87,7 +87,7 @@ Within the process, the threading contract is:
 \end{itemize}
 
 \wt{} uses no thread-local storage internally.
-If an application wishes to share a session between threads (e.g.\ in a thread pool), it must serialise access itself.
+If an application wishes to share a session between threads (e.g.,\ in a thread pool), it must serialise access itself.
 In practice, the session-per-thread model eliminates this complexity.
 
 In addition to application threads, \wt{} manages several internal background threads:
@@ -156,7 +156,7 @@ The reader then continues down the version chain to find an older, visible versi
 % An update is visible only when \emph{both} its transaction ID and its timestamp satisfy the visibility rules.
 % Timestamps are optional; when not used, visibility is determined solely by transaction IDs and snapshots.
 
-For \project{}, read-heavy workloads (e.g.\ graph traversals and analytics queries) can operate at read-committed isolation, which carries lower overhead because snapshots are shorter-lived and fewer old versions need to be retained.
+For \project{}, read-heavy workloads (e.g.,\ graph traversals and analytics queries) can operate at read-committed isolation, which carries lower overhead, because snapshots are shorter-lived and fewer old versions need to be retained.
 Any thread that performs mutations must use snapshot isolation.
 Since each thread has its own session, the isolation level can be chosen independently per thread.
 
@@ -167,7 +167,7 @@ Since each thread has its own session, the isolation level can be chosen indepen
 The \wt{} cache is an in-memory region that holds copies of recently
 accessed or modified B-tree pages.
 Its size is controlled by the \texttt{cache\_size} configuration parameter (default 100\,MB; the MongoDB recommendation is to set it to half of available RAM).
-The cache is allocated from the process heap and wt{} does not use memory-mapped files or a custom memory allocator.
+The cache is allocated from the process heap, and \wt{} does not use memory-mapped files or a custom memory allocator.
 
 The cache stores only B-tree data: the on-disk page images (decrypted and
 decompressed) together with their associated in-memory indexing structures
@@ -197,7 +197,7 @@ The cache separately tracks total bytes in memory, bytes of dirty (modified) dat
 The back-pressure mechanism (application threads assisting with eviction) is important for performance analysis: under sustained write pressure, application threads may experience latency spikes while they help evict pages to bring the cache back within its target.
 
 \textbf{Eviction} follows an approximate LRU strategy. 
-The eviction server periodically walks the in-memory B-trees, scoring pages by their \emph{read generation}---a counter incremented each time a page is accessed.
+The eviction server periodically walks the in-memory B-trees, scoring pages by their \emph{read generation} (a counter incremented each time a page is accessed).
 It collects candidates, sorts them by read generation, and selects the oldest third as eviction candidates.
 These candidates are placed into eviction queues (two ordinary queues plus an urgent queue for pages that require forced eviction).
 Eviction worker threads dequeue and process pages concurrently.
@@ -207,7 +207,7 @@ frees the page's memory.
 Evicting a \emph{dirty} page first requires \emph{reconciliation}, i.e., converting the page from its in-memory format to the on-disk format, and writing it to storage (see Section~\ref{sec:wt-reconcile}).
 
 %% -------------------------------------------------------------------
-\subsection{In-Memory Page Structure: Skip Lists and Update Chains}
+\subsection{In-Memory Page Structures: Skip Lists and Update Chains}
 \label{sec:wt-skiplist}
 
 The in-memory representation of B-tree leaf pages is optimised for fast, concurrent access and differs substantially from the compact on-disk format.
@@ -292,9 +292,9 @@ replay cost until new modify updates accumulate.
 \label{sec:wt-reconcile}
 
 \emph{Reconciliation} is \wt{}'s process for converting an in-memory page back into the compact on-disk format.
-It is invoked in two contexts: when a dirty page is selected for \emph{eviction} (to free cache space), and during a \emph{checkpoint} (to write a consistent database snapshot to stable storage).
+It is invoked in two contexts: when a dirty page is selected for \emph{eviction} (to free cache space) and during a \emph{checkpoint} (to write a consistent database snapshot to stable storage).
 
-The in-memory and on-disk representations serve very different goals.
+The in-memory and on-disk representations serve different purposes.
 The in-memory format uses indexing arrays, skip lists, and update chains to support fast concurrent access.
 The on-disk format packs keys and values into a compact cell-based encoding to minimise storage space and I/O cost.
 
@@ -303,7 +303,7 @@ The reconciliation process proceeds as follows:
 \begin{enumerate}
   \item \textbf{Visibility resolution.}  For each key on the page, \wt{}
     walks the update chain and selects the \emph{latest committed value} that
-    is globally visible---i.e.\ committed and older than any running
+    is globally visible, i.e.\ committed and older than any running
     transaction or the oldest active timestamp.
 
   \item \textbf{History store offloading.}  Older committed values that are
@@ -328,9 +328,9 @@ The reconciliation process proceeds as follows:
 \end{enumerate}
 
 After successful reconciliation and write-out, the in-memory structures (update chains, skip lists) for the reconciled page can be freed.
-If the page contains uncommitted updates---for example from an in-progress transaction---those updates are \emph{restored} after reconciliation so they remain available for the owning transaction to commit or roll back.
+If the page contains uncommitted updates, e.g., from an in-progress transaction, those updates are \emph{restored} after reconciliation so they remain available for the owning transaction to commit or roll back.
 
-Reconciliation is performance-critical because it lies on both the eviction and checkpoint code paths.
+Reconciliation is performance-critical, because it lies on both the eviction and checkpoint code paths.
 A page with a long update chain or many skip-list inserts requires proportionally more work to reconcile.
 Pages that cannot be fully reconciled (due to pinned uncommitted transactions) may resist eviction, increasing cache pressure and potentially triggering application-thread eviction.
 Understanding this interaction between update volume, reconciliation cost, and cache pressure is important for explaining the write-throughput characteristics of \project{}.

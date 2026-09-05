@@ -3,7 +3,7 @@
 
 Bulk loading is the process of inserting a large number of records into the database from an external source.
 Systems typically disable constraint checks, index updates, and logging during bulk loading to maximize throughput.
-Graph databases must support bulk loading because graphs can be large (the largest Graphalytics graphs have billions of edges) and transactional insertion at such scale is prohibitively slow.
+Graph databases must support bulk loading, because graphs can be large (the largest Graphalytics graphs have billions of edges) and transactional insertion at such scale is prohibitively slow.
 
 \subsection{Preprocessing Pipeline}
 \label{arch:bulk-preprocess}

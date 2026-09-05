@@ -41,7 +41,7 @@ This dual-silo approach incurs substantial \ac{ETL} overhead and consistency cha
 
 Graph analysis tasks typically access the whole graph, or a significant part of it.
 If we store the graph only in its relational form, relations (edges) are encoded as joins, and graph traversals turn into recursive self-joins~\cite{10.1145/3129246}.
-RDBMSs do not perform well for graph analytics tasks, because computing these recursive self-joins is expensive and their cost grows with path length~\cite{TransitiveClosureBiskupStiefeling1989}.
+RDBMSs do not perform well for graph analytics tasks, because computing these recursive self-joins is expensive, and their cost grows with path length~\cite{TransitiveClosureBiskupStiefeling1989}.
 
 Substantial effort has gone into enabling graph analytics within databases.
 One line of work stores graphs in relational tables and routes analytics to a separate in-memory engine: Facebook's TAO~\cite{bronson2013tao} serves the social graph from MySQL but delegates analytics to offline pipelines; Oracle loads property graphs into PGX, an in-memory graph server, for analysis~\cite{OraclePG,WhatIsOracleSpatialGraph:online,hong2015pgx,welc2013graph,hong2013early}.
@@ -99,14 +99,14 @@ Based on our study of the graph data management landscape, we make five observat
 \section{\project{}: Our Approach}
 \label{sec:intro:flexograph}
 
-This thesis presents the design of \project{}, a flexible and performant \ac{HGTAP} database system.
+This dissertation presents the design of \project{}, a flexible and performant \ac{HGTAP} database system.
 \project{} has been designed for a single-node setting and provides a fully transactional \ac{API} for updating and querying a graph.
 Rather than building a custom storage engine, \project{} is built on the \wt{}~\cite{WiredTigerDocumentation} key-value store, inheriting a mature transaction manager, write-ahead log, and buffer pool at no additional engineering cost.
 
 \project{} encodes two analytics-friendly structural layouts (adjacency lists and a CSR approximation) as sorted key ranges in \wt{}, producing sequential scan performance for analytics.
 It extends these layouts with a typed property storage layer supporting both embedded and columnar modes.
 \project{} eliminates the preprocessing step that other systems require before running analytics; its persistent layouts are ready for analysis at all times.
-Insertion throughput scales near-linearly to 72 threads, sustaining up to 1.48\,M edges/sec on the write-optimized layout (\autoref{fig:dynamic-scaling}), while property-mutation latencies are three to four orders of magnitude lower than Neo4j~\cite{neo4j} and JanusGraph~\cite{janusgraph}.
+Insertion throughput scales near-linearly to 72 threads, sustaining up to 1.48\,M edges/sec on the write-optimized layout (\autoref{fig:dynamic-scaling}), while property-mutation latencies are three to four orders of magnitude lower than those of Neo4j~\cite{neo4j} and JanusGraph~\cite{janusgraph}.
 
 A programmer uses \project{} through a library API that exposes read-only snapshot iterators over neighborhoods and properties to express analytics tasks.
 The API is flexible enough to let users write algorithms as vertex or edge programs.
@@ -138,22 +138,22 @@ Our contributions are as follows.
 
 The remainder of this dissertation is organized as follows.
 \autoref{sec:bg} introduces core concepts that are necessary to understand the landscape of graph data management systems. 
-We look at two graph data models that conceptualize the graph data, and the data structures can be used to represent graphs in memory and on disk.
+We examine two graph data models that conceptualize the graph data and the data structures can be used to represent graphs in memory and on disk.
 The chapter takes a look at some strategies that can be used for handling data that is larger than installed memory. 
 The chapter concludes with a brief introduction to the \wt{} storage engine and all the internal concepts that inspire the \project{} architecture and are critical to understanding performance.
 
 \autoref{chap:design_space} surveys the graph data management landscape, classifies existing systems along axes of graph model, mutability, and transaction support, and identifies the design point that \project{} occupies.
-Since \project{} can \emph{flexibly} operate under conditions that vary along these axes, it is important to look at some exemplar systems along several points in the space.
-We particularly focus on the systems that we use to benchmark \project{}'s performance against.
+Since \project{} can \emph{flexibly} operate under conditions that vary along these axes, it is important to examine some exemplar systems along several points in the space.
+We particularly focus on the systems to which we compare \project{}'s performance.
 
 \autoref{sec:architecture:structural} and \autoref{sec:architecture:property} present \project{}'s design in two parts.
 The first describes how two complementary structural layouts are encoded in \wt{}'s B-tree, along with the cursor abstraction and partitioning strategies that enable parallel analytics.
 The second introduces the label encoding scheme and two property storage modes, embedded and columnar, that decouple property storage from structural storage.
 
 We evaluate \project{} across three workload classes that span four operating regimes. 
-\autoref{sec:eval:static} compares \emph{static structural graph} analytics performance against in-memory and out-of-core systems.
-\autoref{sec:eval:dynamic:chapter} measures insertion scalability and post-ingestion analytics on \emph{dynamic structural graphs} against other in-memory systems.
-\autoref{sec:eval:property:chapter} evaluates \emph{property graph} workloads using the LDBC Social Network Benchmark against Neo4j, ArangoDB, and JanusGraph.
+\autoref{sec:eval:static} compares \emph{static structural graph} analytics performance to both in-memory and out-of-core systems.
+\autoref{sec:eval:dynamic:chapter} measures insertion scalability and post-ingestion analytics on \emph{dynamic structural graphs} comparing to other in-memory systems.
+\autoref{sec:eval:property:chapter} evaluates \emph{property graph} workloads using the LDBC Social Network Benchmark to compare to Neo4j, ArangoDB, and JanusGraph.
 
 In \autoref{sec:future-work}, we explore three promising reseach projects that naturally follow the work presented in this dissertation: learned indexes on the property graph based on access pattern, integrating a high-level query language and identifying what query planning and optimization look like absent a cost model and traditional catalog, and supporting graph machine workloads in \project{}.
 Finally, we conclude the dissertation in \autoref{sec:conclusion}, with a recap and synthesis of our contributions to the field of graph data management.

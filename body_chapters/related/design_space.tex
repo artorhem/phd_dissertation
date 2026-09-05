@@ -35,11 +35,11 @@ Switching between property queries and structural analytics therefore requires n
 \section{Static Graph Processing Systems}
 \label{design:static_structural}
 
-Static structural graphs have been the main focus of graph processing systems research for over a decade (~\cite{malewicz2010pregel,gonzalez2014graphx, zhu2016gemini, xing2015petuum, low2012distributed,gonzalez2012powergraph, powerlyra2019,shun2013ligra, nguyen2013lightweight, zhu2016gemini, graphmat, lakhotia2020gpop, beamer2015gap, kim2022blaze, ai2018clip,zheng2015flashgraph}).
+Static structural graphs have been the main focus of graph processing systems research for over a decade \cite{malewicz2010pregel,gonzalez2014graphx, zhu2016gemini, xing2015petuum, low2012distributed,gonzalez2012powergraph, powerlyra2019,shun2013ligra, nguyen2013lightweight, zhu2016gemini, graphmat, lakhotia2020gpop, beamer2015gap, kim2022blaze, ai2018clip,zheng2015flashgraph}.
 These graphs are primarily used for analytics and graph mining tasks focusing on uncovering statistical properties and discovering patterns.
 The static nature of these graphs implies that there is no consistency requirement between different snapshots that these systems are designed to process.
 Each snapshot is produced through a batch \ac{ETL} process and is (often) processed independently of other snapshots.
-On the other hand, in a graph database, the graph is materialized from the property graph, and that is the "extract" step when creating structural graphs.
+On the other hand, in a graph database, the graph is materialized from the property graph, and that is the ``extract'' step when creating structural graphs.
 
 Once the static GPS has a snapshot to process, it must first \emph{preprocess} the graph to construct the data structures needed to execute the graph algorithms.
 The preprocessing step is often the most time-consuming in the graph processing pipeline.
@@ -48,7 +48,7 @@ This requires a pass over the graph and can take significantly longer to finish 
 
 If the graph data structures obtained after the preprocessing are small enough, they can be stored and processed in memory.
 Graph processing systems designed for shared-memory, multi-core machines are usually optimized for in-memory processing.
-Several systems have been optimized for this design point, for example, Gemini~\cite{zhu2016gemini}, GraphMat~\cite{graphmat}, Ligra~\cite{shun2013ligra}, Galois~\cite{pingali2011tao}, GPOP~\cite{lakhotia2020gpop}, and GraphLab~\cite{low2012distributed}.
+Several systems have been optimized for this design point: Gemini~\cite{zhu2016gemini}, GraphMat~\cite{graphmat}, Ligra~\cite{shun2013ligra}, Galois~\cite{pingali2011tao}, GPOP~\cite{lakhotia2020gpop}, and GraphLab~\cite{low2012distributed}.
 The GAP Benchmark Suite (GAPBS)~\cite{beamer2015gap} provides optimized reference implementations of common analytics kernels on a CSR representation; FlexoGraph adapts these kernels to use its API for a fair comparison.
 Ligra~\cite{shun2013ligra} introduces direction-optimizing traversal that switches between sparse and dense modes based on frontier size.
 Galois~\cite{nguyen2013lightweight} generalizes graph computation with priority-driven scheduling for irregular parallelism.
@@ -56,7 +56,7 @@ Gemini~\cite{zhu2016gemini} uses chunk-based partitioning with locality-aware ex
 
 If the graph structures are too large to fit in memory on a single machine, they are partitioned across multiple machines.
 Examples of distributed graph processing systems include GraphX~\cite{gonzalez2014graphx}, Pregel~\cite{malewicz2010pregel}, PowerGraph~\cite{gonzalez2012powergraph}, Distributed GraphLab~\cite{low2012distributed}, and PowerLyra~\cite{powerlyra2019}.
-For the purpose of our taxonomy, we collectively refer to shared-memory multi-core systems and distributed (in-memory) systems as \textbf{in-memory graph} processing systems.
+For the purpose of our taxonomy, we collectively refer to shared-memory, multi-core systems and distributed (in-memory) systems as \textbf{in-memory graph} processing systems.
 
 Over time, researchers noticed that the communication overheads in distributed graph processing systems were high, leading them to underperform when compared to single-threaded systems running on a commodity laptop~\cite{mcsherry2015scalability}.
 The need to build systems that can scale to large graphs that do not fit in RAM on a single machine, coupled with the underperformance of distributed graph processing systems, led to the development of out-of-core systems.
@@ -107,8 +107,8 @@ Teseo organizes edges in a fat-tree of dense pages that are periodically rebalan
 GraphOne~\cite{graphone2019kumar} uses an append-only edge log paired with an adjacency array, with blind-write semantics and no conflict detection.
 LiveGraph maintains a transactional edge log with mmap-backed adjacency-list snapshots and is the closest system to FlexoGraph in scope.
 Sortledton is an in-memory system that provides a fully transactional adjacency-list based graph data structure; GTX~\cite{libinzhou2025GTX} offers similar capabilities.
-Sortledton and GTX achieve higher raw throughput than Teseo on several benchmarks, but we compare primarily against Teseo because it is a more established baseline and, like \project{}, uses a tree-based index structure.
-We compare against these systems using the GFE driver~\cite{teseo2021deLeo} for fair, reproducible benchmarking.
+Sortledton and GTX achieve higher raw throughput than Teseo on several benchmarks, but we compare primarily to Teseo, because it is a more established baseline and, like \project{}, uses a tree-based index structure.
+We compare to these systems using the GFE driver~\cite{teseo2021deLeo} for fair, reproducible benchmarking.
 FlexoGraph shows that a persistent, B-tree-backed database can deliver competitive throughput without sacrificing ACID semantics or crash recovery.
 
 The consistency model used by these systems falls along a spectrum (the left-right axis in the right branch of~\autoref{fig:design_space} points in the direction of diminishing consistency guarantees).
@@ -152,7 +152,7 @@ This barrier-based isolation simplifies reasoning about correctness---every vert
 Examples of BSP systems include Pregel~\cite{malewicz2010pregel} and Giraph~\cite{giraph}.
 
 The \textbf{Asynchronous} model removes the global barrier: a vertex's updates become visible to its neighbors immediately, without waiting for all other vertices to finish the current iteration.
-Because vertices can read the most recent values written by any neighbor, asynchronous execution often converges faster than BSP for algorithms whose correctness does not depend on seeing a globally consistent snapshot (e.g., PageRank, label propagation).
+Because vertices can read the most recent values written by any neighbor, asynchronous execution often converges more quickly than does BSP for algorithms whose correctness does not depend on seeing a globally consistent snapshot (e.g., PageRank, label propagation).
 The trade-off is non-determinism---different execution orders can produce different intermediate states---so asynchronous systems require a consistency model that specifies which concurrent updates are visible to a given vertex.
 Examples of asynchronous systems include GRACE~\cite{wang2013asynchronous}, ASPIRE~\cite{vora2014aspire}, Giraph Unchained~\cite{han2015giraph}, CoRAL~\cite{vora2017coral}, and GraphChi~\cite{kyrola2012graphchi}.
 
@@ -250,9 +250,9 @@ Understanding this coupling is important for \project{}'s design, because it exp
 
 Vertex-centric systems such as Ligra, Galois, and GAPBS store the graph in packed adjacency lists or CSR arrays.
 In these layouts, a single read retrieves all neighbors of a vertex, so the cost of a full graph scan is proportional to the number of vertices, not edges.
-This is highly efficient for read-heavy analytics: an algorithm like PageRank iterates over each vertex, reads its neighbor list in one operation, and computes a local update.
+This is highly efficient for read-heavy analytics: algorithms such as PageRank iterate over each vertex, read its neighbor list in one operation, and compute a local update.
 However, this packing comes at a cost for mutations.
-Inserting or deleting a single edge requires a read-modify-write of the packed buffer---the system must read the entire neighbor list, modify it, and write it back---which is expensive for high-degree vertices and creates a serialization bottleneck under concurrent mutation.
+Inserting or deleting a single edge requires a read-modify-write of the packed buffer: the system must read the entire neighbor list, modify it, and write it back, which is expensive for high-degree vertices and creates a serialization bottleneck under concurrent mutation.
 
 Edge-centric systems such as X-Stream and Chaos~\cite{royChaos2015} take the opposite approach: they store edges as individual records that are streamed sequentially.
 Each edge is independently accessible, so edge insertions and deletions are simple appends or point deletes with no contention on shared buffers.
@@ -264,16 +264,16 @@ The EdgeKey representation stores each edge as an independent B-tree entry, mirr
 The representation choice is driven by the mutation characteristics of the workload: adjacency list for read-heavy analytics where mutation is infrequent, and EdgeKey for workloads that require concurrent edge insertion and deletion.
 
 Once the representation is chosen, the efficient computation model follows.
-Vertex-centric processing is the natural fit for the adjacency list representation because it consumes the packed neighbor blob directly---one cursor call per vertex retrieves the entire neighborhood.
-Edge-centric processing is the natural fit for the EdgeKey representation because it streams edges directly from the B-tree cursor without the overhead of reconstructing adjacency lists that vertex-centric processing on EdgeKey would require.
+Vertex-centric processing is the natural fit for the adjacency list representation, because it consumes the packed neighbor blob directly as one cursor call per vertex retrieves the entire neighborhood.
+Edge-centric processing is the natural fit for the EdgeKey representation, because it streams edges directly from the B-tree cursor without the overhead of reconstructing adjacency lists that vertex-centric processing on EdgeKey would require.
 
 This pairing has practical consequences.
-On directed graphs, edge-centric processing introduces challenges that do not arise in vertex-centric processing: atomic contention on high-degree destination vertices when multiple threads write to the same hub, redundant computation in frontier-based algorithms like BFS where previously discovered vertices continue to generate (failing) update attempts, and poor destination write locality since edges sorted by source scatter writes across the destination array.
+On directed graphs, edge-centric processing introduces challenges that do not arise in vertex-centric processing: atomic contention on high-degree destination vertices when multiple threads write to the same hub, redundant computation in frontier-based algorithms such as BFS, where previously discovered vertices continue to generate (failing) update attempts, and poor destination write locality, since edges sorted by source scatter writes across the destination array.
 We describe how \project{} addresses these challenges and evaluate the read-path cost of the mutation-friendly EdgeKey representation in~\autoref{sec:eval:ec_vc}.
 
 \section{Graph Analytics on Relational Systems}
 \label{design:relational_analytics}
-Several systems attempt to bring graph analytics to relational databases rather than building a dedicated graph engine.
+Several systems incorporate graph analytics into relational databases rather than building a dedicated graph engine.
 TAO~\cite{bronson2013tao}, Oracle PGX~\cite{hong2015pgx,OraclePG,WhatIsOracleSpatialGraph:online}, DuckPGQ~\cite{duckpgq:online}, and GART~\cite{shen2023bridging} all route analytics through a separate in-memory engine or transient representation.
 Welc et al.~\cite{welc2013graph,graphProcessingRDBMS} showed that SQL-based shortest paths can be competitive with Neo4j on social graphs but degrade for iterative workloads.
 Hong et al.~\cite{hong2013early} demonstrated that Green-Marl programs can compile to distributed Giraph jobs, but this does not eliminate data movement into an in-memory representation.
@@ -290,7 +290,7 @@ FlexoGraph occupies the same cell in the taxonomy but adds analytics-friendly pe
 
 \section{Distillation of the Design Space}
 \label{design:distillation}
-In this section, we provide a unified view of the design space that we discussed in the previous sections.
+We conclude this section with a unified view of the design space discussed in the previous sections.
 So far we have identified that the design space of graph data management systems can be split based on the following classification features:
 \begin{enumerate}
   \item Whether the system manages property graphs or structural graphs.
@@ -298,7 +298,7 @@ So far we have identified that the design space of graph data management systems
   \item Whether the system supports transactions for updating the graph
 \end{enumerate}
 
-Based on these features, we can arrive at a grid that distills the design space of graph data management systems, as shown in~\autoref{fig:distilled_design_space}.
+Based on these features, we derive the grid, shown in~\autoref{fig:distilled_design_space}.
 The grid shows the different classes of graph data management systems based on these features.
 As can be seen in the grid, not all combinations of these features make sense to use together, for instance, a system that works only on static (read-only) graphs has no consistency requirement and therefore no need for transactions.
 As we saw in section~\autoref{design:dynamic_structural}, consistency becomes an issue only in the presence of updates.

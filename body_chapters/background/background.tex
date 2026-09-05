@@ -13,7 +13,7 @@ The vertices are the entities modeled by a graph, and an edge represents a relat
 The edges of a graph can be directed or undirected.
 In a directed graph, an edge $e = (u, v) \in E$ is an ordered pair, where $u$ is the ``source'' vertex and $v$ is the ``destination'' vertex.
 If $G$ is undirected, then an edge $e = (u, v) \in E$ is a \emph{set} of two vertices.
-A \emph{weighted graph} includes edge weights, and is modeled as a triple $G = (V, E, w)$, where $w: E \rightarrow \mathbb{R}$ maps edges to weights.
+A \emph{weighted graph} includes edge weights and is modeled as a triple $G = (V, E, w)$, where $w: E \rightarrow \mathbb{R}$ maps edges to weights.
 
 This formulation captures only the structure of the graph; we refer to it as a \emph{Structural Graph} for the remainder of this dissertation.
 Structural graphs are appropriate for graph-theoretic studies and analytics tasks that examine topology and connectivity, such as shortest paths, centrality measures, and community detection.
@@ -74,13 +74,13 @@ We briefly summarize their classification here to complete our description of th
 \subsection{Types of Graph Queries by Scope}
 \label{back:workloads:oltp}
 \begin{enumerate}
-    \item \textbf{Point Queries}: Point queries on a property graph involve inserting, deleting, or updating a single graph element (vertex or edge). Another typical example is to set or retrieve some associated property or to filter edges/nodes with a certain label. To run efficiently, point queries require an index on the property or label being queried.
+    \item \textbf{Point Queries}: Point queries on a property graph involve inserting, deleting, or updating a single graph element (vertex or edge). A typical example is to set or retrieve some associated property or to filter edges/nodes with a certain label. To run efficiently, point queries require an index on the property or label being queried.
 
     \item \textbf{Neighborhood Queries}: Neighborhood queries are used for finding the edges incident to or emanating from a vertex. A neighborhood query finds nodes that are reachable from (or are part of the neighborhood of) a given node. These queries are essential for social network analysis, where finding a user's friends or followers is a common task. A common way to optimize neighborhood queries is to have direct, sequential access to a node's neighborhood.
 
     \item \textbf{Traversals}: Graph traversals mean visiting graph elements starting from a "root" vertex and following its edges in some deterministic or random/sampling-based fashion.  Graph traversals can be thought of as a neighborhood query but with selection criteria based on the label or property of the nodes or edges. Unlike neighborhood queries, which are typically limited to a fixed depth, traversals can be unbounded. A typical traversal query on a social network could be to find friends-of-friends or friends-of-friends-of-friends who work at a particular organization. Traversal queries have some logical locality, but they might access the physical data in random order; this makes them challenging to optimize.
     
-    \item \textbf{Whole Graph Analytics}: Computations for global graph properties (such as vertex centralities, all pairs shortest paths, or clustering coefficients) that require accessing the entire graph are called whole-graph analytics. These workloads access most (often all) vertices and edges in a graph, though not necessarily all properties and labels associated with them (i.e.,\ the structural graph). These workloads benefit from having sequential access to all vertices in the graph and sequential access to all edges in each vertex's neighborhood.
+    \item \textbf{Whole Graph Analytics}: Computations for global graph properties (such as vertex centralities, all pairs shortest paths, or clustering coefficients) that require accessing the entire graph are called whole-graph analytics. These workloads access most (often all) vertices and edges in a graph, though not necessarily all properties and labels associated with them (i.e.,\ they operate on the structural graph). These workloads benefit from having sequential access to all vertices in the graph and sequential access to all edges in each vertex's neighborhood.
     
 \end{enumerate}
 
@@ -118,7 +118,7 @@ This foundational work sets the stage for efficient handling and analysis of pro
 We now describe the in-memory data structures that yield sequential access for common graph processing access patterns.
 We begin with the most common way to represent graphs and then follow up with other, more compact, layouts designed to enable sequential access to graph neighborhoods.
 
-For the remainder of this section, we will use the sample graph shown in \autoref{fig:back:sample_graph} to illustrate the different graph representations.
+For the remainder of this section, we use the sample graph shown in \autoref{fig:back:sample_graph} to illustrate the different graph representations.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \newcommand{\sampleMatrix}
@@ -254,7 +254,8 @@ Common variations of CSRs that are insertion-friendly include:
     There are some disadvantages to using a snapshot-based system for analytics. 
     A high ingestion rate leads to many delta snapshots since the updates get fragmented over multiple snapshots.
     An analytics job must read many snapshots, and this causes significant performance degradation.
-    It is common to merge and consolidate updates into the CSR; this process is called compaction~\cite{csr++2020Firmli,llama}. It is similar to garbage collection and leads to increased latency.
+    It is common to merge and consolidate updates into the CSR; this process is called compaction~\cite{csr++2020Firmli,llama}. It is similar to garbage collection and leads to increased 
+    latency.
 \end{enumerate}
 
 \subsection{Persistent Graph Representations}
