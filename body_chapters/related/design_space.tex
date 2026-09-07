@@ -28,9 +28,15 @@ This leads to the concept of \emph{dynamic structural graphs}, which are updated
 We describe dynamic structural graphs in more detail in~\autoref{design:dynamic_structural}.
 
 \project{} stores both the property graph and its derived structural representations in the same transactional \wt{} store.
-Structural graphs are not separate materialized snapshots that must be rebuilt or shipped to a different engine; they are persistent layouts maintained alongside the property data.
+\textbf{Structural graphs are not separate materialized snapshots that must be rebuilt or shipped to a different engine; they are persistent layouts maintained alongside the property data.}
 Switching between property queries and structural analytics therefore requires no data movement.
 
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=0.8\textwidth]{fig/background/final_taxonomy_struc.pdf}
+    \caption{Design Space of Graph Data Management Systems}
+    \label{fig:design_space}
+\end{figure}
 
 \section{Static Graph Processing Systems}
 \label{design:static_structural}
@@ -123,12 +129,6 @@ The static structural graph processing systems can be seen in the bottom left co
 \autoref{fig:design_space} shows the memory-based/out-of-core axis as a gradient, where the out-of-core systems are shown in yellow shades, while the in-memory systems are shades of red.
 This classification is based on the observation that most out-of-core systems can act like an in-memory system when the graph is small.
 
-\begin{figure}[h]
-    \centering
-    \includegraphics[width=0.8\textwidth]{fig/background/final_taxonomy_struc.pdf}
-    \caption{Design Space of Graph Data Management Systems}
-    \label{fig:design_space}
-\end{figure}
 
 \section{Programming and Computation Models}
 \label{design:programming_vs_computation}
@@ -192,6 +192,11 @@ The design space of static graph processing systems can be split based on these 
     \label{fig:static_ec_vc}
 \end{table}
 
+As \autoref{fig:static_ec_vc} shows, vertex-centric systems dominate: most graph processing frameworks adopt this model because it maps naturally to the adjacency-list and CSR representations that are standard in practice.
+Edge-centric and subgraph-centric models occupy smaller but distinct regions of the space, each motivated by a specific access-pattern optimization (sequential edge streaming and intra-partition locality, respectively).
+Some cells in the grid remain empty, reflecting combinations of programming and computation models that no existing system has explored.
+The dominance of vertex-centric systems is not accidental---it reflects a deep coupling between physical representation and programming model that we explore next.
+
 \subsubsection{Subgraph-Centric Models}
 \label{design:subgraph_centric}
 
@@ -234,12 +239,6 @@ Partition-Centric & Cache-sized vertex set  & Shared memory & Cache residency \\
 \caption{Comparison of subgraph-centric programming models.}
 \label{tab:subgraph_models}
 \end{table}
-
-
-As the table shows, vertex-centric systems dominate: most graph processing frameworks adopt this model because it maps naturally to the adjacency-list and CSR representations that are standard in practice.
-Edge-centric and subgraph-centric models occupy smaller but distinct regions of the space, each motivated by a specific access-pattern optimization (sequential edge streaming and intra-partition locality, respectively).
-Some cells in the grid remain empty, reflecting combinations of programming and computation models that no existing system has explored.
-The dominance of vertex-centric systems is not accidental---it reflects a deep coupling between physical representation and programming model that we explore next.
 
 \subsection{Representation and Computation Model Pairing}
 \label{design:rep_comp_pairing}
@@ -290,7 +289,7 @@ FlexoGraph occupies the same cell in the taxonomy but adds analytics-friendly pe
 \section{Distillation of the Design Space}
 \label{design:distillation}
 We conclude this section with a unified view of the design space discussed in the previous sections.
-So far we have identified that the design space of graph data management systems can be split based on the following classification features:
+We decomposed the design space in into the following 3 features:
 \begin{enumerate}
   \item Whether the system manages property graphs or structural graphs.
   \item Whether the system handles updates to the graph (dynamic) or not (static)
@@ -310,6 +309,6 @@ Therefore, the three axes flatten into the grid shown in~\autoref{fig:distilled_
     \label{fig:distilled_design_space}
 \end{figure*}
 The main takeaway from this grid is that graph databases are the most general class of graph data management systems: they manage property graphs (of which structural graphs are a subset), support dynamic mutations, and provide transactional guarantees.
-All the other categories are specialized to handle a subset of these features.
+All the other categories are specialized All the other categories are specialized to handle a subset of these features.
 Each of those systems works well for the use cases for which it was designed, but none is as general as a graph database.
-FlexoGraph is designed to be a general-purpose graph data management system that can flexibly support all the specialized use cases depicted in this grid \emph{without having to move the data} or sacrificing performance.
+FlexoGraph is designed to be a general-purpose graph data management system that can flexibly support all the specialized use cases depicted in this grid \emph{without having to move the data or sacrificing performance}.
