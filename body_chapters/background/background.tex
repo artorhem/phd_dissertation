@@ -113,8 +113,8 @@ Static graph processing systems are specialized to handle whole-graph OLAP workl
 \section{Graph Representations}
 \label{sec:bg:reps}
 %Since the ultimate goal of~\project{} is to provide robust data management for property graphs, the initial focus has been on developing analytics-friendly storage solutions for structural graphs (see ~\autoref{sec:architecture}).
-Although the ultimate goal of~\project{} is to provide comprehensive data management for property graphs, the initial focus has been on developing analytics-friendly storage solutions for structural graphs (see ~\autoref{sec:architecture:structural}).
-This foundational work sets the stage for efficient handling and analysis of property graphs in subsequent phases (see \autoref{sec:architecture:property}).
+% Although the ultimate goal of~\project{} is to provide comprehensive data management for property graphs, the initial focus has been on developing analytics-friendly storage solutions for structural graphs (see ~\autoref{sec:architecture:structural}).
+% This foundational work sets the stage for efficient handling and analysis of property graphs in subsequent phases (see \autoref{sec:architecture:property}).
 We now describe the in-memory data structures that yield sequential access for common graph processing access patterns.
 We begin with the most common way to represent graphs and then follow up with other, more compact, layouts designed to enable sequential access to graph neighborhoods.
 
@@ -255,7 +255,7 @@ Common variations of CSRs that are insertion-friendly include:
     A high ingestion rate leads to many delta snapshots since the updates get fragmented over multiple snapshots.
     An analytics job must read many snapshots, and this causes significant performance degradation.
     It is common to merge and consolidate updates into the CSR; this process is called compaction~\cite{csr++2020Firmli,llama}. It is similar to garbage collection and leads to increased 
-    latency.
+    latency~\cite[Figure 1]{gao2026grace}.
 \end{enumerate}
 
 \subsection{Persistent Graph Representations}

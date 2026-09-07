@@ -9,7 +9,7 @@ We evaluate \project{}'s property graph capabilities in three experiments of inc
 First, we measure individual structural and property operations in isolation~(\autoref{sec:eval:microbenchmarks}).
 Second, we benchmark 14 composite queries that combine structural traversal with property access, derived from the LDBC Social Network Benchmark (SNB)~\cite{erling2015ldbc} at scale factor~3~(\autoref{sec:eval:property-ldbc}).
 The dataset contains ${\sim}800$\,K vertices and ${\sim}3.5$\,M edges across 4~entity types and 7~relation types (schema in \autoref{fig:ldbc-snb-schema}).
-Third, we run iterative algorithms on the full cit-Patents graph and compare \project{} against graph database baselines~(\autoref{sec:eval:property-graphalytics}).
+Third, we run iterative algorithms on the full cit-Patents graph and compare \project{} to graph database baselines~(\autoref{sec:eval:property-graphalytics}).
 
 \input{body_chapters/eval_property/eval_microbenchmarks.tex}
 
@@ -109,7 +109,7 @@ values; we report the median (p50) latency.
 
 \textbf{Point queries and aggregates.}
 Point queries (R1, X1) fetch all properties of a single vertex.
-R1 returns a Person's 7~scalar properties plus multi-valued email and language
+R1 returns a Person's seven~scalar properties plus multi-valued email and language
 lists; X1 returns a Post's creation date, length, and content.
 Aggregates (A2, A3, X5) scan a vertex's edge list and count edges
 whose \texttt{creationDate} falls within a supplied date range.
@@ -169,10 +169,10 @@ W3 inserts a Post vertex with a \textsc{hasCreator} edge to its author (LDBC
 Insert~6).
 X4 inserts a \textsc{likes} edge from a Person to a Post (LDBC Insert~5).
 %
-ArangoDB and Neo4j dominate W1--W3 ($21$--$68$\,$\mu$s) because their write paths are optimized for single-document upserts through mature, heavily tuned storage engines.
+ArangoDB and Neo4j dominate W1--W3 ($21$--$68$\,$\mu$s), because their write paths are optimized for single-document upserts through mature, heavily tuned storage engines.
 \project{} takes $110$--$170$\,$\mu$s in embedded mode; each write opens a WiredTiger transaction, performs a B-tree cursor insert, and commits, overhead that is amortized in bulk ingest but visible at single-operation granularity.
 X4 (single edge insert with no vertex creation) favors \project{} at $11$\,$\mu$s, where the cost reduces to a single cursor insert.
-NeuG is $1{,}000\times$ slower on all writes ($190$\,ms) because each mutation parses and plans a full Cypher \texttt{CREATE} statement.
+NeuG is $1{,}000\times$ slower on all writes ($190$\,ms), because each mutation parses and plans a full Cypher \texttt{CREATE} statement.
 
 \section{Embedded vs.\ Columnar Trade-off}
 \label{sec:eval:emb-vs-col}

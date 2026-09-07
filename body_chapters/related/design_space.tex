@@ -41,9 +41,8 @@ The static nature of these graphs implies that there is no consistency requireme
 Each snapshot is produced through a batch \ac{ETL} process and is (often) processed independently of other snapshots.
 On the other hand, in a graph database, the graph is materialized from the property graph, and that is the ``extract'' step when creating structural graphs.
 
-Once the static GPS has a snapshot to process, it must first \emph{preprocess} the graph to construct the data structures needed to execute the graph algorithms.
-The preprocessing step is often the most time-consuming in the graph processing pipeline.
-The preprocessing step involves reading a graph in a data exchange format (often a CSV file) and using that to construct and populate a suitable data structure to hold the graph.
+Once the static \ac{GPS} has a snapshot to process, it must first \emph{preprocess} the graph to construct the data structures needed to execute the graph algorithms.
+The preprocessing step involves reading a graph in a data exchange format (often a CSV file) and using that to construct and populate a suitable data structure to hold the graph that also facilitates processing.
 This requires a pass over the graph and can take significantly longer to finish than the analytics task itself (for example, GraphChi takes longer to preprocess the graph than it takes to run Triangle Counting or PageRank).
 
 If the graph data structures obtained after the preprocessing are small enough, they can be stored and processed in memory.
@@ -74,7 +73,7 @@ ChunkGraph works transparently with existing in-memory vertex-centric systems su
 Other out-of-core systems include CLIP~\cite{ai2018clip}, V-part~\cite{elyasi2019large}, Wonderland~\cite{zhang2018wonderland}, and Mosaic~\cite{maass2017mosaic}; we discuss CLIP's programming model in~\autoref{design:subgraph_centric}.
 
 All static systems, whether in-memory or out-of-core, require an offline preprocessing step to build their layout and are batch-only, supporting no mutations during processing.
-FlexoGraph operates directly on its persistent representation, eliminating the preprocessing step entirely; we include preprocessing time in all comparisons to capture this advantage.
+FlexoGraph operates directly on its persistent representation, eliminating the preprocessing step entirely; we include preprocessing time in all comparisons to illustrate this advantage.
 FlexoGraph relies on WiredTiger's buffer pool to spill to secondary storage, achieving competitive out-of-core performance without a dedicated I/O framework.
 \PM{Needs review}These two classes of graph processing systems constitute the \textit{third classification feature} of our design space of graph data management systems.
 
@@ -116,7 +115,7 @@ To construct a taxonomy, we use a simple binary feature to characterize this con
 Graph Databases and a few systems (LiveGraph, Teseo, and Sortledton) support transactions which allow for fine-grained guarantees for individual updates to the graph; the remaining systems provide some form of batch-dynamism: isolation is coarse grained and therefore weaker.
 
 \project{} addresses the consistency spectrum differently from all four categories.
-It provides full ACID transactions via \wt{}'s MVCC for point queries and mutations, while analytics run against a pinned named checkpoint---a reconciled, consistent snapshot of the B-tree.
+It provides full ACID transactions via \wt{}'s MVCC for point queries and mutations, while analytics run against a named checkpoint, i.e. a reconciled, consistent snapshot of the B-tree.
 Running analytics at a checkpoint rather than on the live table avoids the cost of reading through un-reconciled writes in the cache under write-heavy workloads.
 This design gives \project{} transactional isolation without the blind-write semantics of GraphOne, the batch-only granularity of GraphBolt, or the lack of consistency guarantees of STINGER, while avoiding the performance penalty of snapshot-isolated reads on a heavily mutated live table.
 

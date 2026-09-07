@@ -30,7 +30,7 @@ Whether an LLM-assisted approach can produce plans competitive with a convention
 \section{Learned Indexes and Adaptive Layout Selection}
 \label{sec:future:learned}
 
-A central claim of this thesis is that data layout is the primary performance determinant for graph analytics (\autoref{chap:design_space}).
+A central claim of this dissertation is that data layout is the primary performance determinant for graph analytics (\autoref{chap:design_space}).
 The evaluation chapters confirm this: AdjList outperforms EdgeKey on read-heavy analytics (\autoref{sec:eval:inmem}), while EdgeKey provides faster transactional mutation (\autoref{sec:eval:dynamic}); columnar property mode outperforms embedded mode on selective column access (\autoref{sec:architecture:property}).
 However, the user must currently select the structural representation and property mode at graph creation time, and this choice is fixed for the lifetime of the graph.
 

@@ -115,7 +115,7 @@ This avoids the overhead of reader--writer locks on the critical path of page ac
 \subsection{Transactions and Snapshot Isolation}
 \label{sec:wt-txn}
 
-\wt{} provides full transactional support with ACID guarantees.
+\wt{} provides full transactional support with \ac{ACID} guarantees.
 Transactions are managed at the session level: a session holds at most one
 active transaction, and all cursor operations within that session execute in
 the context of that transaction.
@@ -188,7 +188,7 @@ The cache separately tracks total bytes in memory, bytes of dirty (modified) dat
     application threads are additionally conscripted to perform eviction before
     they may continue their own work.
   \item \texttt{eviction\_dirty\_target} / \texttt{eviction\_dirty\_trigger}:
-    analogous thresholds applied specifically to the volume of dirty data.
+    thresholds applied specifically to the volume of dirty data.
   \item \texttt{eviction\_updates\_target} /
     \texttt{eviction\_updates\_trigger}: thresholds based on the volume of
     in-memory update structures.

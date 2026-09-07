@@ -64,8 +64,8 @@ Based on these results, we fix GraphOne and LiveGraph at 40~threads and Teseo an
 Having identified optimal thread counts, we next examine ingest and sustained update performance.
 \autoref{fig:throughput-all} reports insertion-only throughput across six datasets (51\,M to 1.05\,B edges).
 GraphOne and Teseo dominate, sustaining 5.6--6.6 and 4.3--5.5\,M~edges/s respectively, 3 to 5$\times$ faster than \project{} EdgeKey (1.2--1.8\,M~edges/s).
-This gap reflects the ``persistence machinery tax'' in \project{} even when no logging, checkpointing, or evictions occur.
-GraphOne does blind-writes and does not do any existence checks during inserts; both GraphOne and LiveGraph use append-only paths.
+This gap reflects the ``persistence machinery tax'' in \project{}, even when no logging, checkpointing, or evictions occur.
+GraphOne issues blind-writes and does not perform any existence checks during inserts; both GraphOne and LiveGraph use append-only paths.
 \project{} EdgeKey is $3\times$ faster than LiveGraph (0.48\,M~edges/s).
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \begin{figure*}[h!]
@@ -78,7 +78,7 @@ GraphOne does blind-writes and does not do any existence checks during inserts; 
 
 Under a sustained mixed workload (2.6\,B operations, ${\sim}$55\% insertions and ${\sim}$45\% deletions on graph500-24), the picture changes (\autoref{fig:throughput-update}).
 Teseo sustains 7.0\,M~ops/s, which is $\approx$30\% higher than its insertion-only rate, and can be attributed to updates creating space for new insertions in an update-in-place data structure such as the Teseo tree.
-More specifically, as De Leo et al. noted in their paper, updates trigger fewer rebalances and leaf splits\cite{teseo2021deLeo}.
+More specifically, as De Leo et al. noted in their paper, updates trigger fewer rebalances and leaf splits \cite{teseo2021deLeo}.
 \begin{figure*}[ht]
   \centering
   \includegraphics[width=\textwidth]{fig/dynamic/update_timeseries_combined.pdf}
@@ -100,7 +100,7 @@ Teseo sustains 6.0\,M~ops/s, roughly 14\% below its graph500-24 rate, likely bec
 LiveGraph is essentially insensitive to degree distribution, sustaining 0.41\,M~ops/s (vs.\ 0.42 on graph500-24).
 \project{} EdgeKey drops modestly to 0.95\,M~ops/s (from 1.07 on graph500-24); because each edge is an independent B-tree row, degree skew has little effect on contention.
 The largest shift is in Adjacency List: with 72 writer threads it reaches 0.58\,M~ops/s on uniform-24, outperforming its own 48-thread arm (0.46\,M~ops/s) and reversing the thread-count ordering seen on graph500-24, where 48 threads (0.28\,M~ops/s) beats 72 (0.18\,M~ops/s).
-Absent high-degree vertices, concurrent appends spread evenly across adjacency records rather than concentrating on a few hot lists, eliminating the contention that penalised the wider thread pool on the power-law graph.
+Absent high-degree vertices, concurrent appends spread evenly across adjacency records rather than concentrating on a few hot lists, eliminate the contention that penalised the larger thread pool on the power-law graph.
 
 \project{}'s two layouts present a clear tradeoff.
 EdgeKey stores one B-tree row per edge; inserts are independent, carry no read-modify-write overhead, and incur essentially zero transaction aborts, scaling monotonically to 72~threads.
@@ -109,7 +109,7 @@ Under power-law degree distributions, concurrent writers issue conflicting modif
 On the other hand, Adjacency List performs better with 72 writer threads on the uniform-24 dataset due to reduced conflicts absent any high-degree vertices.
 
 \section{Post-Ingestion Analytics}
-We next examine how well each system performs after ingest on graph analytic workloads.
+We next examine each system's analytics performance after ingest.
 After completing insertion, we run BFS, PageRank~(PR), and weakly connected components~(WCC) in parallel across all physical cores; no updates run during the analytics phase.
 The results are in \autoref{tab:analytics-main}.
 
@@ -145,7 +145,7 @@ The results are in \autoref{tab:analytics-main}.
     \bottomrule
     \end{tabular}
     \vfill
-    \captionof{table}{Cross-system Graphalytics kernel time (s), median over warm runs. FG = FlexoGraph, PR = PageRank.}
+    \captionof{table}{Cross-system Graphalytics kernel time (s), median over warm runs. The best time for each graph/algorithm appears in bold. FG = FlexoGraph, PR = PageRank.}
     \label{tab:analytics-main}
   \end{minipage}
 \end{figure*}
@@ -167,10 +167,10 @@ The competing systems incur no comparable cost, because they require no reconcil
 The cold open is therefore the price FlexoGraph pays \emph{once} to convert a write-optimized store into a consistent read snapshot that subsequently serves analytics at in-memory speed.
 
 \project{} Adjacency List is the only system that delivers fast, stable performance across all three kernels and both graph families.
-Teseo runs BFS fastest (0.61\,s on graph500-26) but its PageRank and WCC degrade sharply at scale---27\,s and 12\,s respectively---while \project{}'s PageRank stays at 5.7\,s, $4.7\times$ faster.
+Teseo produces the BFS runtime: 0.61\,s on graph500-26, but its PageRank and WCC degrade sharply at scale---27\,s and 12\,s respectively---while \project{}'s PageRank stays at 5.7\,s, $4.7\times$ faster.
 LiveGraph is competitive on uniform WCC (0.95\,s) but scales poorly on power-law inputs.
 GraphOne presents the starkest read-write contrast: despite being the fastest inserter, its WCC collapses at graph500-26 and is over $30\times$ slower than every other system, while its BFS and PageRank remain comparable to LiveGraph and Teseo.
-The ingest-optimized EdgeKey layout, is orders of magnitude slower on analytics (640\,s for BFS on g500-24 versus 0.37\,s for AdjList), confirms that layout choice is the dominant factor in analytical performance.
+The ingest-optimized EdgeKey layout, is orders of magnitude slower on analytics (640\,s for BFS on g500-24 versus 0.37\,s for AdjList), illustrating how important layout choice is for analytical performance.
 
 \textbf{Takeaway.}
 Not having a separate high-speed ingest path costs \project{} 3--5$\times$ on raw insertion relative to purpose-built in-memory systems, an expected and acceptable penalty.

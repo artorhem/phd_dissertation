@@ -267,7 +267,7 @@ The two storage modes require different \wt{} operations to read properties: col
 
 Two abstract base classes define the property cursor \ac{API}: \code{NodePropCursor} for vertex properties and \code{EdgePropCursor} for edge properties.
 
-\code{NodePropCursor} supports two positioning modes: \code{set\_range(start, end)} for sequential scans across a vertex ID range, and \code{seek(id)} for point lookups on a single vertex.
+\code{NodePropCursor} supports two positioning modes: \code{set\_range(start, end)} for sequential scans across a vertex ID range and \code{seek(id)} for point lookups on a single vertex.
 After positioning, \code{next()} advances to the next vertex, and typed accessors (\code{get\_uint64(n)}, \code{get\_int32(n)}, \code{get\_string(n)}) extract individual columns by index.
 
 \code{EdgePropCursor} supports \code{set\_src(src)} to pin a source vertex and iterate over its outgoing edges' properties, and \code{set\_src\_range(start, end)} for bulk scans.

@@ -72,7 +72,7 @@ comparison systems shared across all four evaluations.
 experiments.
 Machine~A runs the structural graph experiments (static analytics and dynamic
 graph operations), where parallelism across many cores and large memory
-capacity test scalability.
+capacity enable scalability testing.
 Machine~B runs the property graph experiments (microbenchmarks, LDBC SNB
 queries, and graph algorithm comparisons against graph databases), where
 single-threaded query latency matters more than core count.
@@ -175,7 +175,7 @@ identifies the benchmark framework for each context.
 The in-memory (\autoref{sec:eval:inmem}) and out-of-core
 (\autoref{sec:eval:ooc}) experiments use LDBC Graphalytics benchmark
 kernels~\cite{LDBCGrapalytics22:online} (BFS, PageRank, connected components,
-triangle counting, and SSSP), each implemented against the system's native
+triangle counting, and SSSP), each implemented using the system's native
 API\@.
 GAPBS provides reference implementations on native CSR; Galois, Ligra, and
 Gemini each provide their own implementations.
@@ -197,7 +197,7 @@ Gremlin traversals into its native storage operations.
 \project{} bypasses this layer and runs benchmarks through its native C++ API;
 we quantify the overhead of the Gremlin layer
 in~\autoref{sec:eval:property-ldbc}.
-The LDBC SNB queries are additionally compared against
+The LDBC SNB queries are additionally compared to
 NeuG~\cite{NeuG2025Alibaba}, an embedded mmap-based CSR system that accepts
 Cypher queries.
 

@@ -9,7 +9,7 @@ never approaches the eviction thresholds. This section examines what that
 configuration does to the storage engine, because the answer qualifies
 every ingest and update number we report: \project{} \emph{defers} the cost of
 persistence. The graph is written to disk eventually;
-the configuration only controls when, and how violently.
+the configuration only controls when and how violently.
 
 \subsection{The knobs in play}
 \label{sec:eval:dynamic:dirty:knobs}
@@ -47,7 +47,7 @@ compare.
   \emph{updates} pair is not configured by either setting: when left unset
   WiredTiger derives them as half of the corresponding dirty threshold. They are
   nevertheless the thresholds that bind in this workload. All comparisons are
-  made against the byte count inflated by \texttt{cache\_overhead}, 8\% by
+  made relative to the byte count inflated by \texttt{cache\_overhead}, 8\% by
   default.}
   \label{tab:wt-eviction-knobs}
 \end{table}
@@ -73,7 +73,7 @@ cases the explicitly configured \texttt{dirty} thresholds are never reached, and
 the derived \texttt{updates} thresholds are the ones that govern behaviour.
 
 \textbf{\project{} accumulates update chains, not modified page images.} A page
-can be dirty because its image has been modified in place, or because it carries
+can be dirty because its image has been modified in place or because it carries
 a chain of updates that has never been folded into an image; only the second
 describes \project{}.
 Under the SplitEdgeKey layout, an edge insertion or deletion appends to a page's update chain.
@@ -88,16 +88,16 @@ This is why the derived \texttt{updates} thresholds are the ones that bind: they
 \label{sec:eval:dynamic:dirty:setup}
 
 We replay the full graph500-24 update log (2.6\,B operations, ${\sim}$55\%
-insertions and ${\sim}$45\% deletions) against \project{} SplitEdgeKey with 72
+insertions and ${\sim}$45\% deletions) using \project{} SplitEdgeKey with 72
 writer threads, the configuration used in \autoref{fig:throughput-update}. We
 disable the write-ahead log and switch off the checkpoint server
 \mbox{(\texttt{wait=0})}, so no checkpoint runs until the driver forces
 one at the end of the run. WiredTiger's statistics log is enabled at a 5\,s
 interval, which is the only difference from the runs reported earlier. We leave eviction at WiredTiger's default thread pool (minimum 1, maximum 8).
 
-We compare two arms that differ \emph{only} in the four configured eviction
-thresholds of \autoref{tab:wt-eviction-knobs}: our own setting, and WiredTiger's
-defaults. Because no checkpoint is running, this isolates the effect of the
+We compare two configurations that differ \emph{only} in the four configured eviction
+thresholds of \autoref{tab:wt-eviction-knobs}: our own setting (blue) and WiredTiger's
+defaults (red). Because no checkpoint is running, this isolates the effect of the
 thresholds from any interaction with checkpointing; eviction is free to run
 whenever the engine asks for it.
 
@@ -134,7 +134,7 @@ whenever the engine asks for it.
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 \autoref{fig:dirty-accumulation} plots the resident dirty set over time. The two
-arms produce qualitatively different regimes.
+arms produce qualitatively different behavior.
 
 \textbf{Under \project{}'s setting the run has three phases.} For the first
 31~minutes the dirty set grows linearly to 322\,GiB and the block manager writes
@@ -143,9 +143,9 @@ crossed.
 The engine is, for this period, a pure in-memory store with a write-ahead structure that has never been written ahead.
 At minute~30.7 the update byte count (322\,GiB inflated by the 8\% cache overhead, or 348\,GiB effective) crosses the derived \texttt{updates\_target} of 340\,GiB, and the eight background eviction threads begin working.
 Eviction then peaks at 9{,}283~pages/s and 302\,MB/s, and in eleven minutes performs 92\% of all the disk writing the run will ever do.
-The dirty set nevertheless continues to grow during this burst, to a peak of 364.3\,GiB, because the writers are still outrunning eviction.
+The dirty set nevertheless continues to grow during this burst, to a peak of 364.3\,GiB, because the writers are still outpacing eviction.
 Only when the update stream completes does the forced checkpoint drain the remaining 326\,GiB back to zero.
-Throughout, application threads are never conscripted: the application-thread eviction wait is exactly zero and no page is evicted by a writer.
+Throughout, application threads are never conscripted: the application-thread eviction wait is exactly zero, and no page is evicted by a writer.
 
 \textbf{Under WiredTiger's defaults the run has one phase.} The dirty set climbs to 87\,GiB within ten minutes (crossing the 80\,GiB derived \texttt{updates\_trigger}) and is then held flat there for the remainder of the run.
 It is held flat by conscription: application threads perform 428.8~million page
@@ -156,7 +156,7 @@ The derived threshold alone is sufficient to spend the overwhelming majority of 
 
 The cost is visible in the disk traffic (\autoref{fig:write-volume}).
 Write bandwidth saturates at ${\sim}$1.6\,GB/s within ten minutes and stays there: the writers are throttled to whatever the device will sustain. 
-We stopped this arm after 201~minutes, at which point it had completed 61\% of the update log having written 18{,}657\,GiB (117$\times$ what \project{}'s setting wrote for the \emph{entire} workload, or ${\sim}$191$\times$ normalised per unit of work).
+We stopped this arm after 201~minutes, at which point it had completed only 61\% of the update log having written 18{,}657\,GiB (117$\times$ what \project{}'s setting wrote for the \emph{entire} workload, or ${\sim}$191$\times$ normalised per unit of work).
 
 \textbf{The default configuration also degrades without bound.} Measured in
 ten-minute windows, the cursor operation rate falls from 3{,}651\,K/s in the
@@ -204,10 +204,10 @@ We stopped the run because successive completion estimates kept receding (147, t
 The configuration we adopt to make \project{} comparable with in-memory systems
 postpones the cost of persistence and pays it in a single burst.
 For 31~minutes the engine performs no I/O at all, and the reported throughput of 1.010\,M~ops/s is, in that window, an in-memory number.
-That number is purchased by allowing 364\,GiB of unreconciled updates to accumulate (46\% of the configured cache), all of which must subsequently be reconciled and written.
+That number is obtained by allowing 364\,GiB of unreconciled updates to accumulate (46\% of the configured cache), all of which must subsequently be reconciled and written.
 WiredTiger's own defaults hold the dirty set to a quarter of that size, but spend 88\% of writer thread-time on cache eviction and write two orders of magnitude more data.
 They never reach a steady state.
-There is no setting of these thresholds that makes the work disappear: only a choice of when to pay and how violently.
+There is no setting of these thresholds that makes the work disappear: only a choice of when to pay and how dramatically it impacts performance.
 This is the substance of the ``persistence machinery tax'' referred to in
 \autoref{sec:eval:dynamic}: the in-memory baselines avoid the obligation to ever reconcile a page.
 That reconciliation obligation, more than the I/O it produces, is what \project{} cannot escape while remaining persistable by construction.

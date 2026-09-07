@@ -4,8 +4,8 @@
 \paragraph{Graphs Are Ubiquitous.}
 \label{sec:intro:ubiquitous}
 
-New data are being generated rapidly, and there is an ever-present and growing need to store and analyze them efficiently.
-Much of this data has some inherent schema or structure, and relational databases are a natural choice for efficient storage.
+New data are being generated rapidly. There is an ever-present and growing need to store and analyze them efficiently.
+Much of these data have some inherent schema or structure, and relational databases are a natural choice for efficient storage.
 \ac{RDBMS} have been the backbone of data management for six decades and have been repeatedly extended to service new and emerging use cases \cite{stonebraker2018c,boncz2005monetdb, HStore2008Abadi, stonebraker2013voltdb,PASE2020:pgvector}.
 RDBMSs are well-suited for storing and querying structured or semi-structured data on workloads with high volumes of small updates and stringent consistency requirements; these tasks are called \ac{OLTP} workloads.
 Larger scale data analysis frequently requires full dataset scans and extensive join processing, and these data warehouse or \ac{BI} workloads are called \ac{OLAP}.
@@ -16,7 +16,7 @@ Graphs are a natural way to model such relationships, and are widely used to to 
 As the data volumes grow, so do the graphs these relationships form.
 Applications now routinely store and analyze graphs with billions of nodes and trillions of edges~\cite{ching2015oneTrillion,besta2020demystifying, lin2018shentu, gupta2024graphscale, zhou2025redtao}.
 
-These large graphs are now ubiquitous, and more than a decade of research has investigated how to store and process them efficiently.
+These large graphs are now ubiquitous. More than a decade of research has investigated how to store and process them efficiently.
 Each vertex and edge in such a graph has a \emph{label} that assigns it a type (e.g., ``User,'' ``follows''), and may contain \emph{properties} modeled as key-value attributes (e.g., \texttt{name}, \texttt{age}).
 Graphs in which the nodes have properties and the edges have labels are called Labeled Property Graphs~\cite{besta2020demystifying}.
 The labels and properties give the graph \emph{semantic meaning}, while the nodes and edges alone form the \emph{structure} of the graph.

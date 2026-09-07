@@ -284,7 +284,7 @@ Each thread receives its assigned range and creates its own topology and propert
   \item \code{NODE\_COUNT\_FINE}: A finer-grained variant that creates \texttt{num\_threads} $\times$ \texttt{partition\_scale} partitions.  Computing the partition boundaries costs the same $O(1)$ as \code{NODE\_COUNT}, but the finer granularity enables work-stealing schedulers to rebalance load dynamically.
 \end{itemize}
 
-For even finer granularity, \code{get\_work\_chunks(chunk\_size)} returns a vector of small, fixed-size key ranges suitable for task-queue-based parallelism (e.g., Cilk, TBB).
+For even finer granularity, \code{get\_work\_chunks(chunk\_size)} returns a vector of small, fixed-size key ranges suitable for task-queue-based parallelism (e.g., Cilk\cite{openCILK}, TBB\cite{IntelTBB}).
 
 The choice of strategy depends on the algorithm.
 BFS uses \code{get\_work\_chunks}, because direction-optimizing traversal produces irregular, data-dependent load that benefits from dynamic task-queue scheduling.
@@ -292,23 +292,55 @@ PageRank and WCC use \code{EDGE\_AWARE}, because their per-vertex work is propor
 
 \autoref{tab:partitioning} illustrates the effect of partitioning strategy on PageRank execution time on the twitter-2010 graph~\cite{twitter2010} (41.65\,M vertices, 1.47\,B edges, 28 threads, 10 iterations).
 
+% \begin{table}[ht]
+% \centering
+% \begin{tabular}{llrr}
+% \toprule
+% & & \textbf{\code{NODE\_COUNT}} & \textbf{\code{EDGE\_AWARE}} \\
+% \midrule
+% \multirow{2}{*}{Adjacency list}
+%   & Vertex-centric &  80.0\,s &  \textbf{29.4\,s} \\
+%   & Edge-centric   &  97.8\,s &  85.5\,s \\
+% \midrule
+% \multirow{2}{*}{EdgeKey}
+%   & Vertex-centric & 3{,}187\,s & 4{,}206\,s \\
+%   & Edge-centric   &   326\,s &   445\,s \\
+% \bottomrule
+% \end{tabular}
+% \caption{PageRank execution time under \code{NODE\_COUNT} vs.\ \code{EDGE\_AWARE} partitioning on twitter-2010. Vertex-centric on the adjacency list benefits most, producing a 2.7$\times$ speedup by using edge-balanced partitions.}
+% \label{tab:partitioning}
+% \end{table}
 \begin{table}[ht]
 \centering
-\begin{tabular}{llrr}
+\begin{tabular}{lllrrr}
 \toprule
-& & \textbf{\code{NODE\_COUNT}} & \textbf{\code{EDGE\_AWARE}} \\
+& & & \textbf{\code{NODE\_COUNT}} & \textbf{\code{EDGE\_AWARE}} & \textbf{Speedup} \\ & & & & & $t_{\text{NC}} / t_{\text{EA}}$ \\
 \midrule
-\multirow{2}{*}{Adjacency list}
-  & Vertex-centric &  80.0\,s &  \textbf{29.4\,s} \\
-  & Edge-centric   &  97.8\,s &  85.5\,s \\
+\multirow{4}{*}{twitter-2010}
+  & \multirow{2}{*}{Adjacency list}
+    & Vertex-centric &  80.0\,s &  29.4\,s & $2.72\times$ \\
+  & & Edge-centric   &  97.8\,s &  85.5\,s & $1.14\times$ \\
+  \cmidrule(l){2-6}
+  & \multirow{2}{*}{EdgeKey}
+    & Vertex-centric & 3{,}187\,s & 4{,}206\,s & $0.76\times$ \\
+  & & Edge-centric   &   326\,s &   445\,s & $0.73\times$ \\
 \midrule
-\multirow{2}{*}{EdgeKey}
-  & Vertex-centric & 3{,}187\,s & 4{,}206\,s \\
-  & Edge-centric   &   326\,s &   445\,s \\
+\multirow{4}{*}{soc-LiveJournal}
+  & \multirow{2}{*}{Adjacency list}
+    & Vertex-centric &  1.07\,s &  1.78\,s & $0.60\times$ \\
+  & & Edge-centric   &  2.95\,s &  3.23\,s & $0.91\times$ \\
+  \cmidrule(l){2-6}
+  & \multirow{2}{*}{EdgeKey}
+    & Vertex-centric & 94.8\,s & 98.4\,s & $0.96\times$ \\
+  & & Edge-centric   & 10.8\,s & 11.1\,s & $0.97\times$ \\
 \bottomrule
 \end{tabular}
-\caption{PageRank execution time under \code{NODE\_COUNT} vs.\ \code{EDGE\_AWARE} partitioning on twitter-2010.
-         Vertex-centric on the adjacency list benefits most, producing a 2.7$\times$ speedup by using edge-balanced partitions.}
+\caption{PageRank execution time under \code{NODE\_COUNT} vs.\ \code{EDGE\_AWARE}
+partitioning.  Speedup is the ratio $t_{\text{NC}} / t_{\text{EA}}$; values
+${>}\,1$ indicate \code{EDGE\_AWARE} is faster.  On twitter-2010,
+edge-aware partitioning yields a $2.7\times$ speedup for vertex-centric
+adjacency-list traversal.  On soc-LiveJournal, node-count partitioning is
+slightly faster across all configurations.}
 \label{tab:partitioning}
 \end{table}
 
@@ -325,7 +357,7 @@ This confirms that \code{EDGE\_AWARE} is most valuable on graphs with high degre
 \section{Edge-Centric vs.\ Vertex-Centric Read-Path Cost}
 \label{sec:eval:ec_vc}
 
-In~\autoref{design:rep_comp_pairing}, we argued that each structural representation naturally pairs with a computation model: vertex-centric processing consumes the adjacency list's packed blobs efficiently, while edge-centric processing streams EdgeKey's per-edge entries without reconstruction overhead.
+In~\autoref{design:rep_comp_pairing}, we explained that each structural representation naturally pairs with a computation model: vertex-centric processing consumes the adjacency list's packed blobs efficiently, while edge-centric processing streams EdgeKey's per-edge entries without reconstruction overhead.
 This section validates that claim with two algorithms (PageRank and connected components (WCC)) that isolate the interaction between representation and computation model on the read path.
 
 We run each algorithm in all four combinations of \{vertex-centric, edge-centric\} $\times$ \{adjacency list, EdgeKey\} on two directed graphs: soc-LiveJournal~\cite{socLiveJournal} (4.84\,M vertices, 68.99\,M edges) and twitter-2010~\cite{twitter2010} (41.65\,M vertices, 1.47\,B edges).
@@ -351,25 +383,24 @@ We use \wt{} statistics to report the underlying \wt{} B-tree cursor counts for 
 \midrule
 \multirow{4}{*}{soc-LiveJournal}
   & \multirow{2}{*}{PageRank}
-    & Vertex-centric &     1.2\,s &    208.9\,s \\
-  & & Edge-centric   &     3.2\,s &     13.8\,s \\
+    & Vertex-centric &     1.20\,s &    208.90\,s \\
+  & & Edge-centric   &     3.20\,s &     13.80\,s \\
   \cmidrule(l){2-5}
   & \multirow{2}{*}{WCC}
-    & Vertex-centric &     0.46\,s &     4.2\,s \\
-  & & Edge-centric   &     0.81\,s &     5.3\,s \\
+    & Vertex-centric &     0.46\,s &     4.20\,s \\
+  & & Edge-centric   &     0.81\,s &     5.30\,s \\
 \midrule
 \multirow{4}{*}{twitter-2010}
   & \multirow{2}{*}{PageRank}
-    & Vertex-centric &    78.1\,s &  3{,}220\,s \\
-  & & Edge-centric   &   138.3\,s &    805.4\,s \\
+    & Vertex-centric &    78.10\,s &  3{,}220\,s \\
+  & & Edge-centric   &   138.30\,s &    805.40\,s \\
   \cmidrule(l){2-5}
   & \multirow{2}{*}{WCC}
     & Vertex-centric &    17.0\,s &    301\,s \\
   & & Edge-centric   &    16.3\,s &    142\,s \\
 \bottomrule
 \end{tabular}
-\caption{Execution time for PageRank (10 iterations) and connected components (WCC, convergence to fixed point), both with 28 threads.
-         The Shiloach--Vishkin algorithm converges in 3 iterations; the label propagation variant converges in 5.}
+\caption{Execution time for PageRank (10 iterations) and connected components (WCC, convergence to fixed point), both with 28 threads. The Shiloach--Vishkin algorithm converges in 3 iterations; the label propagation variant converges in 5.}
 \label{tab:ec_vc_time}
 \label{tab:cc_time}
 \end{table}

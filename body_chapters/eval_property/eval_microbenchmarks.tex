@@ -3,7 +3,7 @@
 \label{sec:eval:microbenchmarks}
 
 Composite graph queries interleave structural traversal with property access, so no single layer accounts for the measured latency.
-We first isolate per-operation costs using microbenchmarks from the AsterDB artifact---structural mutations, neighbor lookups, and property CRUD---before evaluating composite queries in~\autoref{sec:eval:property-ldbc}.
+We first isolate per-operation costs using microbenchmarks from the AsterDB artifact (structural mutations, neighbor lookups, and property CRUD) before evaluating composite queries in~\autoref{sec:eval:property-ldbc}.
 Structural operations are measured on two undirected graphs: DBLP co-authorship (${\sim}$317\,K vertices, ${\sim}$1\,M edges) and WikiTalk (${\sim}$2.4\,M vertices, ${\sim}$5\,M edges).
 Property operations are measured on two property graphs from the AsterDB artifact, LDBC and Freebase, with Freebase substantially larger.
 The baseline systems execute each operation through a Gremlin traversal via TinkerPop; \project{} and AsterDB bypass this layer, accessing their storage engines through native APIs.
@@ -38,7 +38,7 @@ Each operation runs 100 times after warmup; we report the median latency.
   \end{tabular*}
   \caption{Structural operation latency (\textmu{}s) on DBLP and WikiTalk.
     OrientDB, JanusGraph, and NebulaGraph excluded (no WikiTalk results within the 2-hour timeout).
-    Best per row in \textbf{bold}.}
+    The best (lowest) latency per row appears in \textbf{bold}.}
   \label{tab:structural-ops}
 \end{table}
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -51,7 +51,7 @@ Neo4j follows pointer chains in its native store files, incurring a seek per hop
 
 Vertex insertion completes in under 2.5\,$\mu$s for \project{} regardless of graph size, $4\times$ faster than Neo4j (8--9\,$\mu$s).
 Edge insertion reveals a degree-dependent tradeoff.
-On DBLP, EdgeKey inserts an edge in 7.01\,$\mu$s, faster than Neo4j (16.55\,$\mu$s); Adjacency~List takes 11.35\,$\mu$s.
+On DBLP, EdgeKey inserts an edge in 7.01\,$\mu$s, faster than Neo4j (16.55\,$\mu$s), while Adjacency~List takes 11.35\,$\mu$s.
 On the denser WikiTalk graph, Neo4j (20.35\,$\mu$s) outperforms both \project{} layouts (Adjacency~List: 49.42\,$\mu$s, EdgeKey: 78.23\,$\mu$s).
 Under Adjacency~List, each edge insert appends to the source vertex's packed neighbor list, a read-modify-write on the B-tree row whose cost grows with vertex degree.
 EdgeKey stores each edge as an independent row, avoiding this cost, but \wt{}'s per-transaction overhead (begin, cursor insert, commit) is the bottleneck at this granularity.
@@ -59,7 +59,7 @@ Edge deletion follows a similar pattern: EdgeKey is fastest on DBLP (6.66\,$\mu$
 
 ArangoDB and PostgreSQL are three to four orders of magnitude slower than \project{} on all structural operations.
 ArangoDB stores edges as JSON documents in a separate collection, requiring document-level index lookups and writes for each mutation.
-PostgreSQL, accessed through the SQLG TinkerPop provider, translates each graph operation into SQL statements against relational tables, paying relational join and transaction overhead.
+PostgreSQL, accessed through the SQLG TinkerPop provider, translates each graph operation into SQL statements on relational tables, paying relational join and transaction overhead.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \begin{figure}[h]
@@ -95,12 +95,12 @@ Among the Gremlin-based systems, OrientDB is consistently fastest on mutations (
 
 \textbf{Property search.}
 Property search scans all vertices or edges to find entries matching a specific property value, analogous to an unindexed \code{WHERE} clause.
-The gap narrows here because the scan work outweighs per-query overhead.
+The performance gap narrows here, because the scan work outweighs per-query overhead.
 On LDBC, \project{} Adjacency~List completes a vertex property search in 14.4\,ms, $29\times$ faster than Neo4j (425\,ms) and $188\times$ faster than ArangoDB (2{,}712\,ms).
 On the larger Freebase graph, the same operation takes 2.1\,s versus Neo4j's 27.3\,s ($13\times$).
 
 EdgeKey is slower than Adjacency~List on property search: 153\,ms versus 14.4\,ms on LDBC vertex search ($10.6\times$).
-Under EdgeKey, each edge occupies its own B-tree row, so a full scan touches far more B-tree pages than Adjacency~List, where edges are packed into per-vertex records.
+Under EdgeKey, each edge occupies its own B-tree row, so a full scan touches many more B-tree pages than does Adjacency~List, where edges are packed into per-vertex records.
 The denser packing gives better cache and I/O efficiency for sequential scans.
 
 ArangoDB exhibits an extreme outlier on LDBC edge property search: ${\sim}$1{,}904\,s (${\sim}$32\,minutes), likely caused by a missing secondary index forcing a cross-collection join over the entire edge set.
