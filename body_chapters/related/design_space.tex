@@ -4,7 +4,7 @@
 
 The previous chapter established what graphs are, how they are accessed, and how they are stored.
 This chapter surveys the systems that have been built to manage and process graph data, and organizes them into a taxonomy based on three classification features: whether a system operates on property graphs or structural graphs, whether it handles a static snapshot or a dynamic, evolving graph, and whether it provides transactional guarantees for mutations.
-We discuss representative systems in each category, highlighting what each provides and what it lacks, and conclude with a distillation of the design space that positions FlexoGraph as a general-purpose system spanning the entire grid.
+We discuss representative systems in each category, highlighting what each provides and what it lacks, and conclude with a distillation of the design space that positions \project{} as a general-purpose system spanning the entire grid.
 
 
 \section{Property Graphs vs. Structural Graphs}
@@ -26,7 +26,6 @@ Since the property graph is the ground truth, the structural graph must stay up-
 Two strategies exist: periodic recomputing or incrementally updating as the property graph changes.
 The latter produces \emph{dynamic structural graphs}.
 We describe dynamic structural graphs in more detail in~\autoref{design:dynamic_structural}.
-\autoref{fig:design_space} provides an overview of the design space of structural graphs; the following sections discuss each region in detail.
 
 \project{} stores both the property graph and its derived structural representations in the same transactional \wt{} store.
 \textbf{Structural graphs are not separate materialized snapshots that must be rebuilt or shipped to a different engine; they are persistent layouts maintained alongside the property data.}
@@ -56,7 +55,7 @@ This requires a pass over the graph and can take significantly longer to finish 
 If the graph data structures obtained after the preprocessing are small enough, they can be stored and processed in memory.
 Graph processing systems designed for shared-memory, multi-core machines are usually optimized for in-memory processing.
 Several systems have been optimized for this design point: Gemini~\cite{zhu2016gemini}, GraphMat~\cite{graphmat}, Ligra~\cite{shun2013ligra}, Galois~\cite{pingali2011tao}, GPOP~\cite{lakhotia2020gpop}, and GraphLab~\cite{low2012distributed}.
-The GAP Benchmark Suite (GAPBS)~\cite{beamer2015gap} provides optimized reference implementations of common analytics kernels on a CSR representation; FlexoGraph adapts these kernels to use its API for a fair comparison.
+The GAP Benchmark Suite (GAPBS)~\cite{beamer2015gap} provides optimized reference implementations of common analytics kernels on a CSR representation; \project{} adapts these kernels to use its API for a fair comparison.
 Ligra~\cite{shun2013ligra} introduces direction-optimizing traversal that switches between sparse and dense modes based on frontier size.
 Galois~\cite{nguyen2013lightweight} generalizes graph computation with priority-driven scheduling for irregular parallelism.
 Gemini~\cite{zhu2016gemini} uses chunk-based partitioning with locality-aware execution.
@@ -119,9 +118,9 @@ Other out-of-core systems include CLIP~\cite{ai2018clip}, V-part~\cite{elyasi201
   \end{table}
 
 All static systems, whether in-memory or out-of-core, require an offline preprocessing step to build their layout and are batch-only, supporting no mutations during processing.
-FlexoGraph operates directly on its persistent representation, eliminating the preprocessing step entirely; we include preprocessing time in all comparisons to illustrate this advantage.
-FlexoGraph relies on WiredTiger's buffer pool to spill to secondary storage, achieving competitive out-of-core performance without a dedicated I/O framework.
-These two classes of graph processing systems constitute the \textit{third classification feature} of our design space of graph data management systems.
+\project{} operates directly on its persistent representation, eliminating the preprocessing step entirely; we include preprocessing time in all comparisons to illustrate this advantage.
+\project{} relies on \wt{}'s buffer pool to spill to secondary storage, achieving competitive out-of-core performance without a dedicated I/O framework.
+These two classes of graph processing systems constitute a sub-classification of the design space of structural graph data management systems, both static and dynamic (~\autoref{fig:design_space}).
 
 \section{Dynamic Graph Processing Systems}
 \label{design:dynamic_structural}
@@ -138,7 +137,7 @@ LLAMA~\cite{llama} achieves this with immutable, copy-on-write CSR layers; ASPEN
 GraphOne~\cite{graphone2019kumar} uses an append-only edge log paired with an adjacency array and exposes frozen snapshots at a sequence number.
 These systems version their read path but do not coordinate writes: GraphOne, for instance, uses blind-write semantics with no conflict detection, and LLAMA uses per-node spinlocks to prevent structural corruption but provides no mechanism for detecting semantic write-write conflicts.
 
-A third approach is \emph{batch-consistent}: the system collects updates into a batch and applies them atomically between computation steps, ensuring consistency at batch boundaries but not at individual operations
+A third approach is \emph{batch-consistent}: the system collects updates into a batch and applies them atomically between computation steps, ensuring consistency at batch boundaries but not at individual operations.
 These systems pair batch-level consistency with incremental algorithms that minimize redundant computation by reusing results computed before the graph mutated.
 GraphBolt~\cite{mariappan2019graphbolt}, for instance, uses ``dependency-driven incremental processing, in which it first tracks dependencies to capture how intermediate values are computed and then uses this information to incrementally propagate the impact of change across intermediate values.''
 RisGraph~\cite{feng2021risgraph} takes a similar approach using memoization-based incremental processing.
@@ -231,16 +230,16 @@ Edge-centric models propagate changes by updating the state of the edge and the 
 The user provides an \texttt{edge\_scatter(e)} function that sends an update over the edge $e$, an \texttt{edge\_gather(e)} function that reads the update from the edge $e$, and an \texttt{apply(e)} function that applies the update to the edge's destination vertex $e.dest$.
 
 The programming and computation models are orthogonal, and a system can use any combination.
-The design space of static graph processing systems can be split based on these two axes, as shown in~\autoref{fig:static_ec_vc}.
+The design space of static graph processing systems can be split based on these two axes, as shown in~\autoref{tab:static_ec_vc}.
 \begin{table}[t]
     \centering
     \small
     \input{fig/background/vc_ec.tex}
     \caption{Design space of static graph processing systems classified by programming model (columns) and computation model (rows). Hybrid systems are noted below the table.}
-    \label{fig:static_ec_vc}
+    \label{tab:static_ec_vc}
 \end{table}
 
-As \autoref{fig:static_ec_vc} shows, vertex-centric systems dominate: most graph processing frameworks adopt this model because it maps naturally to the adjacency-list and CSR representations that are standard in practice.
+As \autoref{tab:static_ec_vc} shows, vertex-centric systems dominate: most graph processing frameworks adopt this model because it maps naturally to the adjacency-list and CSR representations that are standard in practice.
 Edge-centric and subgraph-centric models occupy smaller but distinct regions of the space, each motivated by a specific access-pattern optimization (sequential edge streaming and intra-partition locality, respectively).
 Some cells in the grid remain empty, reflecting combinations of programming and computation models that no existing system has explored.
 The dominance of vertex-centric systems is not accidental---it reflects a deep coupling between physical representation and programming model that we explore next.
@@ -323,7 +322,7 @@ Several systems incorporate graph analytics into relational databases rather tha
 TAO~\cite{bronson2013tao}, Oracle PGX~\cite{hong2015pgx,OraclePG,WhatIsOracleSpatialGraph:online}, DuckPGQ~\cite{duckpgq:online}, and GART~\cite{shen2023bridging} all route analytics through a separate in-memory engine or transient representation.
 Welc et al.~\cite{welc2013graph,graphProcessingRDBMS} showed that SQL-based shortest paths can be competitive with Neo4j on social graphs but degrade for iterative workloads.
 Hong et al.~\cite{hong2013early} demonstrated that Green-Marl programs can compile to distributed Giraph jobs, but this does not eliminate data movement into an in-memory representation.
-FlexoGraph stores graphs in persistent, analytics-friendly layouts within a transactional key-value store, requiring no data movement or separate engine.
+\project{} stores graphs in persistent, analytics-friendly layouts within a transactional key-value store, requiring no data movement or separate engine.
 
 \section{Graph Databases}
 \label{design:graph_databases}
@@ -332,13 +331,13 @@ Neo4j~\cite{neo4j} uses native graph storage with index-free adjacency, where ea
 ArangoDB~\cite{arangodb} is a multi-model document store that represents graphs as collections of JSON documents.
 JanusGraph~\cite{janusgraph} is a distributed graph database with pluggable storage backends (Cassandra, HBase, BerkeleyDB).
 These systems excel at transactional, point-query workloads but perform poorly on whole-graph analytics, as discussed in~\autoref{sec:intro}.
-FlexoGraph occupies the same cell in the taxonomy but adds analytics-friendly persistent layouts that allow it to serve both OLTP and OLAP workloads from a single representation.
+\project{} occupies the same cell in the taxonomy but adds analytics-friendly persistent layouts that allow it to serve both OLTP and OLAP workloads from a single representation.
 
 \section{Distillation of the Design Space}
 \label{design:distillation}
-We conclude this section with a unified view of the design space that we decomposed into the following three features:
+We conclude this chapter with a unified view of the design space that we decomposed into the following three features:
 \begin{enumerate}
-  \item Whether the system manages property graphs or structural graphs.
+  \item Whether the system manages property graphs or structural graphs
   \item Whether the system handles updates to the graph (dynamic) or not (static)
   \item Whether the system supports transactions for updating the graph
 \end{enumerate}
@@ -355,4 +354,4 @@ Not all cells are meaningful: static systems have no mutations and therefore no 
 The main takeaway from this grid is that graph databases are the most general class of graph data management systems: they manage property graphs (of which structural graphs are a subset), support dynamic mutations, and provide transactional guarantees.
 All the other categories are specialized to handle a subset of these features.
 Each of those systems works well for the use cases for which it was designed, but none is as general as a graph database.
-FlexoGraph is designed to be a general-purpose graph data management system that can flexibly support all the specialized use cases depicted in this grid \emph{without moving data or sacrificing performance}.
+\project{} is designed to be a general-purpose graph data management system that can flexibly support all the specialized use cases depicted in this grid \emph{without moving data or sacrificing performance}.
