@@ -9,7 +9,7 @@ We discuss representative systems in each category, highlighting what each provi
 
 \section{Property Graphs vs. Structural Graphs}
 \label{design:property_vs_structural}
-Our overarching characterization of the design space is defined by two features: whether the system manages property graphs or structural graphs and whether the graphs under management are static or dynamic.
+Two features define our overarching characterization of the design space: whether the system manages property graphs or structural graphs and whether the graphs under management are static or dynamic.
 Recall that a structural graph results from selections and projections on the labels and properties of an underlying property graph~\cite{RodriguezNeubauer2010}.
 One might select edges of a certain type to form a structural graph, for instance, a structural graph of follower relationships in a social network.
 The structural graph so constructed ``is homogeneous, composed simply of vertices, edges and, possibly, a weight attached to their elements''~\cite[Section 1]{teseo2021deLeo}.
@@ -22,9 +22,9 @@ These materialized structural graphs are essentially snapshots of the property g
 We describe these \emph{static structural graphs} in more detail in~\autoref{design:static_structural}.
 
 In contrast, the property graph changes over time.
-Since the property graph is the ground truth, it is important to keep the structural graph up-to-date with the property graph.
-This can be done by periodically recomputing the structural graph or incrementally updating it as the property graph changes.
-This leads to the concept of \emph{dynamic structural graphs}, which are updated as the property graph changes.
+Since the property graph is the ground truth, the structural graph must stay up-to-date with it.
+Two strategies exist: periodic recomputing or incrementally updating as the property graph changes.
+The latter produces \emph{dynamic structural graphs}.
 We describe dynamic structural graphs in more detail in~\autoref{design:dynamic_structural}.
 \autoref{fig:design_space} provides an overview of the design space of structural graphs; the following sections discuss each region in detail.
 
@@ -32,10 +32,11 @@ We describe dynamic structural graphs in more detail in~\autoref{design:dynamic_
 \textbf{Structural graphs are not separate materialized snapshots that must be rebuilt or shipped to a different engine; they are persistent layouts maintained alongside the property data.}
 Switching between property queries and structural analytics therefore requires no data movement.
 
+\autoref{fig:design_space} provides an overview of the design space of structural graphs; the following sections discuss each region in detail.
 \begin{figure}[h]
     \centering
-    \includegraphics[width=0.8\textwidth]{fig/background/final_taxonomy_struc.pdf}
-    \caption{Design Space of Graph Data Management Systems}
+    \includegraphics[width=\textwidth]{fig/background/final_taxonomy_struc_new.pdf}
+    \caption{Design Space of Graph Data Management Systems handling structural graphs. We compare \project{} to systems marked with {\color[RGB]{219,16,72}\raisebox{-0.1ex}{\scalebox{1.3}{$\star$}}}}
     \label{fig:design_space}
 \end{figure}
 
@@ -44,12 +45,12 @@ Switching between property queries and structural analytics therefore requires n
 
 Static structural graphs have been the main focus of graph processing systems research for over a decade \cite{malewicz2010pregel,gonzalez2014graphx, zhu2016gemini, xing2015petuum, low2012distributed,gonzalez2012powergraph, powerlyra2019,shun2013ligra, nguyen2013lightweight, zhu2016gemini, graphmat, lakhotia2020gpop, beamer2015gap, kim2022blaze, ai2018clip,zheng2015flashgraph}.
 These graphs are primarily used for analytics and graph mining tasks focusing on uncovering statistical properties and discovering patterns.
-The static nature of these graphs implies that there is no consistency requirement between different snapshots that these systems are designed to process.
+Because these graphs are static, the systems that process them impose no consistency requirement between snapshots.
 Each snapshot is produced through a batch \ac{ETL} process and is (often) processed independently of other snapshots.
-On the other hand, in a graph database, the graph is materialized from the property graph, and that is the ``extract'' step when creating structural graphs.
+In a graph database, materializing the structural graph from the property graph constitutes the ``extract'' step.
 
 Once the static \ac{GPS} has a snapshot to process, it must first \emph{preprocess} the graph to construct the data structures needed to execute the graph algorithms.
-The preprocessing step involves reading a graph in a data exchange format (often a CSV file) and using that to construct and populate a suitable data structure to hold the graph that also facilitates processing.
+The preprocessing step reads the graph from an exchange format (often CSV) and builds the data structures needed for storage and processing.
 This requires a pass over the graph and can take significantly longer to finish than the analytics task itself (for example, GraphChi takes longer to preprocess the graph than it takes to run Triangle Counting or PageRank).
 
 If the graph data structures obtained after the preprocessing are small enough, they can be stored and processed in memory.
@@ -79,56 +80,102 @@ ChunkGraph~\cite{wang2024chunkgraph} takes a different approach: rather than des
 ChunkGraph works transparently with existing in-memory vertex-centric systems such as Ligra without requiring changes to their computation model.
 Other out-of-core systems include CLIP~\cite{ai2018clip}, V-part~\cite{elyasi2019large}, Wonderland~\cite{zhang2018wonderland}, and Mosaic~\cite{maass2017mosaic}; we discuss CLIP's programming model in~\autoref{design:subgraph_centric}.
 
+\autoref{tab:static_systems} summarizes these systems and their key design choices.
+
+\newcommand{\evalstar}{{\color[RGB]{219,16,72}$\star$}}
+  \begin{table}[t]
+  \centering
+  \small
+  \begin{tabular}{lll}
+  \toprule
+  \textbf{Class} & \textbf{System} & \textbf{Key design choice} \\
+  \midrule
+  \multirow{6}{*}{\rotatebox[origin=c]{90}{In-memory}}
+      & GAPBS\evalstar{}          & Optimized reference kernels on CSR \\
+      & Ligra\evalstar{}           & Direction-optimizing traversal \\
+      & Galois\evalstar{}          & Priority-driven scheduling for irregular parallelism \\
+      & Gemini\evalstar{}          & Chunk-based partitioning with locality-aware execution \\
+      & GraphMat       & Vertex programs as sparse matrix operations \\
+      & GPOP           & Partition-centric processing for cache residency \\
+  \midrule
+  \multirow{4}{*}{\rotatebox[origin=c]{90}{Distributed}}
+      & Pregel         & BSP vertex-centric message passing \\
+      & PowerGraph     & GAS decomposition for high-degree vertices \\
+      & GraphX         & Graph analytics on Spark RDDs \\
+      & PowerLyra      & Hybrid partitioning (high-/low-degree vertices) \\
+  \midrule
+  \multirow{7}{*}{\rotatebox[origin=c]{90}{Out-of-core}}
+      & GraphChi\evalstar{}       & Destination-based shards; Parallel Sliding Windows \\
+      & TurboGraph     & Source-based layout; SSD parallelism \\
+      & GridGraph      & 2-D grid partitioning; LLC-sized cells \\
+      & X-Stream\evalstar{}       & Unordered edge streaming; no sorted preprocessing \\
+      & Blaze\evalstar{}          & NVMe-optimized partition-centric processing \\
+      & FlashGraph     & Semi-external memory; async I/O for edge lists \\
+      & ChunkGraph     & Degree-classified chunks; transparent with Ligra \\
+  \bottomrule
+  \end{tabular}
+  \caption{Summary of static graph processing systems. All require offline preprocessing and support no mutations during processing. \evalstar{} marks systems evaluated against \project{}.}
+  \label{tab:static_systems}
+  \end{table}
+
 All static systems, whether in-memory or out-of-core, require an offline preprocessing step to build their layout and are batch-only, supporting no mutations during processing.
 FlexoGraph operates directly on its persistent representation, eliminating the preprocessing step entirely; we include preprocessing time in all comparisons to illustrate this advantage.
 FlexoGraph relies on WiredTiger's buffer pool to spill to secondary storage, achieving competitive out-of-core performance without a dedicated I/O framework.
-\PM{Needs review}These two classes of graph processing systems constitute the \textit{third classification feature} of our design space of graph data management systems.
+These two classes of graph processing systems constitute the \textit{third classification feature} of our design space of graph data management systems.
 
 \section{Dynamic Graph Processing Systems}
 \label{design:dynamic_structural}
 Structural graphs are derived from property graphs, and since the property graph is dynamic, the structural graph must be updated as the property graph changes; this leads to the concept of dynamic structural graphs.
 The dynamic nature of these graphs requires some form of consistency.
-The structural graph must be updated in a manner consistent with the updates applied to the property graph while simultaneously ensuring that concurrent queries on the structural graph are not affected by the updates.
+The system must update the structural graph consistently with the property graph while isolating concurrent queries from in-flight mutations.
 
-A dynamic system can apply updates to the structural graph directly without considering ongoing queries.
-When such a system applies an update (adding a new edge, for instance), it applies the update to the live graph data structure without creating any new versions.
-Any ongoing queries running on the graph data structure will see the update immediately, which can lead to incorrect or inconsistent results, query failures, or delayed convergence of iterative algorithms.
-STINGER~\cite{stinger2012ediger} is an example of such a system that allows for fast updates to the graph data structure but does not provide any consistency guarantees.
+The simplest approach is \emph{uncoordinated}: a system applies updates directly to the live graph data structure without creating versions or synchronizing with ongoing queries.
+Any concurrent reader may observe a partially applied mutation, which can lead to inconsistent results, query failures, or delayed convergence of iterative algorithms.
+STINGER~\cite{stinger2012ediger} is the canonical example: it allows fast concurrent updates via a block-based adjacency list but provides no consistency guarantees.
 
-A more sophisticated approach is to construct a new version of the structural graph as the updates arrive.
-Each update to the graph has an associated timestamp, and a system uses these timestamps to construct a versioned graph.
-The system can then provide a consistent view of the graph at a certain point in time by selecting the appropriate versions of the graph elements.
-Examples of systems that use this approach include GraphOne~\cite{graphone2019kumar}, LLAMA~\cite{llama}, and ASPEN~\cite{10.1145/3314221.3314598}.
+A more sophisticated approach is \emph{snapshot-based}: the system constructs versioned representations of the graph so that a reader can obtain a consistent point-in-time view.
+LLAMA~\cite{llama} achieves this with immutable, copy-on-write CSR layers; ASPEN~\cite{10.1145/3314221.3314598} uses a functional tree (C-tree) with path-copying to create lock-free snapshots.
+GraphOne~\cite{graphone2019kumar} uses an append-only edge log paired with an adjacency array and exposes frozen snapshots at a sequence number.
+These systems version their read path but do not coordinate writes: GraphOne, for instance, uses blind-write semantics with no conflict detection, and LLAMA uses per-node spinlocks to prevent structural corruption but provides no mechanism for detecting semantic write-write conflicts.
 
-Another approach is to batch updates and apply them together to maintain a single incremental view of the graph.
-The interesting challenge in these systems is to make sure that any in-progress computations are not affected by the updates and can continue to make progress with the new data.
-These systems are designed to use incremental algorithms that can minimize redundant computation by reusing results that have been computed before the graph structure mutates.
+A third approach is \emph{batch-consistent}: the system collects updates into a batch and applies them atomically between computation steps, ensuring consistency at batch boundaries but not at individual operations
+These systems pair batch-level consistency with incremental algorithms that minimize redundant computation by reusing results computed before the graph mutated.
 GraphBolt~\cite{mariappan2019graphbolt}, for instance, uses ``dependency-driven incremental processing, in which it first tracks dependencies to capture how intermediate values are computed and then uses this information to incrementally propagate the impact of change across intermediate values.''
-Kickstarter~\cite{vora2017kickstarter}, GraphIn~\cite{sengupta2016graphin}, and Tornado~\cite{shi2016tornado} are other systems that use a similar approach.
+RisGraph~\cite{feng2021risgraph} takes a similar approach using memoization-based incremental processing.
+Kickstarter~\cite{vora2017kickstarter}, GraphIn~\cite{sengupta2016graphin}, and Tornado~\cite{shi2016tornado} also fall in this category.
 
-The most sophisticated approach to handling dynamic graphs is to provide a transactional interface to the user.
-Transactions help a system provide some or all of the ACID guarantees in the presence of updates.
-Good examples of transactional dynamic graph processing systems include LiveGraph~\cite{zhu2019livegraph}, Sortledton~\cite{sortledton2022Fuchs}, and Teseo~\cite{teseo2021deLeo}.
-Teseo organizes edges in a fat-tree of dense pages that are periodically rebalanced for locality.
-GraphOne~\cite{graphone2019kumar} uses an append-only edge log paired with an adjacency array, with blind-write semantics and no conflict detection.
-LiveGraph maintains a transactional edge log with mmap-backed adjacency-list snapshots and is the closest system to FlexoGraph in scope.
-Sortledton is an in-memory system that provides a fully transactional adjacency-list based graph data structure; GTX~\cite{libinzhou2025GTX} offers similar capabilities.
+The strongest approach is \emph{transactional}: the system exposes a per-operation ACID interface with conflict detection, so that concurrent readers and writers are fully coordinated.
+LiveGraph~\cite{zhu2019livegraph} maintains a transactional edge log with mmap-backed adjacency-list snapshots and is the closest system to \project{} in scope.
+Teseo~\cite{teseo2021deLeo} organizes edges in a fat-tree of dense pages that are periodically rebalanced for locality, with optimistic concurrency control and MVCC.
+Sortledton~\cite{sortledton2022Fuchs} is an in-memory system that provides a fully transactional adjacency-list-based graph data structure; GTX~\cite{libinzhou2025GTX} offers similar capabilities.
 Sortledton and GTX achieve higher raw throughput than Teseo on several benchmarks, but we compare primarily to Teseo, because it is a more established baseline and, like \project{}, uses a tree-based index structure.
 We compare to these systems using the GFE driver~\cite{teseo2021deLeo} for fair, reproducible benchmarking.
-FlexoGraph shows that a persistent, B-tree-backed database can deliver competitive throughput without sacrificing ACID semantics or crash recovery.
+\project{} shows that a persistent, B-tree-backed database can deliver competitive throughput without sacrificing ACID semantics or crash recovery.
 
 The consistency model used by these systems falls along a spectrum (the left-right axis in the right branch of~\autoref{fig:design_space} points in the direction of diminishing consistency guarantees).
-To construct a taxonomy, we use a simple binary feature to characterize this consistency axis: does the system support transactions or not?
-Graph Databases and a few systems (LiveGraph, Teseo, and Sortledton) support transactions which allow for fine-grained guarantees for individual updates to the graph; the remaining systems provide some form of batch-dynamism: isolation is coarse grained and therefore weaker.
+At the strong end, \emph{transactional} systems (LiveGraph, Teseo, Sortledton, GTX) provide per-operation ACID isolation with write-conflict detection.
+\emph{Snapshot-based} systems (GraphOne, LLAMA, ASPEN) provide consistent point-in-time reads via versioning but lack per-operation write-conflict detection in the database sense---no transaction aborts on a write-write conflict.
+Their write-coordination mechanisms vary: LLAMA serializes writes through batch layer creation, ASPEN uses optimistic CAS-based path-copying, and GraphOne uses blind appends.
+\emph{Batch-consistent} systems (GraphBolt, Kickstarter, RisGraph) weaken read guarantees further: consistency holds only at batch boundaries, with no per-read snapshot between batches.
+\emph{Uncoordinated} systems (STINGER) provide no isolation at all.
+Each step in this spectrum strictly relaxes one guarantee---write-conflict detection, then read-consistency granularity, then read consistency altogether.
 
 \project{} addresses the consistency spectrum differently from all four categories.
 It provides full ACID transactions via \wt{}'s MVCC for point queries and mutations, while analytics run against a named checkpoint, i.e. a reconciled, consistent snapshot of the B-tree.
 Running analytics at a checkpoint rather than on the live table avoids the cost of reading through un-reconciled writes in the cache under write-heavy workloads.
-This design gives \project{} transactional isolation without the blind-write semantics of GraphOne, the batch-only granularity of GraphBolt, or the lack of consistency guarantees of STINGER, while avoiding the performance penalty of snapshot-isolated reads on a heavily mutated live table.
+This design gives \project{} transactional isolation without the blind-write semantics of GraphOne, the batch-only granularity of GraphBolt, or the lack of consistency guarantees of STINGER, while avoiding the performance penalty of snapshot-based reads on a heavily mutated live table.
 
-The static structural graph processing systems can be seen in the bottom left corner of the design space in~\autoref{fig:design_space}, while the dynamic structural graph processing systems occupy the bottom right.
-\autoref{fig:design_space} shows the memory-based/out-of-core axis as a gradient, where the out-of-core systems are shown in yellow shades, while the in-memory systems are shades of red.
-This classification is based on the observation that most out-of-core systems can act like an in-memory system when the graph is small.
+The dynamic systems discussed so far are all in-memory.
+A smaller body of work targets disk- or SSD-resident dynamic graphs.
+LSMGraph~\cite{yu2024lsmgraph}, LSM-Community~\cite{wang2025lsmcommunity}, and BACH~\cite{huang2026bach} adapt LSM-tree compaction to graph storage, merging in-memory edge buffers into multi-level CSR representations on disk; all three provide snapshot-based isolation through multi-version support but lack a transactional interface.
+GraphSSD~\cite{matam2019graphssd} and MBFGraph~\cite{liu2023mbfgraph} target SSDs but offer no concurrency control, placing them in the uncoordinated category alongside STINGER.
+LLAMA's mmap-backed immutable snapshots can also exceed RAM, though its copy-on-write scheme limits update throughput.
+\project{} is, to our knowledge, the only out-of-core dynamic graph system that provides full ACID transactions with crash recovery on commodity storage, courtesy of \wt{}'s buffer pool and write-ahead log.
+
+In~\autoref{fig:design_space}, static structural graph processing systems occupy the left and dynamic systems the right. 
+The vertical axis distinguishes out-of-core systems (blue) from in-memory systems (yellow).
+The boundary between in-memory and out-of-core behaviour is often fuzzy, since many out-of-core systems are able to fully cache a small graph in RAM.
+We chose a hard boundary to stay consistent with the self-classification noted by each individual system.
 
 
 \section{Programming and Computation Models}
@@ -289,27 +336,23 @@ FlexoGraph occupies the same cell in the taxonomy but adds analytics-friendly pe
 
 \section{Distillation of the Design Space}
 \label{design:distillation}
-We conclude this section with a unified view of the design space discussed in the previous sections.
-We decomposed the design space in into the following 3 features:
+We conclude this section with a unified view of the design space that we decomposed into the following three features:
 \begin{enumerate}
   \item Whether the system manages property graphs or structural graphs.
   \item Whether the system handles updates to the graph (dynamic) or not (static)
   \item Whether the system supports transactions for updating the graph
 \end{enumerate}
 
-Based on these features, we derive the grid, shown in~\autoref{fig:distilled_design_space}.
-The grid shows the different classes of graph data management systems based on these features.
-As can be seen in the grid, not all combinations of these features make sense to use together, for instance, a system that works only on static (read-only) graphs has no consistency requirement and therefore no need for transactions.
-As we saw in section~\autoref{design:dynamic_structural}, consistency becomes an issue only in the presence of updates.
-Therefore, the three axes flatten into the grid shown in~\autoref{fig:distilled_design_space}, since static (i.e., read-only) systems are agnostic with respect to transactions.
+Based on these features, we derive the grid shown in~\autoref{fig:distilled_design_space}.
+Not all cells are meaningful: static systems have no mutations and therefore no need for transactions, so the three axes collapse into a two-dimensional grid.
 
 \begin{figure*}
     \centering
     \includegraphics[scale=0.45]{fig/background/design_grid.pdf}
-  \caption{Distillation of the design space of graph data management systems. Please refer to Section~\autoref{design:dynamic_structural} for an explanation of how the systems listed in the dynamic but not transactional category differ from one another.}
+  \caption{Distillation of the design space of graph data management systems. Please refer to~\autoref{design:dynamic_structural} for an explanation of how the systems listed in the dynamic but not transactional category differ from one another.}
     \label{fig:distilled_design_space}
 \end{figure*}
 The main takeaway from this grid is that graph databases are the most general class of graph data management systems: they manage property graphs (of which structural graphs are a subset), support dynamic mutations, and provide transactional guarantees.
-All the other categories are specialized All the other categories are specialized to handle a subset of these features.
+All the other categories are specialized to handle a subset of these features.
 Each of those systems works well for the use cases for which it was designed, but none is as general as a graph database.
-FlexoGraph is designed to be a general-purpose graph data management system that can flexibly support all the specialized use cases depicted in this grid \emph{without having to move the data or sacrificing performance}.
+FlexoGraph is designed to be a general-purpose graph data management system that can flexibly support all the specialized use cases depicted in this grid \emph{without moving data or sacrificing performance}.
