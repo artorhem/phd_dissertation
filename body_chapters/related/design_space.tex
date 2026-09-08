@@ -26,6 +26,7 @@ Since the property graph is the ground truth, it is important to keep the struct
 This can be done by periodically recomputing the structural graph or incrementally updating it as the property graph changes.
 This leads to the concept of \emph{dynamic structural graphs}, which are updated as the property graph changes.
 We describe dynamic structural graphs in more detail in~\autoref{design:dynamic_structural}.
+\autoref{fig:design_space} provides an overview of the design space of structural graphs; the following sections discuss each region in detail.
 
 \project{} stores both the property graph and its derived structural representations in the same transactional \wt{} store.
 \textbf{Structural graphs are not separate materialized snapshots that must be rebuilt or shipped to a different engine; they are persistent layouts maintained alongside the property data.}
