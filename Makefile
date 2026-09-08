@@ -5,6 +5,7 @@ MAIN     = main
 AUX_SUBDIRS = admin_chapters/committee_page \
               admin_chapters/lay_summary \
               admin_chapters/preface \
+              admin_chapters/list_of_abbreviations \
               admin_chapters/acknowledgements \
               admin_chapters/dedication \
               body_chapters/introduction \

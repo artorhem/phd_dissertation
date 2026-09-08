@@ -1,14 +1,27 @@
-\chapter{List of Abbreviations}
+\chapter{Glossary}
 
-% This changes the default spacing of the table. Make sure to reset it to 1 after finished.
-\def\arraystretch{1.5}
-% The longtable environment allows the table to span multiple pages
-\begin{longtable}[l]{l l}
-    \textbf{NRCan} & Natural Resources Canada\\
-    \textbf{ML} & Machine Learning\\
-    \textbf{NN} & Neural Network\\
-    \textbf{CNN} & Convolutional Neural Network\\
-    \textbf{YCAML} & You Can Add More Lines\\
-\end{longtable}
-% Reset spacing to default
-\def\arraystretch{1}
+
+% use \acrodef to define an acronym, but no listing
+\acrodef{UI}{user interface}
+\acrodef{UBC}{University of British Columbia}
+
+% The acronym environment will typeset only those acronyms that were
+% *actually used* in the course of the document
+\begin{acronym}
+\acro{RDBMS}{Relational Database Management System}
+\acroplural{RDBMS}[RDBMSs]{Relational Database Management Systems}
+
+\acro{OLTP}{Online Transactional Processing}
+\acro{BI}{Business Intelligence}
+\acro{OLAP}{Online Analytical Processing}
+\acro{HTAP}{Hybrid Transactional and Analytical Processing}
+\acro{ETL}{Extract, Transform, Load}
+\acro{HGTAP}{Hybrid Graph Analytics and Processing}
+\acro{CSR}{Compressed Sparse Row}
+\acro{CRUD}{Create, Read, Update, Delete}
+\acro{API}{Application Programming Interface}
+\acro{WT}{WiredTiger}
+\acro{GAPBS}{GAP Benchmark Suite}
+\acro{GPS}{Graph Processing System}
+\acro{ACID}{\textbf{A}tomicity, \textbf{C}onsistency, \textbf{I}solation, and \textbf{D}urability}
+\end{acronym}
