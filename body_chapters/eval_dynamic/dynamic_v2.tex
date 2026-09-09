@@ -131,7 +131,7 @@ Absent high-degree vertices, concurrent appends spread evenly across adjacency r
 \project{}'s two layouts present a clear tradeoff.
 EdgeKey stores one B-tree row per edge; inserts are independent, carry no read-modify-write overhead, and incur essentially zero transaction aborts, scaling monotonically to 72~threads.
 Adjacency List stores one record per vertex, so every edge insert appends to the source vertex's record.
-Under power-law degree distributions, concurrent writers issue conflicting modifications to the records of high-degree vertices, producing a high rollback rate that peaks near ${\sim}$1.0\,M~edges/s at ${\sim}$48 threads and declines to ${\sim}$0.72\,M~edges/s at 72~threads.
+Under power-law degree distributions, concurrent writers issue conflicting modifications to the records of high-degree vertices, producing a high rollback rate that limits peak throughput to ${\sim}$1.0\,M~edges/s at $ {\sim}$48 threads, declining to ${\sim}$0.72\,M~edges/s at 72~threads.
 On the other hand, Adjacency List performs better with 72 writer threads on the uniform-24 dataset due to reduced conflicts absent any high-degree vertices.
 
 \section{Post-Ingestion Analytics}
