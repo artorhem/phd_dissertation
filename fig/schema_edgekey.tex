@@ -52,7 +52,7 @@
   %   % User-provided IDs are shifted by +1 internally so that no real vertex collides with the \texttt{OOB} sentinel.
   %   For undirected graphs, both directions are stored in \texttt{edge\_out} and the \texttt{edge\_in} table is omitted.
   %   Format codes: \texttt{u}\,=\,raw byte array.}
-  \caption{EdgeKey representation for the example graph in~\autoref{fig:schema:example-graph}. \colorbox{gray!15}{Node sentinels} (shaded) use an out-of-band destination ID (\texttt{OOB},=,0) and store packed \texttt{[in\_degree, out\_degree]};
+  \caption[EdgeKey representation for the example graph]{EdgeKey representation for the example graph in~\autoref{fig:schema:example-graph}. \colorbox{gray!15}{Node sentinels} (shaded) use an out-of-band destination ID (\texttt{OOB},=,0) and store packed \texttt{[in\_degree, out\_degree]};
   edge rows store the weight or a placeholder (\texttt{---}). For undirected graphs, \texttt{edge\_in} is omitted. All columns use raw byte arrays (\texttt{u}).}
   \label{fig:schema:edgekey}
 \end{figure}

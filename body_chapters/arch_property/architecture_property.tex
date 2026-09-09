@@ -13,7 +13,8 @@ A uniform property cursor abstraction lets query code switch between modes witho
 
 Structural storage optimizes for topology traversal: sequential access to neighborhoods, fast degree lookups, and parallel scans across the vertex ID space.
 Property storage optimizes for attribute access: point lookups on a single vertex's attributes, selective reads of one column across many vertices, and schema-aware type extraction.
-These two access patterns demand different physical layouts.
+Structure and properties are distinct kinds of data that queries consume independently more often than together: graph analytics such as PageRank and BFS traverse only topology, while point lookups and column scans read only attributes.
+This disjointness justifies storing each in a layout tuned to its access pattern, without splitting the system into separate stores.
 
 Consider the LDBC Social Network Benchmark (SNB)~\cite{erling2015ldbc} Person vertex as a running example.
 A PageRank computation iterates over every vertex's in-neighborhood and accumulates scores; it never reads \texttt{firstName}, \texttt{birthday}, or \texttt{browserUsed}.
@@ -38,7 +39,9 @@ This tension motivates offering both an embedded mode (properties co-located wit
 \autoref{fig:ldbc-snb-schema} shows the LDBC SNB schema that serves as the running example throughout this chapter.
 Two features of this schema surface design problems that a property storage layer must solve.
 First, vertex types are independently numbered: a Person and a Post may share the same source ID, so the storage layer must disambiguate them.
-Second, each pair of endpoint labels maps to exactly one edge type (\textsc{knows} connects only Person$\to$Person, \textsc{hasCreator} connects only Post$\to$Person), so edge labels can be inferred from endpoint labels without an explicit label column.
+Second, in the subset of the LDBC SNB schema we target, each pair of endpoint labels maps to exactly one edge type (\textsc{knows} connects only Person$\to$Person, \textsc{hasCreator} connects only Post$\to$Person), so edge labels can be inferred from endpoint labels without an explicit label column.
+This property does not hold in general: multiple edge types may connect the same vertex-type pair. 
+Supporting the general case requires adding an edge-type field to the key, a straightforward extension we omit because our target schema does not need it.
 
 Both storage modes require knowing which schema applies to a given vertex, so we begin with label encoding before describing either mode.
 The remainder of this chapter addresses four design questions:
@@ -68,8 +71,8 @@ We illustrate the tradeoffs using LDBC SNB vertex types (Person, Post, Comment) 
 The simplest option maintains a separate graph representation per vertex label: one B-tree (or set of tables) for Person, another for Post, and so on.
 Edges whose endpoints share a label stay within a single representation, so a \texttt{knows} edge between two Person vertices is straightforward.
 However, an edge that crosses label boundaries, such as a \texttt{hasCreator} edge from a Post to a Person, spans two representations.
-Traversing that edge requires a lookup into the destination label's table, an operation that is difficult to batch and that breaks sequential scan patterns.
-\autoref{fig:label:two-reps} illustrates the problem: iterating through the neighborhood of a Post vertex in the Post table requires repeated random lookups into the Person table to resolve each \texttt{hasCreator} destination.
+Traversing that edge requires a foreign-key-like lookup into the destination label's table, an operation that is difficult to batch and that breaks sequential scan patterns.
+\autoref{fig:label:two-reps} illustrates the problem: iterating through the neighborhood of a Post vertex in the Post table requires repeated random lookups into the Person table to resolve each \texttt{hasCreator} destination, much as chasing foreign keys in a normalized relational schema does.
 
 \begin{figure}[htbp]
   \centering
@@ -149,6 +152,8 @@ This design contrasts with two alternatives.
 TuGraph~\cite{linBuildingHighPerformanceGraph2024} stores the label in the vertex \emph{value}, requiring a value read to determine it.
 GraphflowDB~\cite{graphflowdb2021Gupta} assigns consecutive ID ranges per label, but the range boundaries depend on the actual vertex counts at load time.
 \project{}'s bit-reservation gives $O(1)$ label extraction with boundaries that are fixed at schema definition time.
+This encoding limits vertex types to $2^{8} = 256$ and vertices per type to $2^{56}$.
+The per-type capacity is large enough to be irrelevant in practice, but a schema with hundreds of vertex types would exhaust the tag space; widening the tag field to 16 bits requires only a compile-time constant change.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \section{Embedded Mode}

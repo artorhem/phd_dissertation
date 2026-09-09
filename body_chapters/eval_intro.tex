@@ -8,38 +8,34 @@
 %       Also remove the datasets table from evaluation_static.tex (it now
 %       lives here as \autoref{tab:datasets}).
 
-\project{} claims to serve the full spectrum of graph workloads---from
-whole-graph analytics to fine-grained transactional queries---on a single
-persistent representation, without data movement or ETL\@.
-Most existing systems optimize for one operating point: in-memory graph
-processing systems build purpose-built layouts for analytics but require
-offline preprocessing and cannot handle mutations; dynamic graph containers
-sustain high ingest throughput but sacrifice analytical performance or
-persistence; graph databases handle OLTP queries well but collapse on iterative
-analytics.
-If \project{} merely matched one class of system while failing on another, it
-would reproduce the specialization problem it is designed to solve.
-The evaluation must therefore test \project{} on each class of workload,
-measuring it against the systems that specialize in that class.
+Our goal in designing Flexograph was to serve a wide range of graph workloads, from whole-graph analytics to fine-grained transactional queries, using a single, persistent representation, avoiding expensive ETL processes.
+The database community has questioned whether general-purpose systems can succeed, often citing the ``one size does not fit all'' paradigm.
+Yet recent trends show a clear shift toward unified architectures.
+Specialized, purely in-memory databases evolved into adaptive engines, and the strict divide between OLTP and OLAP gave way to HTAP architectures.
+\project{} applies this same principle to graph data.
+By focusing on graph-structured workloads, \project{} shows that a single persistent representation can serve the full spectrum of operations and eliminate ETL and system fragmentation entirely.
+Most existing systems optimize for one operating point: in-memory graph processing systems build purpose-built layouts for analytics but require offline preprocessing and cannot handle mutations; dynamic graph containers sustain high ingest throughput but sacrifice analytical performance or persistence; graph databases handle OLTP queries well but collapse on iterative analytics.
+If \project{} merely matched one class of system while failing on another, it would reproduce the specialization problem it is designed to solve.
+The evaluation must therefore test \project{} on each class of workload, measuring it against the systems that specialize in that class.
 
-We organize the evaluation into four workload classes, each targeting a
-distinct operating regime:
+We organize the evaluation into four workload classes, each targeting a distinct operating regime:
 
 \begin{enumerate}
-  \item \textbf{In-memory graph analytics} (\autoref{sec:eval:inmem}).
-        Can \project{} match specialized graph processing systems that build
-        purpose-built in-memory layouts?
-        We compare against GAPBS, Galois, Ligra, and Gemini on PageRank,
-        connected components, BFS, and betweenness centrality, measuring both
-        kernel execution time and the preprocessing overhead that each system
-        requires before it can run algorithms.
-
   \item \textbf{Out-of-core graph analytics} (\autoref{sec:eval:ooc}).
         Does \project{} remain competitive when the graph exceeds available
         memory?
         We compare against GraphChi, X-Stream, and Blaze under constrained
         memory budgets, measuring kernel execution time, preprocessing
         overhead, and I/O bandwidth utilization.
+
+  \item \textbf{In-memory graph analytics} (\autoref{sec:eval:inmem}).
+        When memory is sufficient to hold the entire graph, can \project{}
+        match systems that exploit this assumption by building
+        purpose-built in-memory layouts?
+        We compare against GAPBS, Galois, Ligra, and Gemini on PageRank,
+        connected components, BFS, and betweenness centrality, measuring both
+        kernel execution time and the preprocessing overhead that each system
+        requires before it can run algorithms.
 
   \item \textbf{Dynamic structural graphs} (\autoref{sec:eval:dynamic}).
         Can \project{} sustain mutation throughput and deliver analytics on a
@@ -51,7 +47,8 @@ distinct operating regime:
   \item \textbf{Property graph queries} (\autoref{sec:eval:property}).
         Can \project{}'s property storage layer compete with mature graph
         databases on transactional queries?
-        We compare against Neo4j, ArangoDB, NeuG, and others on individual
+        We compare against Neo4j, ArangoDB, NeuG, AsterDB, JanusGraph,
+        OrientDB, and PostgreSQL on individual
         structural and property CRUD operations, composite LDBC SNB queries,
         and full-graph algorithms.
 \end{enumerate}
@@ -76,9 +73,9 @@ capacity enable scalability testing.
 Machine~B runs the property graph experiments (microbenchmarks, LDBC SNB
 queries, and graph algorithm comparisons against graph databases), where
 single-threaded query latency matters more than core count.
-Both machines run Ubuntu~22.04~LTS with Linux~6.8.0; we compile all
-\project{} code and comparison systems with GCC~13.3.0 using
-\texttt{-O3~-march=native~-mtune=native}.
+Both machines run Ubuntu~22.04~LTS with Linux~6.8.0.
+We compile all \project{} code and comparison systems with GCC~13.3.0
+(\texttt{-O3 -march=native -mtune=native}).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \begin{table}[h]
@@ -155,12 +152,9 @@ The LDBC Social Network Benchmark (SNB) at scale factor~3 defines a property
 graph with ${\sim}800$\,K vertices and ${\sim}3.5$\,M edges across 4~entity
 types (Person, Post, Comment, Forum) and 7~relation types (schema in
 \autoref{fig:ldbc-snb-schema}).
-We use cit-Patents (3.77\,M vertices, 16.5\,M edges) for graph algorithm
-comparisons against graph databases.
+We use cit-Patents (3.77\,M vertices, 16.5\,M edges) for comparing whole-graph analytics performance to graph databases.
 The microbenchmarks use two structural graphs, DBLP co-authorship
-(${\sim}317$\,K vertices, ${\sim}1$\,M edges) and WikiTalk (${\sim}2.4$\,M
-vertices, ${\sim}5$\,M edges), and two property graphs from the AsterDB
-artifact, LDBC and Freebase.
+(${\sim}317$\,K vertices, ${\sim}1$\,M edges) and WikiTalk (${\sim}2.4$\,M vertices, ${\sim}5$\,M edges), and two property graphs from the AsterDB artifact, LDBC and Freebase.
 
 %% --------------------------------------------------------------------------
 \section{Comparison Systems and Benchmark Suites}
@@ -172,8 +166,8 @@ evaluation context.
 identifies the benchmark framework for each context.
 
 \paragraph{Static analytics.}
-The in-memory (\autoref{sec:eval:inmem}) and out-of-core
-(\autoref{sec:eval:ooc}) experiments use LDBC Graphalytics benchmark
+The out-of-core (\autoref{sec:eval:ooc}) and in-memory
+(\autoref{sec:eval:inmem}) experiments use LDBC Graphalytics benchmark
 kernels~\cite{LDBCGrapalytics22:online} (BFS, PageRank, connected components,
 triangle counting, and SSSP), each implemented using the system's native
 API\@.
