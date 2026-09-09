@@ -10,26 +10,28 @@ ingest and operate primarily in memory.
 We use three such systems to establish a baseline:
 Teseo~\cite{teseo2021deLeo}, LiveGraph~\cite{zhu2019livegraph}, and
 GraphOne~\cite{graphone2019kumar}.
-Each achieves high ingest throughput through lightweight write paths:
-GraphOne appends edges to a lock-free ring buffer drained by a background archiver; Teseo uses optimistic latching on fat-tree segments; LiveGraph maintains a transactional edge log backed by mmap.
+Each system achieves high ingest throughput through lightweight write paths.
+GraphOne appends edges to a lock-free ring buffer that a background archiver drains asynchronously.
+Teseo inserts edges in-place into sorted segments of a fat tree under optimistic latches, attaching version records only to modified entries.
+LiveGraph appends timestamped edge entries into per-vertex mmap-backed blocks.
 No system requires a read-optimized replica for analytics.
-GraphOne's background archiver pre-builds per-vertex adjacency lists in a read store; analytics merge these with unarchived edges into flat per-vertex arrays without per-edge version checks.
-LiveGraph iterates its mmap'd per-vertex edge blocks under snapshot isolation, filtering each entry with two epoch-based timestamp comparisons.
-Teseo scans its sorted fat-tree segments sequentially; clean segments skip version checks, dirty ones consult a sparse undo log. 
+GraphOne's archiver drains the log into per-vertex adjacency chains in a read-optimized store; analytics waits for the archiver to finish, then reads each vertex's chain into a flat array with no per-edge version checks.
+Teseo scans its sorted segments sequentially under optimistic latches; clean segments skip version checks entirely, while dirty ones consult a sparse undo log.
+LiveGraph iterates each vertex's edge block under snapshot isolation, filtering every entry against the read epoch with two timestamp comparisons.
  
 
 Most dynamic graph systems have no way to persist data across restarts; the exceptions are LiveGraph, which supports file-backed mmap, and GraphOne, which provides a write-ahead log.
 For a fair comparison with Teseo, we disable persistence in LiveGraph and GraphOne, so all three baselines operate under comparable in-memory conditions.
-Recall that \project{} is inherently persistent; to best approximate in-memory behavior in the presence of updates, we disable the write-ahead log and checkpointing and size WiredTiger's cache to prevent most evictions.
-We do not take advantage of WiredTiger's in-memory mode, because it would be contrary to our design objective.
+Recall that \project{} is inherently persistent; to best approximate in-memory behavior in the presence of updates, we disable the write-ahead log and checkpointing and size \wt{}'s cache to prevent most evictions.
+We do not take advantage of \wt{}'s in-memory mode, because it would be contrary to our design objective.
 As a result, we avoid as much disk I/O as possible, but do not turn off the persistence machinery entirely.
-Specifically, \project{} maintains the graph in WiredTiger's persistable, page-oriented B-tree format at all times, which involves byte-comparable key serialization, disk-block-granular page geometry, page-image reconciliation, extent/block management, and an always-on eviction subsystem. 
+Specifically, \project{} maintains the graph in \wt{}'s persistable, page-oriented B-tree format at all times, which involves byte-comparable key serialization, disk-block-granular page geometry, page-image reconciliation, extent/block management, and an always-on eviction subsystem. 
 This machinery consumes CPU on the ingest path: not the cost of persisting data, but of maintaining a structure that is persistable by construction.
 GraphOne and LiveGraph decouple durability from their in-memory representation and pay essentially nothing for the option.
 However, such designs have consequences, e.g., GraphOne does not enforce transactional consistency during updates. 
 GraphOne delegates duplicate checking to the caller; its snapshot mechanism is too heavyweight to invoke per-edge, and throughput collapses  if used that way.
-Teseo, provides transactional semantics comparable to \project{}, it has  no durable representation and incurs no persistence overhead.
-LiveGraph has similar transactional semantics, but since it relies on mmap, the host OS can evict pages at any time, so the write ordering needed for consistency and crash recovery are difficult, if not impossible, to guarantee. 
+Teseo provides transactional semantics comparable to \project{}, it has  no durable representation and incurs no persistence overhead.
+LiveGraph has similar transactional semantics, but since it relies on mmap, the host OS can evict pages at any time, so the write ordering needed for consistency and crash recovery is difficult, if not impossible, to guarantee. 
 
 We conduct four experiments:
 (1)~a scalability study that varies writer thread count,
@@ -52,12 +54,36 @@ update log,
 
 \section{Insertion Scalability}
 
-We insert the edges of graph500-24 while varying the number of writer threads from 1 to 72 to identify each system's optimal concurrency (\autoref{fig:dynamic-scaling}a).
-GraphOne peaks at 6.3\,M~edges/s with 40~threads but degrades beyond that point as cross-socket contention on its single ring buffer increases.
-Teseo scales the most consistently, reaching 5.1\,M~edges/s at 72~threads with no sign of saturation.
+We insert the edges of graph500-24 while varying the number of writer threads from 1 to 72 to identify each system's optimal concurrency (\autoref{fig:dynamic-scaling}).
+\autoref{tab:scalability-peak} lists each system's single-thread and peak throughput.
+GraphOne peaks at 6.33\,M~edges/s with 40~threads but degrades beyond that point as cross-socket contention on its single ring buffer increases.
+Teseo scales the most consistently, reaching 5.12\,M~edges/s at 72~threads with no sign of saturation.
 LiveGraph plateaus near 0.49\,M~edges/s at 32--40~threads.
-\project{} EdgeKey reaches 1.7\,M~edges/s at 72~threads; Adjacency List peaks at 0.77\,M~edges/s with 48~threads.
+\project{} EdgeKey reaches 1.69\,M~edges/s at 72~threads; Adjacency List peaks at 0.83\,M~edges/s with 48~threads.
 Based on these results, we fix GraphOne and LiveGraph at 40~threads and Teseo and both \project{} configurations at 72~threads for all subsequent experiments.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{table}[t]
+  \centering
+  \small
+  \setlength{\tabcolsep}{5pt}\renewcommand{\arraystretch}{1.05}
+  \begin{tabular}{l r r r r}
+  \toprule
+  System & T(1) (M\,eps) & Peak T(p) (M\,eps) & Threads & Speedup \\
+  \midrule
+  GraphOne              & 1.69 & 6.33 & 40 & 3.7$\times$ \\
+  Teseo                 & 0.28 & 5.12 & 72 & 18.2$\times$ \\
+  \project{} EdgeKey    & 0.07 & 1.69 & 72 & 23.5$\times$ \\
+  \project{} AdjList    & 0.04 & 0.83 & 48 & 21.3$\times$ \\
+  LiveGraph             & 0.04 & 0.49 & 40 & 12.9$\times$ \\
+  \bottomrule
+  \end{tabular}
+  \caption{Single-thread and peak insertion throughput on graph500-24.
+  T(1) is single-thread throughput; T(p) is peak throughput at the listed thread count.
+  Speedup is T(p)\,/\,T(1).}
+  \label{tab:scalability-peak}
+\end{table}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 \section{Ingest and Update Throughput}
 
@@ -82,7 +108,7 @@ More specifically, as De Leo et al. noted in their paper, updates trigger fewer 
 \begin{figure*}[ht]
   \centering
   \includegraphics[width=\textwidth]{fig/dynamic/update_timeseries_combined.pdf}
-  \caption{~Update (insert/delete workload) throughput on graph500-24 and uniform-24. GraphOne throughput collapses for this workload. \project{}'s AdjList works better at 72 threads on the uniform-24 workload becuase of reduced contention between threads.}
+  \caption{~Update (insert/delete workload) throughput on graph500-24 and uniform-24. GraphOne throughput collapses for this workload. On uniform-24, \project{}'s AdjList at 72 threads outperforms its own 48-thread configuration because the uniform degree distribution reduces contention on individual adjacency records.}
   \label{fig:throughput-update}
 \end{figure*}
 
@@ -99,8 +125,8 @@ Without power-law hubs, the archiver's linear scan terminates quickly, so it no 
 Teseo sustains 6.0\,M~ops/s, roughly 14\% below its graph500-24 rate, likely because the more uniform key distribution triggers fewer in-place reuses of freed space.
 LiveGraph is essentially insensitive to degree distribution, sustaining 0.41\,M~ops/s (vs.\ 0.42 on graph500-24).
 \project{} EdgeKey drops modestly to 0.95\,M~ops/s (from 1.07 on graph500-24); because each edge is an independent B-tree row, degree skew has little effect on contention.
-The largest shift is in Adjacency List: with 72 writer threads it reaches 0.58\,M~ops/s on uniform-24, outperforming its own 48-thread arm (0.46\,M~ops/s) and reversing the thread-count ordering seen on graph500-24, where 48 threads (0.28\,M~ops/s) beats 72 (0.18\,M~ops/s).
-Absent high-degree vertices, concurrent appends spread evenly across adjacency records rather than concentrating on a few hot lists, eliminate the contention that penalised the larger thread pool on the power-law graph.
+The largest shift is in Adjacency List: with 72 writer threads it reaches 0.58\,M~ops/s on uniform-24, outperforming its own 48-thread configuration (0.46\,M~ops/s) and reversing the thread-count ordering seen on graph500-24, where 48 threads (0.28\,M~ops/s) beats 72 (0.18\,M~ops/s).
+Absent high-degree vertices, concurrent appends spread evenly across adjacency records rather than concentrating on a few hot lists, eliminating the contention that penalised the larger thread pool on the power-law graph.
 
 \project{}'s two layouts present a clear tradeoff.
 EdgeKey stores one B-tree row per edge; inserts are independent, carry no read-modify-write overhead, and incur essentially zero transaction aborts, scaling monotonically to 72~threads.
@@ -145,7 +171,7 @@ The results are in \autoref{tab:analytics-main}.
     \bottomrule
     \end{tabular}
     \vfill
-    \captionof{table}{Cross-system Graphalytics kernel time (s), median over warm runs. The best time for each graph/algorithm appears in bold. FG = FlexoGraph, PR = PageRank.}
+    \captionof{table}{Cross-system Graphalytics kernel time (s), median over warm runs. The best time for each graph/algorithm appears in bold. FG = \project{}, PR = PageRank.}
     \label{tab:analytics-main}
   \end{minipage}
 \end{figure*}
@@ -154,23 +180,23 @@ The results are in \autoref{tab:analytics-main}.
 Recall that, at this point, the in-memory baselines hold the graph only as a transient structure that will be lost if the system shuts down or crashes; there are no redundant copies, no durable snapshots.
 
 \textbf{Excluding the cold open.}
-Unlike the purely in-memory baselines, \project{} stores the graph in WiredTiger. 
+Unlike the purely in-memory baselines, \project{} stores the graph in \wt{}. 
 In \project{}, immediately after ingestion, data resides as dirty pages in the buffer cache.
 To ensure that graphalytics kernels run on a stable, consistent, read-only view of the graph, \project{} forces a checkpoint and opens a set of per-thread read-only handles before the first kernel runs.
 The checkpoint makes the first run expensive: it triggers
-\emph{reconciliation}, in which WiredTiger walks every dirty page and reconciles
+\emph{reconciliation}, in which \wt{} walks every dirty page and reconciles
 its in-memory updates into the page images that constitute the queryable snapshot.
 Since the first Graphalytics kernel invocation triggers the checkpoint, the first run on a freshly built graph includes this one-time cost (varies from 59s on graph500-22 to 26 minutes on graph500-26).
 Because subsequent kernels amortize it, we report steady-state time.
 \project{}'s checkpoint time is, however, far from negligible and grows with graph size: the forced checkpoint takes 59\,s and 68\,s on the SF-22 graphs, roughly five minutes on SF-24 (298\,s / 284\,s), and about 26--27\,min on the billion-edge SF-26 graphs (1536\,s / 1628\,s); opening the read-only handles adds at most 16\,s. 
 The competing systems incur no comparable cost, because they require no reconciliation step: LiveGraph's first run is within noise of its warm runs, and Teseo adds only a few seconds of cache warm-up.
-The cold open is therefore the price FlexoGraph pays \emph{once} to convert a write-optimized store into a consistent read snapshot that subsequently serves analytics at in-memory speed.
+The cold open is therefore the price \project{} pays \emph{once} to convert a write-optimized store into a consistent read snapshot that subsequently serves analytics at in-memory speed.
 
 \project{} Adjacency List is the only system that delivers fast, stable performance across all three kernels and both graph families.
 Teseo produces the BFS runtime: 0.61\,s on graph500-26, but its PageRank and WCC degrade sharply at scale---27\,s and 12\,s respectively---while \project{}'s PageRank stays at 5.7\,s, $4.7\times$ faster.
 LiveGraph is competitive on uniform WCC (0.95\,s) but scales poorly on power-law inputs.
 GraphOne presents the starkest read-write contrast: despite being the fastest inserter, its WCC collapses at graph500-26 and is over $30\times$ slower than every other system, while its BFS and PageRank remain comparable to LiveGraph and Teseo.
-The ingest-optimized EdgeKey layout, is orders of magnitude slower on analytics (640\,s for BFS on g500-24 versus 0.37\,s for AdjList), illustrating how important layout choice is for analytical performance.
+The ingest-optimized EdgeKey layout is orders of magnitude slower on analytics (640\,s for BFS on g500-24 versus 0.37\,s for AdjList), illustrating how important layout choice is for analytical performance.
 
 \textbf{Takeaway.}
 Not having a separate high-speed ingest path costs \project{} 3--5$\times$ on raw insertion relative to purpose-built in-memory systems, an expected and acceptable penalty.
