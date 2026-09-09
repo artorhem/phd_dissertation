@@ -3,16 +3,13 @@
 
 We evaluate \project{} on static structural graph analytics in two settings: out-of-core, where the graph exceeds available memory, and in-memory, where the graph fits entirely in the \wt{} cache.
 In both settings, \project{} opens read-only connections to a pre-loaded graph and performs no writes.
-We compare against specialized graph processing systems using the LDBC Graphalytics Benchmark kernels: BFS, PageRank (PR), connected components (CC), triangle counting (TC), and single-source shortest path (SSSP)~\cite{LDBCGrapalytics22:online}.
+We compare \project{} with specialized graph processing systems using the LDBC Graphalytics Benchmark kernels: BFS, PageRank (PR), connected components (CC), triangle counting (TC), and single-source shortest path (SSSP)~\cite{LDBCGrapalytics22:online}.
 The systems to which we compare in each setting are described in \autoref{sec:related-work}.
 
-\section{Experimental Setup and Datasets}
+\section{Datasets}
 \label{sec:eval:static:setup}
 
-We use a dual-socket AMD EPYC 7643 Processor @ 2.30 GHz, 96 cores/192 threads, 2 TB of memory, and 2 TB NAND Flash SSD.
-Hyperthreading is enabled.
-The machine runs Ubuntu 22.04 LTS with Linux 6.8.0, and all applications are compiled using GCC 13.3.0 with the optimization flags \texttt{-O3 -march=native -mtune=native}.
-
+We described the experimental environment in \autoref{sec:eval:env}; all static experiments run on Machine~A.
 The Graphalytics benchmark suite provides a few reference datasets for evaluation, from which we selected the Graph500 graphs, DOTA League, Twitter MPI, and the friendster graphs.
 We use the Koblenz Network Collection for the UK domain (uk2007) graph~\cite{kunegis2013konect}.
 The uniform random graph datasets are generated with the graph generator developed by the Teseo authors~\cite{teseo2021deLeo}.

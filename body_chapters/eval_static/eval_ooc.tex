@@ -10,7 +10,7 @@
 % At 50\%, measure graceful degradation relative to competitors.
 We compare \project{} to three out-of-core systems: GraphChi, X-Stream, and Blaze.
 Each system uses a different on-disk layout to maximize sequential streaming bandwidth (except X-Stream, whose preprocessing step is the creation of a binary edge list); preprocessing time is the time to construct this layout from an edge list.
-To force out-of-core behavior, we cap each container at 50\% of the graph's raw on-disk edge-list size with swap disabled. Because the layouts differ, we do not tie this budget to any single system's in-memory footprint.
+To force out-of-core behavior, we cap each container at 50\% of the graph's raw on-disk edge-list size with swap disabled. Because the layouts differ, we do not tie this budget to any single system's in-memory footprint, thus privileging systems whose in-memory representation is most compact.
 All systems use 64 compute threads pinned to one NUMA socket with local
 memory.
 We set each system's memory knob within the budget: GraphChi's \texttt{membudget} and X-Stream's \texttt{physical\_memory} to 95\% of the limit, but \project{}'s WiredTiger buffer pool (\texttt{cache\_size}) to only 30\%.
@@ -33,6 +33,7 @@ On synthetic Kronecker graphs, where over half of all vertices are isolated, Bla
 On connected components, Blaze is 9\% to 46\% faster than \project{} on all graphs except Twitter, where they are tied.
 For PageRank, Blaze wins on synthetic Graph500 datasets by 31\% to 37\%, but \project{} outperforms Blaze on real-world graphs: 9\% on Twitter, 17\% on uk-2007, and 65\% on com-friendster.
 If we include the time to build each system's on-disk layout, \project{} is 1.3$\times$ to 6.5$\times$ faster than any other system.
+\project{}'s preprocessing cost is negligible (opening a read-only cursor on the latest checkpoint and partitioning work across threads) because it operates directly on its persistent representation rather than building a single-purpose on-disk layout from an edge list (\autoref{design:static_structural}).
 
 \begin{figure}[h]
   \centering

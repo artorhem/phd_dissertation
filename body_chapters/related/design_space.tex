@@ -118,6 +118,12 @@ Other out-of-core systems include CLIP~\cite{ai2018clip}, V-part~\cite{elyasi201
   \end{table}
 
 All static systems, whether in-memory or out-of-core, require an offline preprocessing step to build their layout and are batch-only, supporting no mutations during processing.
+Among the out-of-core systems we compare to, GraphChi is a partial exception: it includes an evolving-graph mode that can append edges during execution.
+Incoming edges are held in per-shard in-memory buffers and periodically flushed to the on-disk shards, triggering shard splits when a shard grows too large.
+Shard splits halve computation throughput, and flushes that increasingly compete with computation prevent the mode from sustaining high ingestion rates~\cite{kyrola2012graphchi}.
+X-Stream's unordered edge list allows it to absorb batches of new edges that are partitioned and appended to its on-disk stream files via a shared-memory interface, after which algorithms must be recomputed from scratch on the accumulated graph~\cite{roy2013x}.
+Blaze offers no dynamic mode.
+None of these mechanisms support arbitrary mutations or transactional semantics.
 \project{} operates directly on its persistent representation, eliminating the preprocessing step entirely; we include preprocessing time in all comparisons to illustrate this advantage.
 \project{} relies on \wt{}'s buffer pool to spill to secondary storage, achieving competitive out-of-core performance without a dedicated I/O framework.
 These two classes of graph processing systems constitute a sub-classification of the design space of structural graph data management systems, both static and dynamic (~\autoref{fig:design_space}).
