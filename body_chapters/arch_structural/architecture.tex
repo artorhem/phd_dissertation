@@ -395,6 +395,7 @@ The edge-centric implementation uses label propagation with atomic \texttt{write
 Both iterate until convergence.
 We report the wall-clock times for both algorithms on both datasets in \autoref{tab:ec_vc_time}.
 We use \wt{} statistics to report the underlying \wt{} B-tree cursor counts for both algorithms in \autoref{tab:ec_vc_cursors}.
+A finer-grained breakdown that isolates cursor traversal, deserialization, and compute within a single PageRank iteration appears in~\autoref{sec:eval:pr_breakdown}.
 
 \begin{table}[ht]
 \centering
@@ -494,6 +495,67 @@ Edge-centric processing minimizes this cost by working \emph{with} EdgeKey's gra
 Vertex-centric on EdgeKey demonstrates what happens when the computation model fights the representation: the system pays the full $O(|V| + |E|)$ cursor cost of EdgeKey \emph{and} the overhead of reconstructing packed adjacency lists that the representation avoids storing by design.
 Choosing the right computation model transforms EdgeKey from pathologically slow to a practical, if more expensive, alternative to the adjacency list.
 
+\subsection{Dissecting a Single PageRank Iteration}
+\label{sec:eval:pr_breakdown}
+
+The timing results in \autoref{tab:ec_vc_time} reveal large gaps between representations, but do not isolate where each iteration spends its time.
+To attribute the cost, we designed a microbenchmark that runs a single vertex-centric PageRank iteration through four cumulative phases, each adding one layer of work:
+
+\begin{enumerate}
+  \item \textbf{Position.} Each thread calls \texttt{cursor->search\_near()} to position at the start of its partition.
+  \item \textbf{Walk.} Each thread calls \texttt{cursor->next()} and \texttt{get\_key()} through its partition on a raw \wt{} file cursor, reading no values. This isolates the B-tree traversal cost.
+  \item \textbf{Deserialize.} Each thread uses an \code{InCursor} to iterate and reconstruct adjacency lists (the full \texttt{get\_value} + \texttt{memcpy} path for the adjacency list, or \texttt{push\_back} reconstruction for EdgeKey), but performs no computation on the data.
+  \item \textbf{Full.} A complete PageRank iteration: deserialize and compute scores.
+\end{enumerate}
+
+\noindent
+Subtracting adjacent phases yields the marginal cost of each layer.
+The benchmark runs three trials per phase after warming the \wt{} cache, and reports the best wall-clock time to minimize scheduling noise.
+All runs use 28 threads with \code{EDGE\_AWARE} partitioning.
+\autoref{tab:pr_breakdown} shows the results.
+
+\begin{table}[ht]
+\centering
+\begin{tabular}{ll rr rrr}
+\toprule
+& & & & \multicolumn{3}{c}{\textbf{Fraction of iteration time}} \\
+\cmidrule(lr){5-7}
+\textbf{Dataset} & \textbf{Rep.} & \textbf{Time (s)} & \textbf{\code{next()}} & \textbf{Cursor} & \textbf{Deser.} & \textbf{Compute} \\
+\midrule
+\multirow{2}{*}{soc-LiveJournal}
+  & Adj      & 0.12 & 4.5\,M  & 52\% & 17\% & 30\% \\
+  & EdgeKey  & 0.74 & 69.0\,M & 90\% &  4\% &  6\% \\
+\midrule
+\multirow{2}{*}{twitter-2010}
+  & Adj      & 2.47 & 49.4\,M & 24\% & 12\% & 65\% \\
+  & EdgeKey  & 38.2 & 1{,}963\,M & 93\% &  1\% &  6\% \\
+\bottomrule
+\end{tabular}
+\caption{Wall-clock breakdown of a single vertex-centric PageRank iteration (28 threads, \code{EDGE\_AWARE} partitioning).
+Cursor: B-tree \texttt{cursor->next()} traversal; Deser.: Flexograph's deserialization layer (\texttt{record\_to\_adjlist} for the adjacency list, edge-entry reconstruction for EdgeKey); Compute: score accumulation and update.
+Initial cursor positioning accounts for $<\!0.1\%$ in all cases and is omitted.}
+\label{tab:pr_breakdown}
+\end{table}
+
+\paragraph{Cursor traversal dominates EdgeKey.}
+On EdgeKey, cursor movement accounts for 90--93\% of iteration time.
+Each edge is an independent B-tree entry, so a full scan requires $O(|V|+|E|)$ calls to \texttt{cursor->next()}: 69\,M on soc-LiveJournal and 1.96\,B on twitter-2010.
+The B-tree page-traversal cost of each call is small individually, but multiplied by the edge count it overwhelms everything else.
+Deserialization (Flexograph's own overhead layer) accounts for only 1--4\%, because per-edge key extraction (\texttt{ekey\_get\_key} + \texttt{push\_back}) involves no bulk memory copy.
+
+\paragraph{Adjacency list: compute becomes visible.}
+On the adjacency list, cursor traversal drops to 24--52\% because only $O(|V|)$ cursor calls are needed; each call returns a packed blob containing all neighbors.
+The compute phase (score accumulation over the deserialized neighbor array) takes 30--65\% of the iteration, becoming the largest component on the larger graph.
+Deserialization is modest at 12--17\%: a single \texttt{get\_value} call, a \texttt{memcpy} of the degree field, and a \texttt{vector::assign} that copies the neighbor array.
+
+\paragraph{Flexograph's deserialization overhead is small and unavoidable.}
+Across both representations, Flexograph's deserialization layer adds 1--17\% to iteration time.
+This copy is necessary: \wt{} exposes record data through a cursor whose underlying page buffer may be evicted or reused after the cursor advances.
+Flexograph must copy the data into application-owned memory before calling \texttt{cursor->next()}.
+For the adjacency list, \texttt{record\_to\_adjlist()} extracts the degree via \texttt{memcpy} and copies the neighbor array with \texttt{vector::assign}; for EdgeKey, the per-edge \texttt{push\_back} is even cheaper.
+Eliminating this copy would require pinning \wt{} pages for the duration of the computation; this would conflict with \wt{}'s cache-eviction policy and is not exposed by its public API.
+The practical overhead ceiling is therefore set by cursor traversal cost, not by the deserialization layer.
+
 \subsection{Takeaway}
 
 \begin{enumerate}
@@ -502,6 +564,8 @@ Choosing the right computation model transforms EdgeKey from pathologically slow
   \item \textbf{Edge-centric processing recovers most of EdgeKey's read-path cost} by streaming per-edge B-tree entries sequentially, avoiding the reconstruction overhead that vertex-centric processing incurs.
 
   \item \textbf{The gap between the natural pairings (VC--adjacency list vs.\ EC--EdgeKey) is the irreducible read-path cost of mutation-friendly storage,} and it can be budgeted at design time based on the expected read--write ratio of the workload.
+  
+  \item \textbf{Flexograph's deserialization layer adds modest overhead (1--17\%) that is architecturally unavoidable} (\autoref{sec:eval:pr_breakdown}): the dominant cost is \wt{} cursor traversal, not the application's data-copying layer.
 \end{enumerate}
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%

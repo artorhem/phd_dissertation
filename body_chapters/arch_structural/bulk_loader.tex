@@ -1,7 +1,7 @@
 \section{Bulk Loader}
 \label{arch:bulkloading}
 
-Bulk loading is the process of inserting a large number of records into the database from an external source.
+Bulk loading inserts a large number of records into the database from an external source.
 Systems typically disable constraint checks, index updates, and logging during bulk loading to maximize throughput.
 Graph databases must support bulk loading, because graphs can be large (the largest Graphalytics graphs have billions of edges) and transactional insertion at such scale is prohibitively slow.
 
@@ -14,13 +14,13 @@ A single C++ program replaces the original multi-stage shell pipeline (\texttt{a
 
 \paragraph{Pass 1: Forward edges and reverse-edge chunking.}
 The program reads the CSV edge file in a single sequential pass.
-Forward edges are already sorted by source ID, so they are grouped by source vertex and written directly to binary adjacency list partition files.
-Simultaneously, each edge $(u, v)$ is reversed to $(v, u)$ and buffered in memory.
+Forward edges arrive sorted by source ID, so the program groups them by source vertex and writes them directly to binary adjacency list partition files.
+Simultaneously, it reverses each edge $(u, v)$ to $(v, u)$ and buffers it in memory.
 When the buffer reaches a configurable size (default 10\,GB, approximately 625M edges), the chunk is sorted in parallel using \texttt{tbb::parallel\_sort} and flushed to a binary run file on disk.
 
 \paragraph{Pass 2: K-way merge of reverse edges.}
-The reverse-edge run files are merged using a min-heap-based $k$-way merge.
-The merged stream is grouped by source vertex and written to binary adjacency list partition files for the in-neighborhood tables.
+A min-heap-based $k$-way merge combines the reverse-edge run files.
+The program groups the merged stream by source vertex and writes it to binary adjacency list partition files for the in-neighborhood tables.
 
 \paragraph{Output format.}
 The output uses a binary adjacency list format:
@@ -56,14 +56,14 @@ This approach serializes insertion into any individual table, but the preprocess
 \subsection{Modified \wt{} Bulk Loader}
 \label{arch:bulk-modified}
 
-To remove the single-threaded constraint, \project{} uses a modified version of the \wt{} bulk loading infrastructure that enables multiple threads to insert into the same table concurrently through bulk cursors.
+To remove the single-threaded constraint, \project{} uses a modified \wt{} bulk loader that enables multiple threads to insert into the same table concurrently through bulk cursors.
 The modification operates in two phases:
 
 \paragraph{Phase 1: Parallel leaf-page creation.}
 The modification removes the exclusive-access requirement (\code{WT\_DHANDLE\_EXCLUSIVE}) from the bulk cursor open path, allowing multiple threads to open bulk cursors on the same table simultaneously.
 Each thread receives its own reconciliation context and a private backing file.
 Threads write leaf pages independently to their backing files, recording the key and page-address for each leaf page written.
-File IDs are assigned atomically via a spinlock-protected counter.
+A spinlock-protected counter assigns file IDs atomically.
 Because each thread writes only to its own backing file, the leaf-page creation phase requires no inter-thread synchronization beyond the file ID allocation.
 
 \paragraph{Phase 2: Hierarchical internal-page merge.}
