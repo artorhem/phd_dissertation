@@ -26,19 +26,18 @@ What makes the system difficult to reason about is that these thresholds exist i
   Threshold & Governs & \% & GiB & \% & GiB \\
   \midrule
   \texttt{eviction\_target}          & background, total  & 80   & 640 & 80 & 640 \\
-  \texttt{eviction\_trigger}         & \textbf{app thread}, total & 95   & 760 & 95 & 760 \\
-  \texttt{eviction\_dirty\_target}   & background, dirty  & 85   & 680 & 5  & 40  \\
-  \texttt{eviction\_dirty\_trigger}  & \textbf{app thread}, dirty & 95   & 760 & 20 & 160 \\
-  \texttt{eviction\_updates\_target}$^\dagger$  & background, updates & 42.5 & 340 & 2.5 & 20 \\
-  \texttt{eviction\_updates\_trigger}$^\dagger$ & \textbf{app thread}, updates & 47.5 & 380 & 10 & 80 \\
+  \texttt{eviction\_trigger}         & app thread, total & 95   & 760 & 95 & 760 \\
+  \texttt{eviction\_dirty\_target}   & background, dirty  & \textbf{85}   & \textbf{680} & 5  & 40  \\
+  \texttt{eviction\_dirty\_trigger}  & app thread, dirty & \textbf{95}   & \textbf{760} & 20 & 160 \\
+  \texttt{eviction\_updates\_target}$^\dagger$  & background, updates & \textbf{42.5} & \textbf{340} & 2.5 & 20 \\
+  \texttt{eviction\_updates\_trigger}$^\dagger$ & app thread, updates & \textbf{47.5} & \textbf{380} & 10 & 80 \\
   \bottomrule
   \end{tabular}
-  \caption{\wt{} eviction thresholds on an 800\,GiB cache. $^\dagger$The
-  \emph{updates} pair is not configured by either setting: when left unset
-  \wt{} derives them as half of the corresponding dirty threshold. They are
-  nevertheless the thresholds that bind in this workload. All comparisons are
-  made relative to the byte count inflated by \texttt{cache\_overhead}, 8\% by
-  default.}
+  \caption{\wt{} eviction thresholds on an 800\,GiB cache.
+  Bold values in the \project{} column are those that differ from the \wt{} defaults.
+  $^\dagger$The
+  \emph{updates} pair is not configured by either setting: when left unset \wt{} derives them as half of the corresponding dirty threshold. They are
+  nevertheless the thresholds that bind in this workload. All byte counts are inflated by \texttt{cache\_overhead} (\wt{} setting; default 8\,\%) to account for heap-allocator overhead before comparison with these thresholds.}
   \label{tab:wt-eviction-knobs}
 \end{table}
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -95,6 +94,7 @@ Because no checkpoint is running, this isolates the effect of the thresholds fro
   \includegraphics[width=\columnwidth]{fig/dynamic/write_volume.pdf}
   \caption{Disk traffic for the same two configurations: instantaneous write rate (top) and cumulative volume (bottom, log scale; the configurations differ by two orders of magnitude).
   \project{}'s setting writes nothing for 31~minutes and then performs 92\% of the run's I/O in an eleven-minute eviction burst; the default thresholds saturate write bandwidth at ${\sim}$1.6\,GB/s from minute~ten onward and never stop.
+  The default-threshold run was stopped after 201~minutes having completed only 61\% of the update log; its write volume is therefore a lower bound.
   Shaded regions mark a running checkpoint in the \project{} config.}
   \label{fig:write-volume}
 \end{figure}
@@ -111,7 +111,7 @@ At minute~30.7 the update byte count (322\,GiB inflated by the 8\% cache overhea
 Eviction then peaks at 9{,}283~pages/s and 302\,MB/s, and in eleven minutes performs 92\% of all the disk writing the run will ever do.
 The dirty set nevertheless continues to grow during this burst, to a peak of 364.3\,GiB, because the writers are still outpacing eviction.
 Only when the update stream completes does the forced checkpoint drain the remaining 326\,GiB back to zero.
-Throughout, application threads are never conscripted: the application-thread eviction wait is exactly zero, and no page is evicted by a writer.
+Throughout, application threads are never conscripted: the application-thread eviction wait is exactly zero, and no page is evicted by a writer (\autoref{tab:dirty-arms}).
 
 \textbf{Under \wt{}'s defaults the run has one phase.} The dirty set climbs to 87\,GiB within ten minutes (crossing the 80\,GiB derived \texttt{updates\_trigger}) and is then held flat there for the remainder of the run.
 It is held flat by conscription: application threads perform 428.8~million page evictions themselves and accumulate 768{,}192~thread-seconds of waiting for cache, which is 88\% of all available writer thread-time.
@@ -138,15 +138,16 @@ We stopped the run because successive completion estimates kept receding (147, t
   \toprule
    & \project{} setting & \wt{} default \\
   \midrule
-  Fraction of update log completed & 100\%     & 61\% (stopped) \\
+  Wall-clock time                  & 72\,min   & 201\,min (stopped) \\
+  Fraction of update log completed & 100\%     & 61\% \\
   Peak dirty bytes                & 364.3\,GiB & 87.7\,GiB \\
   Time to first disk write        & 31\,min    & ${<}$1\,min \\
   Bytes written to disk           & 160\,GiB   & 18{,}657\,GiB \\
   \dots{} of which by checkpoint  & 13\,GiB (8\%) & 0\,GiB \\
   Peak write bandwidth            & 327\,MB/s  & 1{,}754\,MB/s \\
-  Pages evicted by writer threads & 0          & 428{,}817{,}961 \\
-  Writer time waiting for cache   & 0\,s       & 768{,}192\,thread-s (88\%) \\
-  Update throughput               & 1.010\,M~ops/s & see text \\
+  Pages evicted by writer threads & 0          & 429\,M \\
+  Writer time waiting for cache   & 0\,s       & 768\,K\,thread-s (88\%) \\
+  Update throughput               & 1.01\,M~ops/s & see text \\
   \bottomrule
   \end{tabular}
   \caption{Update workload on graph500-24, SplitEdgeKey, 72 writers, WAL off,
