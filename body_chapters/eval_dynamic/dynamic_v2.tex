@@ -179,18 +179,46 @@ The results are in \autoref{tab:analytics-main}.
 
 Recall that, at this point, the in-memory baselines hold the graph only as a transient structure that will be lost if the system shuts down or crashes; there are no redundant copies, no durable snapshots.
 
-\textbf{Excluding the cold open.}
-Unlike the purely in-memory baselines, \project{} stores the graph in \wt{}. 
-In \project{}, immediately after ingestion, data resides as dirty pages in the buffer cache.
-To ensure that graphalytics kernels run on a stable, consistent, read-only view of the graph, \project{} forces a checkpoint and opens a set of per-thread read-only handles before the first kernel runs.
-The checkpoint makes the first run expensive: it triggers
-\emph{reconciliation}, in which \wt{} walks every dirty page and reconciles
-its in-memory updates into the page images that constitute the queryable snapshot.
-Since the first Graphalytics kernel invocation triggers the checkpoint, the first run on a freshly built graph includes this one-time cost (varies from 59s on graph500-22 to 26 minutes on graph500-26).
-Because subsequent kernels amortize it, we report steady-state time.
-\project{}'s checkpoint time is, however, far from negligible and grows with graph size: the forced checkpoint takes 59\,s and 68\,s on the SF-22 graphs, roughly five minutes on SF-24 (298\,s / 284\,s), and about 26--27\,min on the billion-edge SF-26 graphs (1536\,s / 1628\,s); opening the read-only handles adds at most 16\,s. 
+\textbf{Cold-open cost.}
+Unlike the purely in-memory baselines, \project{} stores the graph in \wt{}.
+Immediately after ingestion, data resides as dirty pages in the buffer cache.
+To ensure that Graphalytics kernels run on a stable, consistent, read-only view of the graph, \project{} forces a checkpoint and opens a set of per-thread read-only handles before the first kernel runs.
+The checkpoint triggers \emph{reconciliation}, in which \wt{} walks every dirty page and reconciles its in-memory updates into the page images that constitute the queryable snapshot.
+\autoref{tab:cold-open} reports the cost: reconciliation takes 59\,s on graph500-22 and grows to roughly 26\,min on the billion-edge graph500-26; opening the read-only handles adds at most 16\,s.
 The competing systems incur no comparable cost, because they require no reconciliation step: LiveGraph's first run is within noise of its warm runs, and Teseo adds only a few seconds of cache warm-up.
-The cold open is therefore the price \project{} pays \emph{once} to convert a write-optimized store into a consistent read snapshot that subsequently serves analytics at in-memory speed.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{table}[t]
+  \centering
+  \setlength{\tabcolsep}{5pt}\renewcommand{\arraystretch}{1.05}
+  \small
+  \begin{tabular}{l rr rr}
+  \toprule
+   & \multicolumn{2}{c}{AdjList (s)} & \multicolumn{2}{c}{EdgeKey (s)} \\
+  \cmidrule(lr){2-3}\cmidrule(lr){4-5}
+  Graph & Reconcile & Open & Reconcile & Open \\
+  \midrule
+  G500-22 & 59 & 0.6 & 28 & 3.1 \\
+  Unif-22 & 66 & 1.7 & 33 & 3.7 \\
+  G500-24 & 298 & 2.1 & 219 & 11.9 \\
+  Unif-24 & 284 & 5.8 & 234 & 14.3 \\
+  G500-26 & 1{,}536 & 7.0 & --- & --- \\
+  Unif-26 & 1{,}628 & 16.2 & --- & --- \\
+  \bottomrule
+  \end{tabular}
+  \caption{Cold-open cost (seconds): forced checkpoint (reconciliation) and read-handle creation after ingestion, before the first analytics kernel runs.
+  This is a one-time cost; subsequent kernels reuse the cached checkpoint.
+  EdgeKey SF-26 entries are absent because those runs were not collected.}
+  \label{tab:cold-open}
+\end{table}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+This cost is analogous to the preprocessing time we report for the out-of-core systems in \autoref{sec:eval:ooc}: in both cases a system must convert its ingested representation into one suitable for analytics before kernels can run.
+The critical difference is what the cost buys.
+The out-of-core systems build a single-purpose on-disk layout that is discarded after the benchmark; the in-memory baselines hold a transient structure that is lost on shutdown.
+\project{}'s checkpoint produces a crash-recoverable snapshot: the graph is durable on disk and available for future queries without re-ingestion.
+The cold open is therefore not overhead that vanishes with a better implementation, but the price \project{} pays \emph{once} to transition from a write-optimized buffer cache to a persistent, consistent read snapshot that subsequently serves analytics at in-memory speed.
+Because subsequent kernels amortize it, \autoref{tab:analytics-main} reports steady-state time.
 
 \project{} Adjacency List is the only system that delivers fast, stable performance across all three kernels and both graph families.
 Teseo produces the BFS runtime: 0.61\,s on graph500-26, but its PageRank and WCC degrade sharply at scale---27\,s and 12\,s respectively---while \project{}'s PageRank stays at 5.7\,s, $4.7\times$ faster.
