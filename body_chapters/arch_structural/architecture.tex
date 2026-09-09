@@ -84,7 +84,7 @@ Since \wt{} is an embedded KV store, \project{} runs as a single process: each t
 Writes use snapshot isolation: when concurrent transactions modify the same key, \wt{} commits one and rolls back the rest.
 
 \project{} addresses the three requirements identified in~\autoref{arch:requirements} as follows.
-\emph{Requirement~1} (formats) is met by providing two structural representations, Adjacency List and EdgeKey, each with distinct performance tradeoffs (this chapter).
+\emph{Requirement~1} (formats) is met by providing two structural representations, Adjacency List and EdgeKey, each with distinct performance tradeoffs.
 \emph{Requirement~2} (API) is met by the \code{GraphBase} abstraction, which hides the choice of representation behind a uniform interface for node/edge manipulation, degree queries, and cursor creation.
 \emph{Requirement~3} (framework) is met by topology cursors and partitioning strategies that enable efficient parallel traversal and analytics.
 
