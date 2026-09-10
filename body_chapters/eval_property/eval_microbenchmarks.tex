@@ -91,6 +91,9 @@ Batching further amortizes per-request overhead (Cypher parse/plan, transaction 
 Across all six mutations, Gremlin overhead accounts for 93--96\% of the gap for insert and update operations.
 Delete operations show a smaller Gremlin share (20--68\%) because the Gremlin delete path already runs faster (3.7--7.2\,ms), so per-request overhead dominates the remainder.
 Through batched Cypher, Neo4j's storage engine is $3$--$4\times$ slower than \project{}, not the $4{,}000\times$ that the Gremlin path implies.
+All other results in this section report the full Gremlin-path latency for the baseline systems.
+The evaluation artifact routes every baseline operation through a Gremlin traversal: each system implements a TinkerPop provider, and the benchmark harness submits Groovy scripts to a Gremlin Server that dispatches them to the provider.
+This design enables a uniform comparison across seven backends but does not expose a native-API access path, so the query-layer overhead cannot be factored out of the remaining measurements.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \begin{table}[t]
