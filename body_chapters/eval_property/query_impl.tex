@@ -7,7 +7,7 @@ Neo4j, ArangoDB, and NeuG accept LDBC SNB queries written in Cypher or AQL; thei
 Evaluating \project{} against these systems requires hand-written C++ implementations of each benchmark query: imperative code that performs the same traversals, filters, and aggregations that a query engine would derive from the declarative specification.
 
 We used Claude (Anthropic) to generate these implementations in a three-stage pipeline: schema interface generation, query logic synthesis, and cross-system verification.
-The LLM received the LDBC SNB Interactive v1 query specifications and the \project{} source code (header files defining the \code{GraphBase} API, cursor classes, and property schema namespaces) as context.
+We provided the LLM with the LDBC SNB Interactive v1 query specifications and the \project{} source code (header files defining the \code{GraphBase} API, cursor classes, and property schema namespaces) as context.
 
 \paragraph{Schema interface generation.}
 The first stage produced the mapping between the LDBC SNB data model and \project{}'s storage primitives.
@@ -15,7 +15,8 @@ This mapping has three parts: vertex type encoding, property schemas, and edge-t
 
 LDBC SNB defines 11 concrete vertex types (Person, Post, Comment, Forum, Tag, TagClass, City, Country, Continent, Company, University) and 20 edge types.
 \project{} encodes vertex type in the top 8~bits of a 64-bit vertex ID (\autoref{arch:label-encoding}); the LLM assigned each LDBC type a \code{VertexType} enum value (\code{VT\_PERSON}=0 through \code{VT\_UNIVERSITY}=10) and generated the bulk loader that remaps LDBC's arbitrary large integer IDs to compact typed IDs via per-type hash maps.
-The Place and Organisation hierarchies (City/Country/Continent and Company/University) each receive distinct enum values rather than a shared one, because edges such as \textsc{studyAt} (Person$\to$University) and \textsc{workAt} (Person$\to$Company) would otherwise produce ambiguous \code{(src\_type, dst\_type)} pairs.
+The Place and Organisation hierarchies (City/Country/Continent and Company/University) each receive distinct enum values rather than a shared one.
+In the LDBC SNB schema, \textsc{studyAt} targets only University and \textsc{workAt} targets only Company; collapsing both into a single Organisation type would produce ambiguous \code{(src\_type, dst\_type)} pairs (both Person$\to$Organisation), preventing edge-type inference from endpoint labels alone (\autoref{arch:label-encoding}).
 
 For each vertex type, the LLM generated a property schema namespace, a C++ struct defining the binary layout of the property blob with fixed byte offsets and typed accessor functions (e.g., \code{SNBPersonSchema}: 153~bytes covering \code{creationDate}, \code{birthday}, \code{gender}, \code{firstName}, \code{lastName}, \code{browserUsed}, \code{locationIP}, \code{country\_id}, and \code{city\_id}).
 It also designed the \wt{} column-group assignments for columnar mode: each vertex type's properties are partitioned into column groups that separate fixed-size, scan-friendly columns from variable-length ones.
@@ -31,7 +32,7 @@ The LLM generated the routing functions: \code{get\_edge\_properties} calls acce
 
 \paragraph{Query logic synthesis.}
 The second stage translated each LDBC query specification into a C++ function operating on \project{}'s cursor API.
-For each query, the LLM received the specification's input parameters, output schema, sort order, and limit, along with the schema interfaces from the first stage.
+For each query, we provided the LLM with the specification's input parameters, output schema, sort order, and limit, along with the schema interfaces from the first stage.
 It produced imperative traversal code: topology cursors (\code{get\_out\_nodes\_id}, \code{get\_in\_nodes\_id}) for structural hops, property cursors (\code{NodePropCursor}, \code{EdgePropCursor}) for attribute access, and standard-library containers for intermediate results.
 Point queries (R1, X1) reduce to a single \code{get\_node\_properties} call and schema deserialization.
 Multi-hop queries (IC-3, IC-9) expand to nested loops over neighbor lists with property-predicate filters.
