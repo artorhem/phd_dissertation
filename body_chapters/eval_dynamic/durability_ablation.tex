@@ -20,7 +20,7 @@ The log alone provides a guarantee worth noting.
 The redo record is buffered in memory and the commit returns immediately, but the record is still forced to disk when a log file fills and rotates and again at every checkpoint.
 A crash loses a \emph{bounded} suffix of recent commits rather than the whole run.
 % Describing this configuration as offering ``no durability'' is wrong; describing it as offering the durability of a synchronous commit is equally wrong.
-This is analogous to the asynchronous commit protocol commonly used by databases such as PostgreSQL~\cite{asyncCommit}; it is also known as delayed durability or relaxed durability.
+This is analogous to the asynchronous commit protocol commonly used by databases such as PostgreSQL~\cite{asyncCommit}; it is also known as delayed durability~\cite{mssqlDelayedDurability} or relaxed durability.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \begin{table}[t]
