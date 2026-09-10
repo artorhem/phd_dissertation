@@ -39,7 +39,8 @@ BI queries (BI-1, BI-12) use sequential column-group cursor scans over all verti
 The generated code totals approximately 2{,}500 lines of C++ across 18~query functions.
 
 \paragraph{Verification and conformance.}
-Each query we implemented in \project{} was validated against Neo4j by running both systems on the same LDBC SNB SF-3 dataset and comparing results field-by-field.
+% Each query we implemented in \project{} was validated against Neo4j by running both systems on the same LDBC SNB SF-3 dataset and comparing results field-by-field.
+We validated each generated query by comparing the output of \project{} to that produced by Neo4j.
 A Python script (\code{validate\_results.py}) invokes \project{}'s benchmark binary in validation mode and the corresponding Cypher query on Neo4j, parses both outputs into sorted JSON records, and reports any discrepancies in values, sort order, or result-set cardinality.
 Validation runs across all four \project{} storage configurations (Adjacency~List and EdgeKey, each with embedded and columnar properties) to confirm that query semantics are independent of the underlying storage layout.
 All 18 query functions must produce identical results across all four configurations before any benchmark timing is collected.
