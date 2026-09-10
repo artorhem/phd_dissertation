@@ -101,9 +101,9 @@ This design enables a uniform comparison across seven backends but does not expo
   \setlength{\tabcolsep}{3pt}
   \begin{tabular*}{\columnwidth}{@{\extracolsep{\fill}}l rrrr rrr@{}}
     \toprule
-    & \multicolumn{4}{c}{Latency (ms)} & \multicolumn{3}{c}{Share of gap (\%)} \\
+    & \multicolumn{4}{c}{Latency (ms)} & \multicolumn{3}{c}{Overhead (\%)} \\
     \cmidrule(lr){2-5} \cmidrule(lr){6-8}
-    Operation & Gremlin & Cypher & Batch/op & FG & L1 & L2 & L3 \\
+     Operation & Gremlin & Cypher & Batch/op & FG & Gremlin & Cypher & Engine \\
     \midrule
     Update vprop & 46.68 & 3.27 & 0.027 & 0.01 & 93.0 & 7.0 & 0.0 \\
     Insert vprop & 68.44 & 2.94 & 0.026 & 0.01 & 95.7 & 4.3 & 0.0 \\
@@ -115,7 +115,7 @@ This design enables a uniform comparison across seven backends but does not expo
   \end{tabular*}
   \caption{CRUD overhead decomposition on LDBC (Neo4j).
     Gremlin = TinkerPop path; Cypher = single-shot native Cypher; Batch/op = 1{,}000-op \texttt{UNWIND}, per-operation; FG = \project{} Adjacency~List.
-    L1 = Gremlin overhead, L2 = per-request overhead, L3 = storage engine gap, each as a percentage of (Gremlin $-$ FG).}
+    Gremlin, Cypher, and Engine columns show each layer's share of the total gap (Gremlin $-$ FG) as a percentage.}
   \label{tab:crud-overhead}
 \end{table}
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

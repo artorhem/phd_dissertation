@@ -6,8 +6,9 @@
 Neo4j, ArangoDB, and NeuG accept LDBC SNB queries written in Cypher or AQL; their query engines parse the declarative text, optimize join order and access paths, and execute the resulting plan.
 Evaluating \project{} against these systems requires hand-written C++ implementations of each benchmark query: imperative code that performs the same traversals, filters, and aggregations that a query engine would derive from the declarative specification.
 
-We used Claude (Anthropic) to generate these implementations in a three-stage pipeline: schema interface generation, query logic synthesis, and cross-system verification.
+We used Claude (Anthropic) Opus 4.6 \cite{anthropic2026claudecodedocs} to generate these implementations in a three-stage pipeline: schema interface generation, query logic synthesis, and cross-system verification.
 We provided the LLM with the LDBC SNB Interactive v1 query specifications and the \project{} source code (header files defining the \code{GraphBase} API, cursor classes, and property schema namespaces) as context.
+\PM{search and put context in appendix.}
 
 \paragraph{Schema interface generation.}
 The first stage produced the mapping between the LDBC SNB data model and \project{}'s storage primitives.

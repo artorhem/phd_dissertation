@@ -118,9 +118,13 @@ edges (to Posts), and X5 counts incoming \textsc{likes} edges on a given Post.
 \project{} Adjacency~List with embedded storage dominates all point and aggregate queries.
 R1 completes in $7$\,$\mu$s on \project{}, $3.7\times$ faster than Neo4j ($27$\,$\mu$s), $2.7\times$ faster than ArangoDB ($20$\,$\mu$s), and $110\times$ faster than NeuG ($802$\,$\mu$s).
 
-A potential concern with a direct C++ API is developer effort compared to declarative query languages such as Cypher and Gremlin.
+% A potential concern with a direct C++ API is developer effort compared to declarative query languages such as Cypher and Gremlin.
+% In practice, graph queries are rarely written ad hoc; they are embedded in application logic and invoked programmatically~\cite{10.1145/3357766.3359541,cheung2013optimizing}.
+% Modern code-generation tools (e.g., LLM-based assistants) further lower this barrier, making it straightforward to generate correct API calls to \project{}'s interface from a high-level description \cite{lyu2026text2gqlbenchtextgraphquery}.
+\project{}'s native C++ API trades the convenience of a declarative query language for direct storage-engine access.
+The cost of that declarative layer is large: on property CRUD operations, Gremlin parsing and traversal compilation account for 93--96\% of the latency gap between Neo4j and \project{} (\autoref{tab:crud-overhead}).
+On iterative algorithms, Gremlin framework and index-resolution overhead consume 50\% of Neo4j's per-iteration cost (\autoref{sec:eval:property-graphalytics}).
 In practice, graph queries are rarely written ad hoc; they are embedded in application logic and invoked programmatically~\cite{10.1145/3357766.3359541,cheung2013optimizing}.
-Modern code-generation tools (e.g., LLM-based assistants) further lower this barrier, making it straightforward to generate correct API calls to \project{}'s interface from a high-level description \cite{lyu2026text2gqlbenchtextgraphquery}.
 
 \textbf{Multi-hop traversals.}
 Multi-hop queries (X3, IC-3, IC-9) combine structural traversal
@@ -169,7 +173,7 @@ W3 inserts a Post vertex with a \textsc{hasCreator} edge to its author (LDBC
 Insert~6).
 X4 inserts a \textsc{likes} edge from a Person to a Post (LDBC Insert~5).
 %
-ArangoDB and Neo4j dominate W1--W3 ($21$--$68$\,$\mu$s), because their write paths are optimized for single-document upserts through mature, heavily tuned storage engines.
+ArangoDB and Neo4j dominate W1--W3 ($21$--$68$\,$\mu$s), because their write paths are optimized for single-document upserts (insert key if not exists, update if it does) through mature, heavily tuned storage engines.
 \project{} takes $110$--$170$\,$\mu$s in embedded mode; each write opens a WiredTiger transaction, performs a B-tree cursor insert, and commits, overhead that is amortized in bulk ingest but visible at single-operation granularity.
 X4 (single edge insert with no vertex creation) favors \project{} at $11$\,$\mu$s, where the cost reduces to a single cursor insert.
 NeuG is $1{,}000\times$ slower on all writes ($190$\,ms), because each mutation parses and plans a full Cypher \texttt{CREATE} statement.
@@ -186,8 +190,11 @@ Conversely, BI queries that scan a single column benefit from columnar storage.
 The column-group B-tree contains only the accessed columns (e.g., \code{creationDate} and \code{length} for BI-1), achieving high row density per page and efficient sequential scans.
 Embedded mode is impractical for these queries, because every row's full property blob must be deserialized to extract one field.
 
-This trade-off suggests a deployment strategy: use embedded mode for OLTP-style queries (point lookups, narrow multi-hop traversals) and columnar mode for analytical scans over single property columns.
-In practice, the choice can be made per edge or vertex label, since each label's property table is independent.
+% This trade-off suggests a deployment strategy: use embedded mode for OLTP-style queries (point lookups, narrow multi-hop traversals) and columnar mode for analytical scans over single property columns.
+% In practice, the choice can be made per edge or vertex label, since each label's property table is independent.
+Because each vertex or edge label has its own property table, the choice between embedded and columnar storage is not global: the operator assigns each property to the mode that matches its access pattern at schema-definition time.
+Properties accessed during multi-hop traversals (e.g., \code{creationDate} for date-range filters) belong in embedded storage; properties scanned in bulk for analytics (e.g., \code{length} for BI-1) belong in column groups.
+A property that serves both roles can be stored in both representations, trading additional write cost for read performance on both paths.
 
 \section{Graph Algorithms}
 \label{sec:eval:property-graphalytics}
