@@ -72,7 +72,73 @@ Each thread then contributes its final root-level key--address pairs to a shared
 The last thread to complete (detected via an atomic decrement of the open-cursor count) sorts all root-level keys and builds the single root page of the B-tree.
 
 This design maximizes parallelism during the I/O-intensive leaf-page writing phase, with synchronization limited to spinlock-protected metadata operations during the merge phase.
-The modifications are based on \wt{} 3.2.1; porting them to the \wt{} 11.0.0 release used by the rest of \project{} is ongoing work.
-\PM{I ported it using claude. Still need to test it.}
+The modifications were originally built against \wt{} 3.2.1 and have since been ported to the \wt{} 11.0.0 release used by the rest of \project{}.
 
-\PM{Insert numbers comparing these 3 bulk-loaders.}
+\subsection{Comparison}
+\label{arch:bulk-comparison}
+
+Table~\ref{tab:bulk-load-times} compares the three bulk loaders on the Twitter MPI graph (52.6\,M vertices, 1.96\,B directed edges, 16 partitions).
+The test machine has a 14-core Intel Xeon W-2275 at 3.30\,GHz (28 hardware threads), 128\,GB of RAM, and a rotational hard disk.
+The \wt{} cache is 10\,GB.
+Each run starts from a cold page cache and loads the graph into both the adjacency-list and split edge-key representations.
+
+\begin{table}[t]
+\centering
+\begin{tabular}{lrrr}
+\toprule
+Phase & Transactional & Std.\ Bulk & Par.\ Bulk \\
+\midrule
+Degree collection    & ---           & 261 & 247 \\
+Adjacency lists      & ---           & 301 &  33 \\
+Edge table           & ---           &  53 &  81 \\
+Edge-key tables      & ---           & 159 & 150 \\
+Nodes                & ---           &  18 &  15 \\
+\midrule
+\textbf{Total}       & $>$3{,}600    & \textbf{797} & \textbf{535} \\
+\bottomrule
+\end{tabular}
+\caption{Bulk loading times (seconds) for the Twitter MPI graph using 16 threads.
+The transactional loader did not finish within the 60-minute timeout.}
+\label{tab:bulk-load-times}
+\end{table}
+
+The transactional loader did not complete within a 60-minute timeout.
+Forward-edge insertion took 1{,}314 seconds across 16 threads, reverse-edge insertion took 974 seconds, and the node-insertion pass was still running when the timeout expired.
+Each thread inserts records into both database representations through standard cursors within implicit transactions.
+Transaction overhead, write-ahead logging, and the random-access pattern of node insertion account for the cost.
+
+The standard \wt{} bulk loader completed in 797 seconds.
+A degree-collection pass (261\,s) reads all 32 partition files to build in-degree and out-degree arrays before insertion begins.
+Adjacency-list streaming through a single bulk cursor took 301 seconds for the in- and out-neighbourhood tables combined.
+The edge and edge-key tables took 212 seconds, and node insertion took 18 seconds.
+
+The modified bulk loader finished in 535 seconds, a $1.5\times$ speedup over the standard bulk loader.
+Adjacency-list streaming dropped from 301 to 33 seconds ($9.1\times$) because 16 threads write leaf pages to independent backing files with no inter-thread synchronization.
+The degree-collection pass (247\,s versus 261\,s) showed little change because it reads partition files sequentially regardless of thread count.
+Edge-table streaming was slightly slower in the parallel case (81\,s versus 53\,s) because the hierarchical merge that combines each thread's B-tree into a single root adds work that offsets the parallel leaf-page writes for fine-grained per-edge keys.
+
+All three loaders read the same preprocessed partition files, so the preprocessing time (\autoref{arch:bulk-preprocess}) is shared.
+Table~\ref{tab:preprocess-times} breaks down the two preprocessing passes on the same machine with 16 threads.
+Pass~1 is dominated by the sequential CSV read and forward-adjlist writes; the two \texttt{tbb::parallel\_sort} calls on the reverse-edge chunks account for only 16 of the 310 seconds.
+Pass~2, a two-way merge of the sorted runs, completes in under a minute.
+Including preprocessing, the end-to-end time from raw edge list to \wt{} database is 1{,}164 seconds for the standard bulk loader and 902 seconds for the modified bulk loader.
+
+\begin{table}[t]
+\centering
+\begin{tabular}{lr}
+\toprule
+Step & Time (s) \\
+\midrule
+Pass 1: CSV read + forward adjlists + reverse sort & 310 \\
+\quad Chunk 0 sort (1.34\,B edges)                 &  11 \\
+\quad Chunk 1 sort (621\,M edges)                   &   5 \\
+Pass 2: $k$-way merge of reverse runs              &  57 \\
+\midrule
+\textbf{Total preprocessing}                        & \textbf{367} \\
+\bottomrule
+\end{tabular}
+\caption{Preprocessing times (seconds) for the Twitter MPI graph using 16 threads.
+Pass~1 reads the CSV edge file, writes forward adjacency lists, and sorts reverse-edge chunks.
+Pass~2 merges the sorted chunks into reverse-adjacency partitions.}
+\label{tab:preprocess-times}
+\end{table}
