@@ -7,11 +7,11 @@ This chapter describes three directions that extend \project{}'s architecture be
 \section{High-Level Query Language Integration}
 \label{sec:future:query-lang}
 
-\project{} currently exposes only a C++ cursor API.
+\project{} currently exposes a C++ cursor API.
 All queries in the evaluation chapters (\autoref{sec:eval:inmem}--\autoref{sec:eval:dynamic}) are written as imperative programs that open cursors, position them, and iterate.
-This low-level interface gives fine-grained control over the access path, but it places the burden of query planning entirely on the programmer.
+For an embedded database this is the natural interface: applications generate queries programmatically, and the cursor API gives them fine-grained control over access paths.
 
-A declarative query language would let users express graph queries without specifying how to traverse the underlying tables.
+Nonetheless, a declarative query language layer would broaden \project{}'s applicability by letting users express graph queries without specifying how to traverse the underlying tables.
 The natural target is GQL, the ISO standard for property graph queries~\cite{francis2023gql-standard}, or openCypher~\cite{openCypher}, which is already supported by Neo4j, Memgraph, and several other systems.
 Compilation would map declarative pattern matching and path expressions down to \project{}'s cursor-level operations: vertex iterators for full scans, neighborhood iterators for adjacency traversal, and property cursors for predicate evaluation.
 
@@ -20,9 +20,10 @@ Traditional graph databases maintain a catalog of statistics (label cardinalitie
 \project{} does not maintain such a catalog; \wt{} provides low-level statistics (table size, cache residency), but not the graph-level statistics a query planner needs.
 Building a lightweight catalog that tracks per-label vertex counts, degree distributions, and property value histograms is a prerequisite for cost-based query planning.
 
-A second question is whether a language model can serve as a stopgap query planner.
+A second question is whether a language model can bypass the need for a bespoke query language altogether.
 Recent work on LLM-based text-to-GQL and text-to-Cypher translation~\cite{mandilara2025text2cypher, lyu2026text2graphquerybench} demonstrates that language models can generate syntactically correct graph queries from natural language.
-Extending this approach to \project{} would require the model to select between AdjList and EdgeKey access paths, choose between embedded and columnar property reads, and decide on scan direction (in-neighbors vs.\ out-neighbors) based on the workload context.
+Mason~\cite{mason2025indaleko} takes this further in Indaleko, a unified personal index that uses natural language interfaces backed by LLMs to generate graph queries and API calls against an underlying graph store, eliminating the requirement for users to learn a graph query language at all.
+Applying a similar approach to \project{} would require the model to select between AdjList and EdgeKey access paths, choose between embedded and columnar property reads, and decide on scan direction (in-neighbors vs.\ out-neighbors) based on the workload context.
 Whether an LLM-assisted approach can produce plans competitive with a conventional cost-based optimizer is an open question, but it could inform the design of a future query planner by identifying which plan choices matter most in practice.
 
 
