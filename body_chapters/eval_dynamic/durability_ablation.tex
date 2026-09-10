@@ -112,7 +112,7 @@ Each inserted edge is its own \wt{} transaction, so the log receives one record 
 
 \paragraph{Checkpointing is cheap at this scale, and only at this scale.}
 The near-equality of \textsc{ckpt} and \textsc{none} should not be interpreted as a global property.
-\wt{}'s \texttt{checkpoint=(wait=$n$)} specifies the interval \emph{between} the end of one checkpoint and the start of the next, not a period; as the graph grows, each checkpoint takes longer, so the duty cycle degrades over the life of a run.
+\wt{}'s \texttt{checkpoint=(\allowbreak wait=$n$)} specifies the interval \emph{between} the end of one checkpoint and the start of the next, not a period; as the graph grows, each checkpoint takes longer, so the duty cycle degrades over the life of a run.
 In these ingests the observed interval stretches from roughly $78$\,s early in the run to $479$\,s near its end.
 A \texttt{graph500-24} ingest completes before that divergence has run its course, so the figures above understate the steady-state cost of checkpointing on a longer or larger ingest.
 
