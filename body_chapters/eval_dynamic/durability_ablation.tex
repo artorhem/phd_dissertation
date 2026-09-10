@@ -19,7 +19,8 @@ The log alone provides a guarantee worth noting.
 \project{} commits with \wt{}'s \texttt{sync=off}, which does not disable syncing; it weakens the \emph{commit contract}.
 The redo record is buffered in memory and the commit returns immediately, but the record is still forced to disk when a log file fills and rotates and again at every checkpoint.
 A crash loses a \emph{bounded} suffix of recent commits rather than the whole run.
-Describing this configuration as offering ``no durability'' is wrong; describing it as offering the durability of a synchronous commit is equally wrong.
+% Describing this configuration as offering ``no durability'' is wrong; describing it as offering the durability of a synchronous commit is equally wrong.
+This is analogous to the asynchronous commit protocol commonly used by databases such as PostgreSQL~\cite{asyncCommit}.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \begin{table}[t]
