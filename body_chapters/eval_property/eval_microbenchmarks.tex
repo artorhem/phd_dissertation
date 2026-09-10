@@ -82,6 +82,40 @@ The dominant factor is the Gremlin query layer, not storage engine performance.
 Each baseline operation parses a Groovy script, compiles a TinkerPop traversal, resolves the target element through the provider's index, mutates the property, and commits.
 \project{} reduces this to a single \wt{} cursor operation: position by key and write the property value.
 Among the Gremlin-based systems, OrientDB is consistently fastest on mutations (8--18\,ms), suggesting a lightweight provider implementation; JanusGraph is slowest (21--207\,ms); although all systems run on a single node, JanusGraph's layered architecture (TinkerPop provider, JanusGraph core, pluggable storage backend) adds per-operation overhead that compounds on fine-grained mutations.
+
+\textbf{Overhead decomposition.}
+We measure the same six CRUD operations on Neo4j through native Cypher (bypassing Gremlin) in two modes: single-shot (one operation per bolt request) and batched (1{,}000 operations per \texttt{UNWIND} request, amortizing Cypher parsing, query planning, and transaction commit).
+\autoref{tab:crud-overhead} reports vertex property update results; the other five mutations follow the same pattern.
+Removing the Gremlin layer drops latency from 46.68\,ms to 3.27\,ms, a $14\times$ reduction that accounts for 93\% of the total gap.
+Batching further amortizes per-request overhead (Cypher parse/plan, transaction begin/commit, bolt round-trip), reducing per-operation cost to 0.027\,ms; \project{} reaches 0.01\,ms, only $2.7\times$ faster.
+Across all six mutations, Gremlin overhead accounts for 93--96\% of the gap for insert and update operations.
+Delete operations show a smaller Gremlin share (20--68\%) because the Gremlin delete path already runs faster (3.7--7.2\,ms), so per-request overhead dominates the remainder.
+Through batched Cypher, Neo4j's storage engine is $3$--$4\times$ slower than \project{}, not the $4{,}000\times$ that the Gremlin path implies.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{table}[t]
+  \centering
+  \setlength{\tabcolsep}{3pt}
+  \begin{tabular*}{\columnwidth}{@{\extracolsep{\fill}}l rrrr rrr@{}}
+    \toprule
+    & \multicolumn{4}{c}{Latency (ms)} & \multicolumn{3}{c}{Share of gap (\%)} \\
+    \cmidrule(lr){2-5} \cmidrule(lr){6-8}
+    Operation & Gremlin & Cypher & Batch/op & FG & L1 & L2 & L3 \\
+    \midrule
+    Update vprop & 46.68 & 3.27 & 0.027 & 0.01 & 93.0 & 7.0 & 0.0 \\
+    Insert vprop & 68.44 & 2.94 & 0.026 & 0.01 & 95.7 & 4.3 & 0.0 \\
+    Delete vprop &  3.71 & 2.96 & 0.028 & 0.01 & 20.3 & 79.2 & 0.5 \\
+    Update eprop & 41.96 & 2.33 & 0.043 & 0.01 & 94.5 & 5.5 & 0.1 \\
+    Insert eprop & 42.66 & 2.65 & 0.041 & 0.01 & 93.8 & 6.1 & 0.1 \\
+    Delete eprop &  7.24 & 2.30 & 0.044 & 0.01 & 68.4 & 31.2 & 0.5 \\
+    \bottomrule
+  \end{tabular*}
+  \caption{CRUD overhead decomposition on LDBC (Neo4j).
+    Gremlin = TinkerPop path; Cypher = single-shot native Cypher; Batch/op = 1{,}000-op \texttt{UNWIND}, per-operation; FG = \project{} Adjacency~List.
+    L1 = Gremlin overhead, L2 = per-request overhead, L3 = storage engine gap, each as a percentage of (Gremlin $-$ FG).}
+  \label{tab:crud-overhead}
+\end{table}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \begin{figure}[h!]
   \centering
