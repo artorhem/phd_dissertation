@@ -167,6 +167,3 @@ They never reach a steady state.
 There is no setting of these thresholds that makes the work disappear: only a choice of when to pay and how dramatically it impacts performance.
 This is the substance of the ``persistence machinery tax'' referred to in \autoref{sec:eval:dynamic}: the in-memory baselines avoid the obligation to ever reconcile a page.
 That reconciliation obligation, more than the I/O it produces, is what \project{} cannot escape while remaining persistable by construction.
-
-\PM{The \wt{}-default configuration run was stopped at 61\% of the update log rather than run to completion; its counters are therefore lower bounds and it has no end-to-end throughput figure.
-Both configurations are $n{=}1$ and carry the 5\,s statistics log, which perturbs absolute throughput; the numbers in \autoref{fig:throughput-update} remain the uninstrumented ones.}
