@@ -25,9 +25,9 @@ The program groups the merged stream by source vertex and writes it to binary ad
 \paragraph{Output format.}
 The output uses a binary adjacency list format:
 \[
-  \texttt{[node\_id}_{64} \;|\; \texttt{degree}_{32} \;|\; \texttt{dst\_id}_1 \;|\; \cdots \;|\; \texttt{dst\_id}_{d}\texttt{]}
+  \texttt{[node\_id}^{64} \;|\; \texttt{degree}^{32} \;|\; \texttt{dst\_id}_1 \;|\; \cdots \;|\; \texttt{dst\_id}_{d}\texttt{]}
 \]
-where each field is written in its native binary representation.
+where subscripts denote indices, superscripts denote bit widths, d is the degree (stored as a 32-bit integer) and each field is written in its native binary representation.
 This format eliminates text parsing overhead and is approximately 50\% smaller than the equivalent ASCII representation.
 
 \paragraph{Partitioning.}

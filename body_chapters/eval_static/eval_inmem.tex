@@ -12,7 +12,7 @@ For this experiment, we used the analytics-friendly adjacency list layout for \p
 \begin{figure}[h]
   \centering
   \includegraphics[width=\columnwidth]{fig/in-mem/flexograph_inmem_results.pdf}
-  \caption{In-memory graph analytics performance. The hatched portions of each bar show the preprocessing time.\PM{add error bars}}
+  \caption{In-memory graph analytics performance. The hatched portions of each bar show the preprocessing time.}
   \label{fig:inmem-results}
 \end{figure}
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -31,7 +31,7 @@ For this experiment, we used the analytics-friendly adjacency list layout for \p
     uk-2007 & 60.95 & 51.88 & 58.42 & 210.48 & 31.48 \\
     \bottomrule
   \end{tabular}
-  \caption{Peak memory usage (GiB) of in-memory systems. \PM{I will fill in the missing numbers.}}
+  \caption{Peak memory usage (GiB) of in-memory systems.}
   \label{tab:inmem-memory}
 \end{table}
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -46,6 +46,3 @@ GapBS is also relatively memory efficient consuming less memory than \project{} 
 
 \paragraph{Takeaway:} \project{} avoids costly ETL thanks to its ability to run directly on its persistent representation.
 This benefit comes at slightly increased memory consumption relative to the lightest competitors and decreased performance if the other systems are able to retain an in-memory representation between analytics runs.
-\PM{insert the edge-key numbers}
-
-\PM{we need ekey vs adj list numbers here. This is covered in the Graphalytics comparison on dynamic in-mem systems. }
