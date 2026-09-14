@@ -10,7 +10,7 @@ Graph databases must support bulk loading, because graphs can be large (the larg
 
 Before loading, the raw edge list must be transformed into a format compatible with \project{}'s representations.
 The input is a CSV edge file sorted by source vertex ID.
-A single C++ program replaces the original multi-stage shell pipeline (\texttt{awk}, \texttt{sort}, \texttt{split}) with a two-pass design using in-process parallel sorting.
+The preprocessing pipeline uses a two pass design and uses parallel sorting:
 
 \paragraph{Pass 1: Forward edges and reverse-edge chunking.}
 The program reads the CSV edge file in a single sequential pass.
