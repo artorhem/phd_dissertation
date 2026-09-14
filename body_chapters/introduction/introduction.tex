@@ -96,6 +96,15 @@ Based on our study of the graph data management landscape, we make five observat
   \item \textit{Most existing systems target a single operating point}: in-memory or out-of-core processing, static or dynamic graphs, structural or property graphs. Few perform well across the entire spectrum.
 \end{enumerate}
 
+\section{Thesis Statement}
+Graph analytics and graph transactions do not require separate systems.
+A single persistent store can serve both.
+The key is choosing an analytics-friendly data layout and managing properties independently of the structure of the graph.
+That independence lets each property be stored in the representation its access pattern demands — inline with the record it belongs to, or in a column group scanned in bulk — chosen per label rather than globally.
+Analytics-friendly layouts can be encoded as sorted key ranges in a general-purpose transactional key-value store.
+Such a store needs no ETL and no preprocessing pass; the layout is always ready for analysis.
+We demonstrate that such a system remains competitive with purpose-built systems across the full operating spectrum of graph data management: in memory and out of core, static and dynamic, structural and property graphs.
+
 \section{\project{}: Our Approach}
 \label{sec:intro:flexograph}
 
@@ -108,8 +117,8 @@ It extends these layouts with a typed property storage layer supporting both emb
 \project{} eliminates the preprocessing step that other systems require before running analytics; its persistent layouts are ready for analysis at all times.
 Insertion throughput scales near-linearly to 72 threads, sustaining up to 1.48\,M edges/sec on the write-optimized layout (\autoref{fig:dynamic-scaling}), while property-mutation latencies are three to four orders of magnitude lower than those of Neo4j~\cite{neo4j} and JanusGraph~\cite{janusgraph}.
 
-A programmer uses \project{} through a library API that exposes read-only snapshot iterators over neighborhoods and properties to express analytics tasks.
-The API is flexible enough to let users write algorithms as vertex or edge programs.
+A programmer uses \project{} through a library API that provides read-only snapshot iterators over neighborhoods and properties to express analytics tasks.
+The API exposes both neighborhood and edge-stream iterators, so the same algorithm can be written as a vertex program or an edge program and run against either representation.
 We modified the \ac{GAPBS}~\cite{beamer2015gap} to use this API and show that \project{}'s end-to-end analytics performance matches in-memory systems while scaling to out-of-core graphs.
 We also evaluate the benefits of storing the graph's structure independently from its properties and contrast it with the choice to store them together.
 
@@ -123,6 +132,9 @@ Our contributions are as follows.
   \item An analysis of analytics-friendly data layouts and a demonstration of how adjacency-list and CSR-like representations can be encoded as sorted key ranges in a key-value store to preserve scan locality.
   \item A typed property storage layer with embedded and columnar modes that achieves property-mutation latencies three to four orders of magnitude lower than that of Neo4j, JanusGraph, and ArangoDB.
   \item Efficient, read-only neighborhood iterators on graph snapshots, with a flexible partitioning strategy that splits work between threads by vertex count or edge count.
+  \item A controlled study of the coupling between physical representation and computation model.
+  Because \project{} stores both representations behind a single API, we run vertex-centric and edge-centric implementations of the same algorithms over both layouts on one storage engine, isolating representation as the only variable.
+  Each representation has a natural partner, and mismatching them costs up to $6.2\times$ more cursor operations (\autoref{sec:eval:ec_vc}).
   \item An evaluation showing that \project{} matches the analytics performance of in-memory and out-of-core graph processing systems, scales insertion throughput near-linearly, and delivers the transactional performance of in-memory dynamic graph containers.
 \end{itemize}
 
