@@ -40,6 +40,7 @@ Switching between property queries and structural analytics therefore requires n
 \end{figure}
 
 \section{Static Graph Processing Systems}
+\newflag[rewritten; new comparison table]
 \label{design:static_structural}
 
 Static structural graphs have been the main focus of graph processing systems research for over a decade \cite{malewicz2010pregel,gonzalez2014graphx, zhu2016gemini, xing2015petuum, low2012distributed,gonzalez2012powergraph, powerlyra2019,shun2013ligra, nguyen2013lightweight, zhu2016gemini, graphmat, lakhotia2020gpop, beamer2015gap, kim2022blaze, ai2018clip,zheng2015flashgraph}.
@@ -221,6 +222,7 @@ GraphLab~\cite{low2014graphlab} and Hsync~\cite{Xie2015Hsync} support both synch
 GRACE~\cite{wang2013asynchronous} similarly supports both modes but is primarily known for demonstrating that customized asynchronous scheduling can significantly accelerate iterative graph algorithms.
 
 \subsection{Programming Models}
+\newflag[new: edge- vs vertex-centric table]
 \label{design:prog_models}
 
 Orthogonal to the computation model is the \textbf{Programming Model} used by the system.

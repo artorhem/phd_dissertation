@@ -83,6 +83,7 @@ Each baseline operation parses a Groovy script, compiles a TinkerPop traversal, 
 \project{} reduces this to a single \wt{} cursor operation: position by key and write the property value.
 Among the Gremlin-based systems, OrientDB is consistently fastest on mutations (8--18\,ms), suggesting a lightweight provider implementation; JanusGraph is slowest (21--207\,ms); although all systems run on a single node, JanusGraph's layered architecture (TinkerPop provider, JanusGraph core, pluggable storage backend) adds per-operation overhead that compounds on fine-grained mutations.
 
+\newflag[new: CRUD overhead decomposition]
 \textbf{Overhead decomposition.}
 We measure the same six CRUD operations on Neo4j through native Cypher (bypassing Gremlin) in two modes: single-shot (one operation per bolt request) and batched (1{,}000 operations per \texttt{UNWIND} request, amortizing Cypher parsing, query planning, and transaction commit).
 \autoref{tab:crud-overhead} reports vertex property update results; the other five mutations follow the same pattern.

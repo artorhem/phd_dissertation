@@ -259,6 +259,7 @@ To run multi-threaded analytics, \texttt{GraphEngine} pins a read-only checkpoin
 Each thread receives its assigned range and creates its own topology and property cursors scoped to that range.
 
 \subsection{Topology Cursor Design}
+\newflag[new degree-distribution figure]
 \label{arch:topology-cursors}
 
 \textbf{Topology cursors} provide bulk operations such as scanning all nodes or iterating a neighborhood.

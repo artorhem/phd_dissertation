@@ -53,6 +53,7 @@ update log,
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 \section{Insertion Scalability}
+\newflag[new peak-throughput table]
 
 We insert the edges of graph500-24 while varying the number of writer threads from 1 to 72 to identify each system's optimal concurrency (\autoref{fig:dynamic-scaling}).
 \autoref{tab:scalability-peak} lists each system's single-thread and peak throughput.
@@ -179,6 +180,7 @@ The results are in \autoref{tab:analytics-main}.
 
 Recall that, at this point, the in-memory baselines hold the graph only as a transient structure that will be lost if the system shuts down or crashes; there are no redundant copies, no durable snapshots.
 
+\newflag[new: cold-open cost]
 \textbf{Cold-open cost.}
 Unlike the purely in-memory baselines, \project{} stores the graph in \wt{}.
 Immediately after ingestion, data resides as dirty pages in the buffer cache.
