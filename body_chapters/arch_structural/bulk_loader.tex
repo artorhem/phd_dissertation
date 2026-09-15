@@ -8,15 +8,15 @@ Graph databases must support bulk loading, because graphs can be large (the larg
 \subsection{Preprocessing Pipeline}
 \label{arch:bulk-preprocess}
 
-Before loading, the raw edge list must be transformed into a format compatible with \project{}'s representations.
+A preprocessing pipeline transforms the raw edge list into a format compatible with \project{}'s representations.
 The input is a CSV edge file sorted by source vertex ID.
-The preprocessing pipeline uses a two pass design and uses parallel sorting:
+The pipeline makes two passes over the data and sorts each reverse-edge chunk in parallel:
 
 \paragraph{Pass 1: Forward edges and reverse-edge chunking.}
 The program reads the CSV edge file in a single sequential pass.
 Forward edges arrive sorted by source ID, so the program groups them by source vertex and writes them directly to binary adjacency list partition files.
 Simultaneously, it reverses each edge $(u, v)$ to $(v, u)$ and buffers it in memory.
-When the buffer reaches a configurable size (default 10\,GB, approximately 625M edges), the chunk is sorted in parallel using \texttt{tbb::parallel\_sort} and flushed to a binary run file on disk.
+When the buffer reaches a configurable size (default 10\,GB, approximately 625M edges), the program sorts the chunk with \texttt{tbb::parallel\_sort} and flushes it to a binary run file on disk.
 
 \paragraph{Pass 2: K-way merge of reverse edges.}
 A min-heap-based $k$-way merge combines the reverse-edge run files.
@@ -27,36 +27,36 @@ The output uses a binary adjacency list format:
 \[
   \texttt{[node\_id}^{64} \;|\; \texttt{degree}^{32} \;|\; \texttt{dst\_id}_1 \;|\; \cdots \;|\; \texttt{dst\_id}_{d}\texttt{]}
 \]
-where subscripts denote indices, superscripts denote bit widths, d is the degree (stored as a 32-bit integer) and each field is written in its native binary representation.
+Subscripts denote indices, superscripts denote bit widths, $d$ is the degree, and each field appears in its native binary representation.
 This format eliminates text parsing overhead and is approximately 50\% smaller than the equivalent ASCII representation.
 
 \paragraph{Partitioning.}
-Output files are partitioned by vertex ID range: $\text{partition}(v) = \lfloor v \cdot N / |V| \rfloor$, where $N$ is the number of partitions (typically matching the core count).
-Because each adjacency list is assigned to exactly one partition by its source vertex, no adjacency list spans a partition boundary, and no cross-partition merge pass is required.
+The pipeline partitions output files by vertex ID range: $\text{partition}(v) = \lfloor v \cdot N / |V| \rfloor$, where $N$ is the number of partitions (typically matching the core count).
+No adjacency list spans a partition boundary, because its source vertex assigns it to exactly one partition, and so the loader never needs a cross-partition merge pass.
 
 \subsection{Transactional Loader}
 \label{arch:bulk-txn}
 
 The transactional loader uses standard \wt{} cursor inserts within implicit transactions.
 Each thread opens a separate session and cursor to the target tables, reads its assigned shard of the preprocessed edge list, and inserts records line by line.
-Because no \texttt{bulk} configuration is used, multiple threads can insert into the same table concurrently.
-The transactional loader is simpler to implement and useful for small-to-medium graphs, but it is slower than the bulk-cursor approaches below due to transaction overhead and write-ahead logging.
+Multiple threads can insert into the same table concurrently, because the loader sets no \texttt{bulk} configuration.
+This loader is the simplest to implement and works well for small and medium graphs, but transaction overhead and write-ahead logging make it slower than the bulk-cursor approaches below.
 
 \subsection{Standard \wt{} Bulk Loader}
 \label{arch:bulk-wt}
 
 \wt{} provides an option to bulk load data into a \emph{newly created} table by opening a cursor with the \texttt{bulk} configuration parameter.
-The bulk cursor bypasses transaction overhead and writes pages directly, but imposes two constraints: (1)~keys must be inserted in sorted order, and (2)~only one bulk cursor may be open on a table at a time, precluding multi-threaded insertion into the same table.
+The bulk cursor bypasses transaction overhead and writes pages directly, but imposes two constraints: (1)~the caller must insert keys in sorted order, and (2)~a table admits only one open bulk cursor at a time, which rules out multi-threaded insertion into that table.
 
 \project{} uses the standard bulk loader by streaming presorted partition files through a single bulk cursor per table.
-Each table is loaded sequentially so that the full \wt{} cache is available during its pass, maximizing page-write throughput.
+\project{} loads the tables one at a time so that each pass has the full \wt{} cache to itself, which maximizes page-write throughput.
 The bulk cursor accepts both text and binary adjacency list formats via a templated reader interface.
 This approach serializes insertion into any individual table, but the preprocessing step (\autoref{arch:bulk-preprocess}) ensures that data arrives in the required sorted order.
 
 \subsection{Modified \wt{} Bulk Loader}
 \label{arch:bulk-modified}
 
-To remove the single-threaded constraint, \project{} uses a modified \wt{} bulk loader that enables multiple threads to insert into the same table concurrently through bulk cursors.
+To remove the single-threaded constraint, \project{} modifies the \wt{} bulk loader so that several threads can insert into one table concurrently through bulk cursors.
 The modification operates in two phases:
 
 \paragraph{Phase 1: Parallel leaf-page creation.}
@@ -64,21 +64,21 @@ The modification removes the exclusive-access requirement (\code{WT\_DHANDLE\_EX
 Each thread receives its own reconciliation context and a private backing file.
 Threads write leaf pages independently to their backing files, recording the key and page-address for each leaf page written.
 A spinlock-protected counter assigns file IDs atomically.
-Because each thread writes only to its own backing file, the leaf-page creation phase requires no inter-thread synchronization beyond the file ID allocation.
+Leaf-page creation therefore needs no inter-thread synchronization beyond the file ID allocation, because each thread writes only to its own backing file.
 
 \paragraph{Phase 2: Hierarchical internal-page merge.}
 When a thread finishes inserting its partition, it reads its backing file and constructs internal B-tree pages one level at a time from the recorded key--address pairs.
-Each thread then contributes its final root-level key--address pairs to a shared array, protected by a spinlock.
-The last thread to complete (detected via an atomic decrement of the open-cursor count) sorts all root-level keys and builds the single root page of the B-tree.
+Each thread then contributes its final root-level key--address pairs to a shared array that a spinlock guards.
+The last thread to finish, which an atomic decrement of the open-cursor count identifies, sorts all root-level keys and builds the single root page of the B-tree.
 
-This design maximizes parallelism during the I/O-intensive leaf-page writing phase, with synchronization limited to spinlock-protected metadata operations during the merge phase.
-The modifications were originally built against \wt{} 3.2.1 and have since been ported to the \wt{} 11.0.0 release used by the rest of \project{}.
+This design parallelizes the I/O-intensive leaf-page writing phase and confines synchronization to spinlock-protected metadata operations in the merge phase.
+We originally built the modifications against \wt{} 3.2.1 and have since ported them to the \wt{} 11.0.0 release that the rest of \project{} uses.
 
 \subsection{Comparison}
 \label{arch:bulk-comparison}
 
 Table~\ref{tab:bulk-load-times} compares the three bulk loaders on the Twitter MPI graph (52.6\,M vertices, 1.96\,B directed edges, 16 partitions).
-The test machine has a 14-core Intel Xeon W-2275 at 3.30\,GHz (28 hardware threads), 128\,GB of RAM, and a rotational hard disk (Machine B in ~\autoref{sec:eval:env}).
+The test machine has a 14-core Intel Xeon W-2275 at 3.30\,GHz (28 hardware threads), 128\,GB of RAM, and a rotational hard disk (Machine B in \autoref{sec:eval:env}).
 The \wt{} cache is 10\,GB.
 Each run starts from a cold page cache and loads the graph into both the adjacency-list and split edge-key representations.
 
@@ -109,17 +109,17 @@ Transaction overhead, write-ahead logging, and the random-access pattern of node
 
 The standard \wt{} bulk loader completed in 797 seconds.
 A degree-collection pass (261\,s) reads all 32 partition files to build in-degree and out-degree arrays before insertion begins.
-Adjacency-list streaming through a single bulk cursor took 301 seconds for the in- and out-neighbourhood tables combined.
+Adjacency-list streaming through a single bulk cursor took 301 seconds for the in- and out-neighborhood tables combined.
 The edge and edge-key tables took 212 seconds, and node insertion took 18 seconds.
 
 The modified bulk loader finished in 535 seconds, a $1.5\times$ speedup over the standard bulk loader.
 Adjacency-list streaming dropped from 301 to 33 seconds ($9.1\times$) because 16 threads write leaf pages to independent backing files with no inter-thread synchronization.
 The degree-collection pass (247\,s versus 261\,s) showed little change because it reads partition files sequentially regardless of thread count.
-Edge-table streaming was slightly slower in the parallel case (81\,s versus 53\,s) because the hierarchical merge that combines each thread's B-tree into a single root adds work that offsets the parallel leaf-page writes for fine-grained per-edge keys.
+Edge-table streaming ran slightly slower in the parallel case (81\,s versus 53\,s). For fine-grained per-edge keys, the hierarchical merge that combines each thread's B-tree into a single root adds enough work to offset the parallel leaf-page writes.
 
-All three loaders read the same preprocessed partition files, so the preprocessing time (\autoref{arch:bulk-preprocess}) is shared.
+All three loaders read the same preprocessed partition files, so they share the preprocessing cost (\autoref{arch:bulk-preprocess}).
 Table~\ref{tab:preprocess-times} breaks down the two preprocessing passes on the same machine with 16 threads.
-Pass~1 is dominated by the sequential CSV read and forward-adjlist writes; the two \texttt{tbb::parallel\_sort} calls on the reverse-edge chunks account for only 16 of the 310 seconds.
+The sequential CSV read and the forward-adjacency-list writes dominate Pass~1; the two \texttt{tbb::parallel\_sort} calls on the reverse-edge chunks account for only 16 of its 310 seconds.
 Pass~2, a two-way merge of the sorted runs, completes in under a minute.
 Including preprocessing, the end-to-end time from raw edge list to \wt{} database is 1{,}164 seconds for the standard bulk loader and 902 seconds for the modified bulk loader.
 
