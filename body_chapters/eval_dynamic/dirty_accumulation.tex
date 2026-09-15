@@ -1,5 +1,6 @@
 \section{Dirty Data Accumulation and the Cost of Deferred Cleaning}
 \label{sec:eval:dynamic:dirty}
+\newflag[entire section is new]
 
 The comparison in \autoref{sec:eval:dynamic} is only meaningful if \project{} is configured to behave as much like an in-memory system as its architecture permits.
 As described earlier, we disable the write-ahead log, disable periodic checkpointing, and size \wt{}'s cache at 800\,GiB so that the working set never approaches the eviction thresholds.

@@ -251,6 +251,7 @@ The \code{GraphBase} interface has four categories of operations, summarized in~
 
 \subsection{Partitioning for Parallel Analytics}
 \label{arch:api:partitioning}
+\newflag[rewritten since Sept 1]
 
 Analytics algorithms parallelize over the vertex set: each thread processes a disjoint subset of vertices and their neighborhoods.
 Partitioning divides the vertex ID space into ranges so that threads can work independently without synchronization on the structural data.
@@ -497,6 +498,7 @@ Choosing the right computation model transforms EdgeKey from pathologically slow
 
 \subsection{Dissecting a Single PageRank Iteration}
 \label{sec:eval:pr_breakdown}
+\newflag[new subsection]
 
 The timing results in \autoref{tab:ec_vc_time} reveal large gaps between representations, but do not isolate where each iteration spends its time.
 To attribute the cost, we designed a microbenchmark that runs a single vertex-centric PageRank iteration through four cumulative phases, each adding one layer of work:

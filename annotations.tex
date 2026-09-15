@@ -85,3 +85,30 @@
 }{%
 		\endleftbar
 }
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%% Marking material added since a given date (supervisor review)
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Flip to false for the clean submission copy; all markup disappears
+% and the prose is untouched.
+\newboolean{shownew}
+\setboolean{shownew}{true}
+
+\definecolor{newcolor}{rgb}{0.0, 0.35, 0.8} % blue
+
+\ifthenelse{\boolean{shownew}}
+{
+	% \newflag  -- inline badge. Safe ANYWHERE, including next to floats,
+	%              inside captions, and immediately after a \section.
+	\newcommand{\newflag}[1][]{%
+		{\colorbox{newcolor}{\bfseries\sffamily\scriptsize\textcolor{white}{NEW}}%
+		 \ifthenelse{\equal{#1}{}}{}{\textcolor{newcolor}{\sffamily\scriptsize\,#1}}}}
+	% newpart -- vertical bar down the left margin for a run of prose.
+	%            Breaks across pages. Must NOT contain a float
+	%            (\begin{figure}/\begin{table}); close it before one and
+	%            reopen after, or just use \newflag instead.
+	\newenvironment{newpart}{\statusbar{newcolor}}{\endstatusbar}
+}{
+	\newcommand{\newflag}[1][]{}
+	\newenvironment{newpart}{}{}
+}
