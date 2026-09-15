@@ -119,7 +119,7 @@ Edge-table streaming ran slightly slower in the parallel case (81\,s versus 53\,
 
 All three loaders read the same preprocessed partition files, so they share the preprocessing cost (\autoref{arch:bulk-preprocess}).
 Table~\ref{tab:preprocess-times} breaks down the two preprocessing passes on the same machine with 16 threads.
-The sequential CSV read and the forward-adjacency-list writes dominate Pass~1; the two \texttt{tbb::parallel\_sort} calls on the reverse-edge chunks account for only 16 of its 310 seconds.
+The sequential CSV read and the forward-adjacency-list writes dominate Pass~1; the two \texttt{tbb::parallel\_sort}~\cite{onetbb_parallel_sort} calls on the reverse-edge chunks account for only 16 of its 310 seconds.
 Pass~2, a two-way merge of the sorted runs, completes in under a minute.
 Including preprocessing, the end-to-end time from raw edge list to \wt{} database is 1{,}164 seconds for the standard bulk loader and 902 seconds for the modified bulk loader.
 
