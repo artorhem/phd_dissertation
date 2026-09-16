@@ -90,21 +90,26 @@ Static graph processing systems are specialized to handle whole-graph OLAP workl
 \begin{table}[h!]
   \centering
   % \footnotesize
-  \begin{tabularx}{\columnwidth}{|l|X|X|}
-  \hline
-  \textbf{Workload} & \textbf{Access Pattern} & \textbf{Helpful Optimization} \\ \hline
-  \textbf{Point Query} & 
-    Random access to nodes with a certain label or property & 
-    Index on labels or property \\ \hline
-  \textbf{Neighborhood} & 
-    Accessing a node's in- or out-neighborhood & 
-    Direct, sequential access to neighborhoods \\ \hline
-  \textbf{Traversals} & 
-    Selection on neighborhood queries & 
-    Inherently random, no clear optimization \\ \hline
-  \textbf{Analytics} & 
-    Access all/most nodes and edges on some materialized structural graph & 
-    Sequential access to nodes and edges in each node's neighborhood \\ \hline
+  \begin{tabularx}{\columnwidth}{@{}lXX@{}}
+    \toprule
+    Workload & Access Pattern & Helpful Optimization \\
+    \midrule
+    Point Query &
+      Random access to nodes with a certain label or property &
+      Index on labels or property \\
+    \addlinespace
+    Neighborhood &
+      Accessing a node's in- or out-neighborhood &
+      Direct, sequential access to neighborhoods \\
+    \addlinespace
+    Traversals &
+      Selection on neighborhood queries &
+      Inherently random, no clear optimization \\
+    \addlinespace
+    Analytics &
+      Access all/most nodes and edges on some materialized structural graph &
+      Sequential access to nodes and edges in each node's neighborhood \\
+    \bottomrule
   \end{tabularx}
   \caption{Summary of graph workloads and their access patterns (derived from Besta et al.~\cite{besta2020demystifying}).}
   \label{tab:bg:workload_patterns}
