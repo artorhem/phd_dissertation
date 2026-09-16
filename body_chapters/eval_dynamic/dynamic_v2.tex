@@ -146,6 +146,7 @@ Under power-law degree distributions, concurrent writers issue conflicting modif
 On the other hand, Adjacency List performs better with 72 writer threads on the uniform-24 dataset because the absence of high-degree vertices reduces conflicts.
 
 \section{Post-Ingestion Analytics}
+\label{sec:eval:dynamic:analytics}
 We next examine each system's analytics performance after ingest.
 After completing insertion, we run BFS, PageRank~(PR), and weakly connected components~(WCC) in parallel across all physical cores; no updates run during the analytics phase.
 The results are in \autoref{tab:analytics-main}.
