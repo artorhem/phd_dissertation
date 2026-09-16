@@ -56,7 +56,7 @@ Measured in the same session and on the same data, retention rises to $60.8\%$, 
   \caption{Writer throughput at $W=25$ under the two policies, measured in the same session and drawn on one time axis, cut at $1{,}500$ seconds.
   Both runs perform five analytics passes.
   The configuration that reuses the default WiredTiger checkpoint (bottom) completes all five by $546$ seconds, where its run ends and its panel goes blank. In the configuration in which we explicitly force a checkpoint before each analytics task is still in its first pass at that point, and in its third where the figure ends.
-  These explicit checkpoints reduce writerer throughput to a mean value of $290$\,K\,ops/s in the first pass and $95$\,K\,ops/s in the second pass, and the recoveries between checkpoints are the only work they get done.
+  These explicit checkpoints reduce writer throughput to a mean value of $290$\,K\,ops/s in the first pass and $95$\,K\,ops/s in the second pass, and the recoveries between checkpoints are the only work they get done.
   With these explicit checkpoints the analytics window consumes $3{,}367$ seconds, and its last three passes average $10.6$, $5.0$ and $5.3$\,K\,ops/s.
   Reusing WiredTiger's default checkpoints keeps the writers near their own mean for three passes, but the fourth and fifth stop them completely, so its $60.8\%$ retention averages three live passes with two dead ones.
   The two runs also start from different pre-analytics rates, which the policy cannot account for because it takes effect only once analytics begins; each curve is therefore read against its own dashed line and not against the other panel.}
