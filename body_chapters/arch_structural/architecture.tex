@@ -319,26 +319,27 @@ PageRank and \ac{WCC} use \code{EDGE\_AWARE}, because their per-vertex work is p
 \midrule
 \multirow{4}{*}{twitter-2010}
   & \multirow{2}{*}{Adjacency list}
-    & Vertex-centric &  80.0\,s &  29.4\,s & $2.72\times$ \\
-  & & Edge-centric   &  97.8\,s &  85.5\,s & $1.14\times$ \\
+    & Vertex-centric &  80.0\,s &  \textbf{29.4\,s} & $2.72\times$ \\
+  & & Edge-centric   &  97.8\,s &  \textbf{85.5\,s} & $1.14\times$ \\
   \cmidrule(l){2-6}
   & \multirow{2}{*}{EdgeKey}
-    & Vertex-centric & 3{,}187\,s & 4{,}206\,s & $0.76\times$ \\
-  & & Edge-centric   &   326\,s &   445\,s & $0.73\times$ \\
+    & Vertex-centric & \textbf{3{,}187\,s} & 4{,}206\,s & $0.76\times$ \\
+  & & Edge-centric   &   \textbf{326\,s} &   445\,s & $0.73\times$ \\
 \midrule
 \multirow{4}{*}{soc-LiveJournal}
   & \multirow{2}{*}{Adjacency list}
-    & Vertex-centric &  1.07\,s &  1.78\,s & $0.60\times$ \\
-  & & Edge-centric   &  2.95\,s &  3.23\,s & $0.91\times$ \\
+    & Vertex-centric &  \textbf{1.07\,s} &  1.78\,s & $0.60\times$ \\
+  & & Edge-centric   &  \textbf{2.95\,s} &  3.23\,s & $0.91\times$ \\
   \cmidrule(l){2-6}
   & \multirow{2}{*}{EdgeKey}
-    & Vertex-centric & 94.8\,s & 98.4\,s & $0.96\times$ \\
-  & & Edge-centric   & 10.8\,s & 11.1\,s & $0.97\times$ \\
+    & Vertex-centric & \textbf{94.8\,s} & 98.4\,s & $0.96\times$ \\
+  & & Edge-centric   & \textbf{10.8\,s} & 11.1\,s & $0.97\times$ \\
 \bottomrule
 \end{tabular}
 \caption[PageRank execution time under node-count vs.\ edge-aware partitioning]{PageRank execution time under \code{NODE\_COUNT} vs.\ \code{EDGE\_AWARE}
 partitioning.  Speedup is the ratio $t_{\text{NC}} / t_{\text{EA}}$; values
-${>}\,1$ indicate \code{EDGE\_AWARE} is faster.  On twitter-2010,
+${>}\,1$ indicate \code{EDGE\_AWARE} is faster.  Bold marks the faster
+strategy in each row.  On twitter-2010,
 edge-aware partitioning yields a $2.7\times$ speedup for vertex-centric
 adjacency-list traversal.  On soc-LiveJournal, node-count partitioning is
 slightly faster across all configurations.}
@@ -523,7 +524,9 @@ All runs use 28 threads with \code{EDGE\_AWARE} partitioning.
 \toprule
 & & & & \multicolumn{3}{c}{\textbf{Fraction of iteration time}} \\
 \cmidrule(lr){5-7}
-\textbf{Dataset} & \textbf{Rep.} & \textbf{Time (s)} & \textbf{\code{next()} call count} & \textbf{Cursor} & \textbf{Deser.} & \textbf{Compute} \\
+\textbf{Dataset} & \textbf{Rep.} & \textbf{Time (s)} &
+  \begin{tabular}[b]{@{}r@{}}\textbf{\code{next()}}\\\textbf{call}\\\textbf{count}\end{tabular} &
+  \textbf{Cursor} & \textbf{Deser.} & \textbf{Compute} \\
 \midrule
 \multirow{2}{*}{soc-LiveJournal}
   & Adj      & 0.12 & 4.5\,M  & 52\% & 17\% & 30\% \\

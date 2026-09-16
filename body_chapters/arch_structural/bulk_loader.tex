@@ -16,7 +16,7 @@ The pipeline makes two passes over the data and sorts each reverse-edge chunk in
 The program reads the CSV edge file in a single sequential pass.
 Forward edges arrive sorted by source ID, so the program groups them by source vertex and writes them directly to binary adjacency list partition files.
 Simultaneously, it reverses each edge $(u, v)$ to $(v, u)$ and buffers it in memory.
-When the buffer reaches a configurable size (default 10\,GB, approximately 625M edges), the program sorts the chunk with \texttt{tbb::parallel\_sort} and flushes it to a binary run file on disk.
+When the buffer reaches a configurable size (default 10\,GB, approximately 625M edges), the program sorts the chunk with \texttt{tbb::parallel\_sort}\cite{onetbb_parallel_sort} and flushes it to a binary run file on disk.
 
 \paragraph{Pass 2: K-way merge of reverse edges.}
 A min-heap-based $k$-way merge combines the reverse-edge run files.
@@ -117,14 +117,7 @@ The modified bulk loader finished in 535 seconds, a $1.5\times$ speedup over the
 Adjacency-list streaming dropped from 301 to 33 seconds ($9.1\times$), because 16 threads write leaf pages to independent backing files with no inter-thread synchronization.
 The degree-collection pass (247\,s versus 261\,s) showed little change, because it reads partition files sequentially regardless of thread count.
 Edge-table streaming ran slightly slower in the parallel case (81\,s versus 53\,s). For fine-grained per-edge keys, the hierarchical merge that combines each thread's B-tree into a single root adds enough work to offset the parallel leaf-page writes.
-
-All three loaders read the same preprocessed partition files, so they share the preprocessing cost (\autoref{arch:bulk-preprocess}).
-Table~\ref{tab:preprocess-times} breaks down the two preprocessing passes on the same machine with 16 threads.
-The sequential CSV read and the forward-adjacency-list writes dominate Pass~1; the two \texttt{tbb::parallel\_sort}~\cite{onetbb_parallel_sort} calls on the reverse-edge chunks account for only 16 of its 310 seconds.
-Pass~2, a two-way merge of the sorted runs, completes in under a minute.
-Including preprocessing, the end-to-end time from raw edge list to \wt{} database is 1{,}164 seconds for the standard bulk loader and 902 seconds for the modified bulk loader.
-
-\begin{table}[t]
+\begin{table}[ht!]
 \centering
 \begin{tabular}{lr}
 \toprule
@@ -143,3 +136,10 @@ Pass~1 reads the CSV edge file, writes forward adjacency lists, and sorts revers
 Pass~2 merges the sorted chunks into reverse-adjacency partitions.}
 \label{tab:preprocess-times}
 \end{table}
+
+All three loaders read the same preprocessed partition files, so they share the preprocessing cost (\autoref{arch:bulk-preprocess}).
+Table~\ref{tab:preprocess-times} breaks down the two preprocessing passes on the same machine with 16 threads.
+The sequential CSV read and the forward-adjacency-list writes dominate Pass~1; the two \texttt{tbb::parallel\_sort}~\cite{onetbb_parallel_sort} calls on the reverse-edge chunks account for only 16 of its 310 seconds.
+Pass~2, a two-way merge of the sorted runs, completes in under a minute.
+Including preprocessing, the end-to-end time from raw edge list to \wt{} database is 1{,}164 seconds for the standard bulk loader and 902 seconds for the modified bulk loader.
+

@@ -80,46 +80,56 @@ ChunkGraph~\cite{wang2024chunkgraph} takes a different approach: rather than des
 ChunkGraph works transparently with existing in-memory vertex-centric systems such as Ligra without requiring changes to their computation model.
 Other out-of-core systems include CLIP~\cite{ai2018clip}, V-part~\cite{elyasi2019large}, Wonderland~\cite{zhang2018wonderland}, and Mosaic~\cite{maass2017mosaic}; we discuss CLIP's programming model in~\autoref{design:subgraph_centric}.
 
-\autoref{tab:static_systems} summarizes these systems and their key design choices.
+\autoref{tab:static_systems} groups these systems by class and records the key design choice of each.
 
 \newcommand{\evalstar}{{\color[RGB]{219,16,72}$\star$}}
   \begin{table}[t]
   \centering
   \small
-  \begin{tabular}{lll}
+  \begin{tabular}{@{}p{3.7cm}ll@{}}
   \toprule
   \textbf{Class} & \textbf{System} & \textbf{Key design choice} \\
   \midrule
-  \multirow{6}{*}{\rotatebox[origin=c]{90}{In-memory}}
-      & GAPBS\evalstar{}          & Optimized reference kernels on CSR \\
-      & Ligra\evalstar{}           & Direction-optimizing traversal \\
-      & Galois\evalstar{}          & Priority-driven scheduling for irregular parallelism \\
-      & Gemini\evalstar{}          & Chunk-based partitioning with locality-aware execution \\
-      & GraphMat       & Vertex programs as sparse matrix operations \\
-      & GPOP           & Partition-centric processing for cache residency \\
+  \multirow{6}{=}{\textbf{In-memory}\newline\footnotesize\emph{Fits in one machine's RAM; preprocessing builds a CSR layout}}
+      & GAPBS\evalstar{}   & Optimized reference kernels on CSR \\
+      & Ligra\evalstar{}   & Direction-optimizing traversal \\
+      & Galois\evalstar{}  & Priority-driven scheduling for irregular parallelism \\
+      & Gemini\evalstar{}  & Chunk-based partitioning with locality-aware execution \\
+      & GraphMat           & Vertex programs as sparse matrix operations \\
+      & GPOP               & Partition-centric processing for cache residency \\
   \midrule
-  \multirow{4}{*}{\rotatebox[origin=c]{90}{Distributed}}
-      & Pregel         & BSP vertex-centric message passing \\
-      & PowerGraph     & GAS decomposition for high-degree vertices \\
-      & GraphX         & Graph analytics on Spark RDDs \\
-      & PowerLyra      & Hybrid partitioning (high-/low-degree vertices) \\
+  \multirow{4}{=}{\textbf{Distributed}\newline\footnotesize\emph{Partitioned across machines; communication-bound}}
+      & Pregel             & BSP vertex-centric message passing \\
+      & PowerGraph         & GAS decomposition for high-degree vertices \\
+      & GraphX             & Graph analytics on Spark RDDs \\
+      & PowerLyra          & Hybrid partitioning (high-/low-degree vertices) \\
   \midrule
-  \multirow{7}{*}{\rotatebox[origin=c]{90}{Out-of-core}}
-      & GraphChi\evalstar{}       & Destination-based shards; Parallel Sliding Windows \\
-      & TurboGraph     & Source-based layout; SSD parallelism \\
-      & GridGraph      & 2-D grid partitioning; LLC-sized cells \\
-      & X-Stream\evalstar{}       & Unordered edge streaming; no sorted preprocessing \\
-      & Blaze\evalstar{}          & NVMe-optimized partition-centric processing \\
-      & FlashGraph     & Semi-external memory; async I/O for edge lists \\
-      & ChunkGraph     & Degree-classified chunks; transparent with Ligra \\
+  \multirow{7}{=}{\textbf{Out-of-core}\newline\footnotesize\emph{Streamed from disk; preprocessing builds a sequential-I/O layout}}
+      & GraphChi\evalstar{}& Destination-based shards; Parallel Sliding Windows \\
+      & TurboGraph         & Source-based layout; SSD parallelism \\
+      & GridGraph          & 2-D grid partitioning; LLC-sized cells \\
+      & X-Stream\evalstar{}& Unordered edge streaming; no sorted preprocessing \\
+      & Blaze\evalstar{}   & NVMe-optimized partition-centric processing \\
+      & FlashGraph         & Semi-external memory; async I/O for edge lists \\
+      & ChunkGraph         & Degree-classified chunks; transparent with Ligra \\
   \bottomrule
   \end{tabular}
-  \caption{Summary of static graph processing systems. All require offline preprocessing and support no mutations during processing. \evalstar{} marks systems evaluated against \project{}.}
+  \caption{Static graph processing systems. Rows within a class differ in how the layout is packed and traversed; every row shares two limitations: an offline preprocessing step and no mutation during processing. \evalstar{} marks the systems we evaluate \project{} against in~\autoref{sec:eval:static}.}
   \label{tab:static_systems}
   \end{table}
 
-All static systems, whether in-memory or out-of-core, require an offline preprocessing step to build their layout and are batch-only, supporting no mutation during processing.
-Among the out-of-core systems to which we compare, GraphChi is a partial exception: it includes an evolving-graph mode that can append edges during execution.
+\paragraph{Takeaway:}
+First, \textbf{every static system pays a preprocessing tax}.
+Each must convert an edge list into its own single-purpose layout before it computes, and that conversion often costs more than the analytics it enables.
+\project{} is the only system here that skips it, so we report preprocessing time as a hatched portion of every bar in~\autoref{sec:eval:static} rather than excluding it as one-time setup.
+Second, \textbf{every one of them freezes the graph while it computes}.
+The layouts in the third column are read-optimized because they assume a frozen graph.
+That assumption disqualifies every system in this table from the workloads of~\autoref{sec:eval:dynamic:chapter}, where we compare against a disjoint set of baselines.
+Third, \textbf{classes differ in where the graph resides; systems within a class differ primarily in how they manage state to maximize sequential access and minimize random access}.
+Only the starred systems return in~\autoref{sec:eval:static}; those are the ones to remember.
+
+The no-mutation limitation admits partial exceptions.
+Among the out-of-core systems to which we compare, GraphChi includes an evolving-graph mode that can append edges during execution.
 Incoming edges are held in per-shard in-memory buffers and periodically flushed to the on-disk shards, triggering shard splits when a shard grows too large.
 Shard splits halve computation throughput, and flushes that increasingly compete with computation prevent the mode from sustaining high ingestion rates~\cite{kyrola2012graphchi}.
 X-Stream's unordered edge list allows it to absorb batches of new edges that are partitioned and appended to its on-disk stream files via a shared-memory interface, after which algorithms must be recomputed from scratch on the accumulated graph~\cite{roy2013x}.
@@ -306,6 +316,7 @@ In these layouts, a single read retrieves all neighbors of a vertex, so the cost
 This is highly efficient for read-heavy analytics: algorithms such as PageRank iterate over each vertex, read its neighbor list in one operation, and compute a local update.
 However, this packing comes at a cost for mutations.
 Inserting or deleting a single edge requires a read-modify-write of the packed buffer: the system must read the entire neighbor list, modify it, and write it back, which is expensive for high-degree vertices and creates a serialization bottleneck under concurrent mutation.
+\project{}'s adjacency list representation inherits this cost but pays only part of it: \wt{}'s \code{WT\_MODIFY} API (\autoref{sec:wt-modify}) records the appended neighbor ID and the updated degree as a delta rather than rewriting the packed value, which bounds the write amplification but not the contention (\autoref{arch:adjlist}).
 
 Edge-centric systems such as X-Stream and Chaos~\cite{royChaos2015} take the opposite approach: they store edges as individual records that are streamed sequentially.
 Each edge is independently accessible, so edge insertions and deletions are simple appends or point deletes with no contention on shared buffers.
