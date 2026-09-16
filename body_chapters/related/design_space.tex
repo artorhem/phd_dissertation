@@ -118,8 +118,8 @@ Other out-of-core systems include CLIP~\cite{ai2018clip}, V-part~\cite{elyasi201
   \label{tab:static_systems}
   \end{table}
 
-All static systems, whether in-memory or out-of-core, require an offline preprocessing step to build their layout and are batch-only, supporting no mutations during processing.
-Among the out-of-core systems we compare to, GraphChi is a partial exception: it includes an evolving-graph mode that can append edges during execution.
+All static systems, whether in-memory or out-of-core, require an offline preprocessing step to build their layout and are batch-only, supporting no mutation during processing.
+Among the out-of-core systems to which we compare, GraphChi is a partial exception: it includes an evolving-graph mode that can append edges during execution.
 Incoming edges are held in per-shard in-memory buffers and periodically flushed to the on-disk shards, triggering shard splits when a shard grows too large.
 Shard splits halve computation throughput, and flushes that increasingly compete with computation prevent the mode from sustaining high ingestion rates~\cite{kyrola2012graphchi}.
 X-Stream's unordered edge list allows it to absorb batches of new edges that are partitioned and appended to its on-disk stream files via a shared-memory interface, after which algorithms must be recomputed from scratch on the accumulated graph~\cite{roy2013x}.
@@ -225,14 +225,14 @@ GRACE~\cite{wang2013asynchronous} similarly supports both modes but is primarily
 \newflag[new: edge- vs vertex-centric table]
 \label{design:prog_models}
 
-Orthogonal to the computation model is the \textbf{Programming Model} used by the system.
-The programming model defines the interface provided to the user to write graph algorithms and, therefore, defines the unit of computation in a system.
+The \textbf{Programming Model} that we use to express algorithms is orthogonal to the computation model that executes those algorithms.
+The programming model defines the interface provided to the user, and therefore, defines the unit of computation in a system.
 
 The most common programming model is the \textbf{Vertex-Centric} model, where the user writes a function that operates on each vertex of the graph.
 Each vertex program can read the state of the vertex and its neighbors and update the state of the vertex.
 The user provides a \texttt{compute()} function, a \texttt{get\_value()} function to read the neighbors' state, and a \texttt{update\_state()} function to update the state of the vertex.
 
-The \textbf{Edge-Centric} model is another programming model where the user writes a function that operates on each edge of the graph.
+The \textbf{Edge-Centric} model is the other major programming model, in which the user writes a function that operates on each edge of the graph.
 Edge-centric processing was introduced by X-Stream~\cite{roy2013x}, which observed that organizing computation per-edge converts random access to graph structure into sequential streaming---an access pattern that is efficient across all levels of the storage hierarchy.
 Edge-centric models propagate changes by updating the state of the edge and the state of the vertices connected by the edge.
 The user provides an \texttt{edge\_scatter(e)} function that sends an update over the edge $e$, an \texttt{edge\_gather(e)} function that reads the update from the edge $e$, and an \texttt{apply(e)} function that applies the update to the edge's destination vertex $e.dest$.
@@ -247,7 +247,7 @@ The design space of static graph processing systems can be split based on these 
     \label{tab:static_ec_vc}
 \end{table}
 
-As \autoref{tab:static_ec_vc} shows, vertex-centric systems dominate: most graph processing frameworks adopt this model because it maps naturally to the adjacency-list and CSR representations that are standard in practice.
+As \autoref{tab:static_ec_vc} shows, vertex-centric systems dominate: most graph processing frameworks adopt this model, because it maps naturally to the adjacency-list and CSR representations that are standard in practice.
 Edge-centric and subgraph-centric models occupy smaller but distinct regions of the space, each motivated by a specific access-pattern optimization (sequential edge streaming and intra-partition locality, respectively).
 Some cells in the grid remain empty, reflecting combinations of programming and computation models that no existing system has explored.
 The dominance of vertex-centric systems is not accidental---it reflects a deep coupling between physical representation and programming model that we explore next.
@@ -273,7 +273,7 @@ Vertices within each partition are laid out in DFS order so that a scatter or ga
 PathGraph uses a path-centric scatter-gather computation model in which updates propagate along tree paths, achieving high throughput on secondary storage by maximizing sequential read bandwidth.
 
 \paragraph{Partition-Centric.}
-The Partition-Centric Processing Model (PCPM)~\cite{lakhotia2018accelerating} and its generalization GPOP~\cite{lakhotia2020gpop} define the unit of computation as a disjoint partition of contiguously labeled vertices sized to fit in the last-level cache.
+The Partition-Centric Processing Model (PCPM)~\cite{lakhotia2018accelerating} and its generalization GPOP~\cite{lakhotia2020gpop}, define the unit of computation as a disjoint partition of contiguously labeled vertices, sized to fit in the last-level cache.
 Scatter and gather operations are organized per \emph{partition pair}: all edges from a source partition to a destination partition are processed together, which converts random DRAM accesses into sequential streaming and enables lock-free updates to vertex state within a partition.
 This approach is designed for shared-memory systems and targets cache efficiency rather than the communication reduction that motivates block-centric models in the distributed setting.
 

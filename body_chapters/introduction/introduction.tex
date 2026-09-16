@@ -98,11 +98,11 @@ Based on our study of the graph data management landscape, we make five observat
 
 \section{Thesis Statement}
 \newflag[new section]
-Graph analytics and graph transactions do not require separate systems.
+\textbf{Graph analytics and graph transactions do not require separate systems.}
 A single persistent store can serve both.
 The key is choosing an analytics-friendly data layout and managing properties independently of the structure of the graph.
 That independence lets each label choose the representation its access pattern demands, rather than imposing one choice on the whole graph.
-A property can sit inline with the record it belongs to, or in a column group scanned in bulk.
+A property can be inline with the record to which it belongs or in a column group scanned in bulk.
 Analytics-friendly layouts can be encoded as sorted key ranges in a general-purpose transactional key-value store.
 Such a store needs no ETL and no preprocessing pass; the layout is always ready for analysis.
 We demonstrate that such a system remains competitive with purpose-built systems across the full operating spectrum of graph data management: in memory and out of core, static and dynamic, structural and property graphs.

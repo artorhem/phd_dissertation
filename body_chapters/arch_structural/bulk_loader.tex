@@ -79,7 +79,7 @@ We originally built the modifications against \wt{} 3.2.1 and have since ported 
 \newflag[new subsection]
 
 Table~\ref{tab:bulk-load-times} compares the three bulk loaders on the Twitter MPI graph (52.6\,M vertices, 1.96\,B directed edges, 16 partitions).
-The test machine has a 14-core Intel Xeon W-2275 at 3.30\,GHz (28 hardware threads), 128\,GB of RAM, and a rotational hard disk (Machine B in \autoref{sec:eval:env}).
+The test machine has a 14-core Intel Xeon W-2275 at 3.30\,GHz (28 hardware threads), 128\,GB of RAM, and a conventional hard disk (Machine B in \autoref{sec:eval:env}).
 The \wt{} cache is 10\,GB.
 Each run starts from a cold page cache and loads the graph into both the adjacency-list and split edge-key representations.
 
@@ -114,8 +114,8 @@ Adjacency-list streaming through a single bulk cursor took 301 seconds for the i
 The edge and edge-key tables took 212 seconds, and node insertion took 18 seconds.
 
 The modified bulk loader finished in 535 seconds, a $1.5\times$ speedup over the standard bulk loader.
-Adjacency-list streaming dropped from 301 to 33 seconds ($9.1\times$) because 16 threads write leaf pages to independent backing files with no inter-thread synchronization.
-The degree-collection pass (247\,s versus 261\,s) showed little change because it reads partition files sequentially regardless of thread count.
+Adjacency-list streaming dropped from 301 to 33 seconds ($9.1\times$), because 16 threads write leaf pages to independent backing files with no inter-thread synchronization.
+The degree-collection pass (247\,s versus 261\,s) showed little change, because it reads partition files sequentially regardless of thread count.
 Edge-table streaming ran slightly slower in the parallel case (81\,s versus 53\,s). For fine-grained per-edge keys, the hierarchical merge that combines each thread's B-tree into a single root adds enough work to offset the parallel leaf-page writes.
 
 All three loaders read the same preprocessed partition files, so they share the preprocessing cost (\autoref{arch:bulk-preprocess}).

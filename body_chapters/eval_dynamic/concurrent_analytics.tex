@@ -4,10 +4,10 @@
 
 Every experiment so far separates writing from reading.
 \autoref{sec:eval:dynamic} ingests a graph and then analyses it.
-This section runs both at once, and that is where \project{}'s central design decision meets its hardest case.
+This section runs both at once, and that is where \project{}'s central design decision meets its most challenging workload.
 \project{} gives an analytics pass a consistent view of the graph by running it against a checkpoint, so that every kernel in the pass traverses the same graph however much the writers change underneath it.
 Producing that checkpoint means writing out the B-trees that hold the graph, and the writers keep modifying those same trees while it is written.
-The two contend on every tree they share, and how much they contend follows from how a layout distributes the graph across trees.
+The two contend on every tree they share, and how much they contend follows from how a layout distributes the graph across B-trees.
 SplitEdgeKey, the layout we measure here, keeps almost all of the graph in a single edge table.
 
 \subsection{Workload and metrics}
@@ -55,10 +55,10 @@ Measured in the same session and on the same data, retention rises to $60.8\%$, 
   \includegraphics[width=\columnwidth]{fig/dynamic/concurrent_forced_vs_reuse.pdf}
   \caption{Writer throughput at $W=25$ under the two policies, measured in the same session and drawn on one time axis, cut at $1{,}500$ seconds.
   Both runs perform five analytics passes.
-  Reuse finishes all five by $546$ seconds, where its run ends and its panel goes blank; the forced run is still in its first pass at that point, and in its third where the figure is cut.
-  Forced checkpointing drops the writers to a mean throughput of $290$\,K\,ops/s in the first pass and $95$\,K\,ops/s in the second pass, and the recoveries between checkpoints are the only work they get done.
-  Its analytics window runs on to $3{,}367$ seconds, and its last three passes average $10.6$, $5.0$ and $5.3$\,K\,ops/s.
-  Reuse holds the writers near their own mean for three passes; the fourth and fifth stop them outright, so its $60.8\%$ retention averages three live passes with two dead ones.
+  The configuration that reuses the default WiredTiger checkpoint (bottom) completes all five by $546$ seconds, where its run ends and its panel goes blank. In the configuration in which we explicitly force a checkpoint before each analytics task is still in its first pass at that point, and in its third where the figure ends.
+  These explicit checkpoints reduce writerer throughput to a mean value of $290$\,K\,ops/s in the first pass and $95$\,K\,ops/s in the second pass, and the recoveries between checkpoints are the only work they get done.
+  With these explicit checkpoints the analytics window consumes $3{,}367$ seconds, and its last three passes average $10.6$, $5.0$ and $5.3$\,K\,ops/s.
+  Reusing WiredTiger's default checkpoints keeps the writers near their own mean for three passes, but the fourth and fifth stop them completely, so its $60.8\%$ retention averages three live passes with two dead ones.
   The two runs also start from different pre-analytics rates, which the policy cannot account for because it takes effect only once analytics begins; each curve is therefore read against its own dashed line and not against the other panel.}
   \label{fig:concurrent-forced}
 \end{figure}
@@ -66,9 +66,9 @@ Measured in the same session and on the same data, retention rises to $60.8\%$, 
 
 That $60.8\%$ is an average over three passes that run near the writers' own rate and two that run at nothing.
 The fourth and fifth passes register exactly zero writer throughput, and the writers are stalled for $31.6\%$ of a window only $271$ seconds long.
-Reuse buys an order of magnitude over forcing, but the writers still stop inside five passes.
+Reuse buys an order of magnitude over forcing, but the writers still stop before five passes complete.
 
-Checkpoint reuse removes the forced checkpoints, not the checkpoints.
+Checkpoint reuse removes the forced checkpoints, not all checkpoints.
 \wt{}'s server creates them on its own schedule, at the same interval in both configurations, over the same edge table the writers are modifying.
 The contention this section opened with therefore survives reuse intact.
 The writers show it: two of the five passes stall writers.

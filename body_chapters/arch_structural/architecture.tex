@@ -266,7 +266,7 @@ Each thread receives its assigned range and creates its own topology and propert
 \project{} defines four abstract cursor classes: \code{OutCursor} (out-neighborhood), \code{InCursor} (in-neighborhood), \code{NodeCursor} (node iteration), and \code{EdgeCursor} (edge iteration).
 Each representation provides its own cursor implementation: for example, \code{AdjOutCursor} deserializes the packed neighbor blob from a single adjacency table entry, while \code{SplitEKeyOutCursor} iterates successive keys in the edge B-tree.
 
-Cursors wrap \wt{} cursors and manage key-range bounds internally.
+Topology cursors wrap \wt{} cursors and manage key-range bounds internally.
 The application sets a key range (typically a partition range) via \code{set\_key\_range()}, and the cursor enforces the bounds: each call to \code{next()} returns the next element within the range or signals end-of-range.
 This design frees the application from repeatedly checking whether the cursor has left its assigned partition.
 
@@ -501,7 +501,7 @@ Choosing the right computation model transforms EdgeKey from pathologically slow
 \label{sec:eval:pr_breakdown}
 \newflag[new subsection]
 
-The timing results in \autoref{tab:ec_vc_time} reveal large gaps between representations, but do not isolate where each iteration spends its time.
+The timing results in \autoref{tab:ec_vc_time} reveal large gaps between representations but do not isolate where each iteration spends its time.
 To attribute the cost, we designed a microbenchmark that runs a single vertex-centric PageRank iteration through four cumulative phases, each adding one layer of work:
 
 \begin{enumerate}
@@ -513,7 +513,7 @@ To attribute the cost, we designed a microbenchmark that runs a single vertex-ce
 
 \noindent
 Subtracting adjacent phases yields the marginal cost of each layer.
-The benchmark runs three trials per phase after warming the \wt{} cache, and reports the best wall-clock time to minimize scheduling noise.
+The benchmark runs three trials per phase, after warming the \wt{} cache, and reports the best wall-clock time to minimize scheduling noise.
 All runs use 28 threads with \code{EDGE\_AWARE} partitioning.
 \autoref{tab:pr_breakdown} shows the results.
 
@@ -523,7 +523,7 @@ All runs use 28 threads with \code{EDGE\_AWARE} partitioning.
 \toprule
 & & & & \multicolumn{3}{c}{\textbf{Fraction of iteration time}} \\
 \cmidrule(lr){5-7}
-\textbf{Dataset} & \textbf{Rep.} & \textbf{Time (s)} & \textbf{\code{next()}} & \textbf{Cursor} & \textbf{Deser.} & \textbf{Compute} \\
+\textbf{Dataset} & \textbf{Rep.} & \textbf{Time (s)} & \textbf{\code{next()} call count} & \textbf{Cursor} & \textbf{Deser.} & \textbf{Compute} \\
 \midrule
 \multirow{2}{*}{soc-LiveJournal}
   & Adj      & 0.12 & 4.5\,M  & 52\% & 17\% & 30\% \\
@@ -547,7 +547,7 @@ The B-tree page-traversal cost of each call is small individually, but multiplie
 Deserialization (Flexograph's own overhead layer) accounts for only 1--4\%, because per-edge key extraction (\texttt{ekey\_get\_key} + \texttt{push\_back}) involves no bulk memory copy.
 
 \paragraph{Adjacency list: compute becomes visible.}
-On the adjacency list, cursor traversal drops to 24--52\% because only $O(|V|)$ cursor calls are needed; each call returns a packed blob containing all neighbors.
+On the adjacency list, cursor traversal drops to 24--52\%, because only $O(|V|)$ cursor calls are needed; each call returns a packed blob containing all neighbors.
 The compute phase (score accumulation over the deserialized neighbor array) takes 30--65\% of the iteration, becoming the largest component on the larger graph.
 Deserialization is modest at 12--17\%: a single \texttt{get\_value} call, a \texttt{memcpy} of the degree field, and a \texttt{vector::assign} that copies the neighbor array.
 
