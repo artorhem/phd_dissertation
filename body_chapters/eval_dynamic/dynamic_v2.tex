@@ -241,6 +241,3 @@ The ingest-optimized EdgeKey layout is orders of magnitude slower on analytics (
 \textbf{Takeaway.}
 Lacking a separate high-speed ingest path costs \project{} 3--5$\times$ on raw insertion relative to purpose-built in-memory systems, an expected and acceptable penalty.
 This cost does not carry over to analytics, where \project{} Adjacency List matches or outperforms every baseline across all kernels and scales, while retaining the ability to persist and recover the graph, a feature that none of the in-memory systems provide.
-
-\PM{Coming up: 1. Cost of persistence, 2. running concurrent analytics + insertions.
-}

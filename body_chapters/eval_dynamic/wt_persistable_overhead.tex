@@ -5,6 +5,7 @@
 
 \section{Isolating the Persistence Machinery Tax}
 \label{sec:wt-ingest-overhead}
+\newflag[new: Results from profiling the per-edge overhead when running an ingest-only workload]
 
 \project{} uses \wt{} as its storage engine because \wt{} provides crash recovery, transactions, and a mature concurrency model.
 When a workload does not need persistence, \project{} disables write-ahead logging (\texttt{log=(enabled=false)}), checkpoints (\texttt{checkpoint=(wait=0, log\_size=0)}), and raises all eviction thresholds to 100\% so that no eviction work occurs.
