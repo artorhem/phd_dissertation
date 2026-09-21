@@ -153,7 +153,7 @@ After completing insertion, we run BFS, PageRank~(PR), and weakly connected comp
 The results are in \autoref{tab:analytics-main}.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-\begin{figure*}[h!]
+\begin{table}[h!]
   \centering
   \begin{minipage}[t]{\columnwidth}
     \vspace{0pt}
@@ -184,10 +184,10 @@ The results are in \autoref{tab:analytics-main}.
     \bottomrule
     \end{tabular}
     \vfill
-    \captionof{table}{Cross-system Graphalytics kernel time (s), median over warm runs. The best time for each graph/algorithm appears in bold. FG = \project{}, PR = PageRank.}
+    \caption{Cross-system Graphalytics kernel time (s), median over warm runs. The best time for each graph/algorithm appears in bold. FG = \project{}, PR = PageRank.}
     \label{tab:analytics-main}
   \end{minipage}
-\end{figure*}
+\end{table}
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 Recall that, at this point, the in-memory baselines hold the graph only as a transient structure that will be lost if the system shuts down or crashes; there are neither redundant copies nor durable snapshots.
