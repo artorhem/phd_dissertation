@@ -36,11 +36,16 @@ Teseo provides transactional semantics comparable to \project{}'s, but it has no
 LiveGraph has similar transactional semantics, but since it relies on mmap, the host OS can evict pages at any time, so the write ordering needed for consistency and crash recovery is difficult, if not impossible, to guarantee.
 
 We conduct four experiments:
-(1)~a scalability study that varies writer thread count,
-(2)~an insertion benchmark at each system's optimal thread count,
-(3)~a sustained mixed insert-and-delete workload that replays a graph
-update log,
-(4)~a graph analytics benchmark (PageRank, BFS, and weakly connected components) run after finishing the insertion.
+
+\begin{enumerate}
+  \item A scalability study that varies writer thread count (\autoref{sec:eval:dynamic:scalability}).
+
+  \item An insertion benchmark at each system's optimal thread count (\autoref{sec:dynamic:ingest-update-tput}).
+
+  \item A sustained mixed insert-and-delete workload that replays a graph update log (\autoref{sec:dynamic:ingest-update-tput}).
+
+  \item A graph analytics benchmark (PageRank, BFS, and weakly connected components) run on the graph each system holds once the insertion-only ingest of experiment~2 completes (\autoref{sec:eval:dynamic:analytics}).
+\end{enumerate}
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % TODO: regenerate as a single-column, single-panel figure (scalability only;
@@ -55,6 +60,7 @@ update log,
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 \section{Insertion Scalability}
+\label{sec:eval:dynamic:scalability}
 \newflag[new peak-throughput table]
 
 We insert the edges of graph500-24 while varying the number of writer threads from 1 to 72 to identify each system's optimal concurrency (\autoref{fig:dynamic-scaling}).
@@ -149,7 +155,7 @@ On the other hand, Adjacency List performs better with 72 writer threads on the 
 \section{Post-Ingestion Analytics}
 \label{sec:eval:dynamic:analytics}
 We next examine each system's analytics performance after ingest.
-After completing insertion, we run BFS, PageRank~(PR), and weakly connected components~(WCC) in parallel across all physical cores; no updates run during the analytics phase.
+Once the insertion-only ingest of \autoref{sec:dynamic:ingest-update-tput} completes, we run BFS, PageRank~(PR), and weakly connected components~(WCC) in parallel across all physical cores on the resulting graph; no updates run during the analytics phase.
 The results are in \autoref{tab:analytics-main}.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
