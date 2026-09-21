@@ -7,7 +7,7 @@
 \label{sec:wt-ingest-overhead}
 \newflag[new: Results from profiling the per-edge overhead when running an ingest-only workload]
 
-\project{} uses \wt{} as its storage engine because \wt{} provides crash recovery, transactions, and a mature concurrency model.
+\project{} uses \wt{} as its storage engine, because \wt{} provides crash recovery, transactions, and a mature concurrency model.
 When a workload does not need persistence, \project{} disables write-ahead logging (\texttt{log=(enabled=false)}), checkpoints (\texttt{checkpoint=(wait=0, log\_size=0)}), and raises all eviction thresholds to 100\% so that no eviction work occurs.
 These settings eliminate disk I/O on the write path.
 
@@ -18,7 +18,8 @@ Answering this question establishes the performance penalty \project{} pays for 
 \label{sec:wt-overhead-persistence}
 
 We answer the question with a combination of source-code analysis and profiling.
-We profiled the same ingest-only experiment we report in \autoref{sec:dynamic:ingest-update-tput}: graph500-24 ingestion at one and 72 writers with \texttt{perf}, resolving each sample to its \wt{} source function through DWARF.
+We used texttt{perf} to profile the same ingest-only experiment we report in \autoref{sec:dynamic:ingest-update-tput}: graph500-24 ingestion at one and 72 writers. 
+We then use DWARF\cite{dwarf5standard} to resolve each sample to its \wt{} source function.
 Profiling this experiment shows that \project{} spends 13.8\,$\mu$s of writer CPU time per inserted edge at one writer, 3.8$\times$ that of Teseo on the same workload.
 We first show where that time does \emph{not} go, then where it does.
 
@@ -33,7 +34,7 @@ With WAL and checkpoints disabled, these persistence components together account
 \label{sec:wt-overhead-costs}
 
 The costs that dominate the ingest path are intrinsic to \wt{}'s B-tree access path and the bookkeeping that accompanies every page access.
-\autoref{tab:wt-overhead} shows the per-edge breakdown at one and 72 writers on graph500-24, with WAL and checkpoints disabled.
+\autoref{tab:wt-overhead} shows the per-edge breakdown (in ns) at one and 72 writers on graph500-24, with WAL and checkpoints disabled.
 
 \begin{table}[h]
   \centering
@@ -63,7 +64,7 @@ The costs that dominate the ingest path are intrinsic to \wt{}'s B-tree access p
 
 \paragraph{Tree operations.}
 B-tree descent and in-memory skip-list insertion account for 39\% of single-writer CPU time; byte-string key comparison during descent adds another 16\%, making tree operations the largest single cost at 55\%.
-Any storage engine that maintains a sorted B-tree over variable-length keys would pay a comparable cost for descent and comparison; this is not specific to \wt{}'s persistence design.
+Any storage engine that maintains a sorted B-tree over variable-length keys will pay a comparable cost for descent and comparison; this is not specific to \wt{}'s persistence design.
 Key \emph{serialization}, the packing step that produces the byte-comparable encoding, accounts for only 1.3\%.
 The format conversion itself is cheap; searching with the result is not.
 
@@ -76,7 +77,7 @@ Every piece of per-access bookkeeping in this row traces back to it: cache byte 
 A pure in-memory index eliminates all this bookkeeping.
 Teseo, for example, has no page cache, no eviction, and no hazard pointers, and pays zero
 in this category.
-Yet this protocol runs on every \wt{} page access even when we configure the eviction
+Yet, this protocol runs on every \wt{} page access even when we configure the eviction
 thresholds never to trigger.
 
 At one writer, the protocol costs 1,047\,ns per edge (8\%).
@@ -86,7 +87,7 @@ both writes and reads the same connection-wide cache byte counters.
 \wt{} creates the eviction server thread unconditionally at connection startup;
 no configuration can disable it.
 It runs a wake-check-sleep loop with an auto-scaling interval, but with thresholds at
-100\% it finds nothing to do and returns to sleep.
+100\%, it finds nothing to do, and returns to sleep.
 The cost measured above comes from the per-access protocol that application threads
 execute, not the background thread.
 
@@ -101,7 +102,7 @@ Under contention these grow sharply: the cursor API alone reaches 6,346\,ns at 7
 \paragraph{Memory allocation.}
 At one writer, memory allocation and kernel page-fault handling account for 11\% of CPU time.
 Much of the page-fault cost is kernel work rather than \wt{} code.
-At 72 writers this row drops to 653\,ns because the faults amortize over a shorter per-edge wall-clock time.
+At 72 writers this row drops to 653\,ns, because the faults amortize over a shorter per-edge wall-clock time.
 
 \subsection{Implications}
 \label{sec:wt-overhead-implications}
@@ -124,7 +125,7 @@ falls into three categories, summarized in \autoref{tab:wt-overhead-categories}.
     \addlinespace
     B-tree access path (descent, key comparison, transactions, cursor API, key packing)
       & $\sim$81\% & $\sim$51\% & Operating a transactional sorted index. Any storage
-        engine with a B-tree, MVCC, and a cursor API would pay a comparable cost. \\
+        engine with a B-tree, MVCC, and a cursor API will pay a comparable cost. \\
     \bottomrule
   \end{tabularx}
   \caption{Three categories of ingest-path CPU overhead when \wt{}'s persistence is
@@ -135,15 +136,15 @@ falls into three categories, summarized in \autoref{tab:wt-overhead-categories}.
 \end{table}
 
 Persistence \emph{operations} are negligible once we turn WAL and checkpoints off.
-The B-tree access path is a cost any transactional sorted index would impose.
+The B-tree access path is a cost any transactional sorted index imposes.
 The middle category is the one specific to \wt{}'s persistence \emph{architecture}: the
 bounded-cache design requires per-access bookkeeping (cache byte counters, threshold
 checks, hazard pointers, LRU scoring) that a pure in-memory index does not need.
-At one writer this tax is modest (8\%), but under contention it grows to 41\% and becomes
+At one writer, this tax is modest (8\%), but under contention, it grows to 41\% and becomes
 the largest single component of per-edge cost, ahead of B-tree descent and of the cursor
 and transaction layer, because all threads contend on the same connection-wide counters.
 
-\project{} accepts this overhead because it can re-enable \wt{}'s crash-recovery
+\project{} accepts this overhead, because it can re-enable \wt{}'s crash-recovery
 guarantees without changing the data representation.
 The bounded cache and its eviction protocol are the mechanism that makes this possible:
 they keep the in-memory data organized in pages that \wt{} can reconcile and write to
