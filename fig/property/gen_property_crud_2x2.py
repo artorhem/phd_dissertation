@@ -92,8 +92,8 @@ with matplotlib.rc_context({
         axes[row_start].set_ylim(ymin, ymax)
         axes[row_start+1].set_ylim(ymin, ymax)
 
-    axes[0].set_ylabel('Latency (ms)')
-    axes[2].set_ylabel('Latency (ms)')
+    axes[0].set_ylabel('Latency (ms) [log10]')
+    axes[2].set_ylabel('Latency (ms) [log10]')
 
     handles, lbls = first_ax.get_legend_handles_labels()
     fig.legend(handles, lbls, loc='upper center', ncol=4,
