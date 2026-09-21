@@ -80,20 +80,13 @@ At one writer, the protocol costs 1,047\,ns per edge (8\%).
 At 72 writers, it grows to 18,879\,ns (41\%), an 18$\times$ increase, because every insert
 both writes and reads the same connection-wide cache byte counters.
 
-\wt{} creates the eviction server thread unconditionally at connection startup;
-no configuration can disable it.
-It runs a wake-check-sleep loop with an auto-scaling interval, but with thresholds at
-100\%, it finds nothing to do, and returns to sleep.
-The cost measured above comes from the per-access protocol that application threads
-execute, not the background thread.
+\wt{} creates the eviction server thread unconditionally at connection startup; no configuration can disable it.
+It runs a wake-check-sleep loop with an auto-scaling interval, but with thresholds at 100\%, it finds nothing to do, and returns to sleep.
+The cost measured above comes from the per-access protocol that application threads execute, not the background thread.
 
 \paragraph{API and transaction bookkeeping.}
-Cursor setup and teardown, transaction management (snapshot walks over active sessions,
-transaction-ID allocation), and \wt{}'s configuration-string parser together account for
-13\% at one writer.
-Under contention these grow sharply: the cursor API alone reaches 6,346\,ns at 72 writers
-($\times$23 its single-writer cost), and transaction bookkeeping grows to 5,169\,ns
-($\times$13).
+Cursor setup and teardown, transaction management (snapshot walks over active sessions, transaction-ID allocation), and \wt{}'s configuration-string parser together account for 13\% at one writer.
+Under contention these grow sharply: the cursor API alone reaches 6,346\,ns at 72 writers ($\times$23 its single-writer cost), and transaction bookkeeping grows to 5,169\,ns ($\times$13).
 
 \paragraph{Memory allocation.}
 At one writer, memory allocation and kernel page-fault handling account for 11\% of CPU time.

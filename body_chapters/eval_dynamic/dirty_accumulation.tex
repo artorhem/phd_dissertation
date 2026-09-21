@@ -56,19 +56,19 @@ In both cases the explicitly configured \texttt{dirty} thresholds are never reac
 
 \textbf{\project{} accumulates update chains, not modified page images.} A page can be dirty because its image has been modified in place or because it carries a chain of updates that has never been folded into an image; only the second describes \project{}.
 Under the SplitEdgeKey layout, an edge insertion or deletion appends to a page's update chain.
-The image is rewritten only when the page is \emph{reconciled}: on eviction or checkpoint.
+The image is rewritten only when the page is \emph{reconciled}, which occurs only on eviction or checkpoint.
 Because we have disabled periodic checkpointing and pushed the eviction thresholds out of reach, neither occurs for a long time.
 At minute~31 of the run described below, the cache held 322\,GiB in total.
 Of that, 320\,GiB sat in update structures and just 2.9\,GiB belonged to page images.
 The graph existed almost entirely as an unreconciled log of modifications layered over a nearly empty B-tree.
-This is why the derived \texttt{updates} thresholds are the ones that bind: they are the only family measuring the quantity \project{} actually accumulates.
+This explains why the derived \texttt{updates} thresholds are the ones that bind: they are the only family measuring the quantity \project{} actually accumulates.
 
 \subsection{Experiment}
 \label{sec:eval:dynamic:dirty:setup}
 
 We replay the full graph500-24 update log (2.6\,B operations, ${\sim}$55\% insertions and ${\sim}$45\% deletions) using \project{} SplitEdgeKey with 72 writer threads, the configuration used in \autoref{fig:throughput-update}. 
 We disable the write-ahead log and switch off the checkpoint server \mbox{(\texttt{wait=0})}, so no checkpoint runs until the driver forces one at the end of the run.
-\wt{}'s statistics log is enabled at a 5\,s interval, which is the only difference from the runs reported earlier.
+\wt{}'s statistics log is enabled at  5\,s intervals, which is the only difference from the runs reported earlier.
 We leave eviction at \wt{}'s default thread pool (minimum 1, maximum 8).
 
 We compare two configurations that differ \emph{only} in the four configured eviction thresholds of \autoref{tab:wt-eviction-knobs}: our own setting (blue) and \wt{}'s defaults (red).
