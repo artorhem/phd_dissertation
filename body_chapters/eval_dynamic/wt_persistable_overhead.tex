@@ -14,21 +14,12 @@ These settings eliminate disk I/O on the write path.
 What CPU overhead does \wt{} still impose on the ingest path once we turn persistence off?
 Answering this question establishes the performance penalty \project{} pays for using a general-purpose transactional storage engine rather than a purpose-built in-memory index.
 
-\subsection{Persistence Components Are Negligible}
+\paragraph{Persistence components are negligible.}
 \label{sec:wt-overhead-persistence}
-
-We answer the question with a combination of source-code analysis and profiling.
-We used texttt{perf} to profile the same ingest-only experiment we report in \autoref{sec:dynamic:ingest-update-tput}: graph500-24 ingestion at one and 72 writers. 
+We used \texttt{perf} to profile the same ingest-only experiment we report in \autoref{sec:dynamic:ingest-update-tput}: graph500-24 ingestion at one and 72 writers. 
 We then use DWARF\cite{dwarf5standard} to resolve each sample to its \wt{} source function.
 Profiling this experiment shows that \project{} spends 13.8\,$\mu$s of writer CPU time per inserted edge at one writer, 3.8$\times$ that of Teseo on the same workload.
-We first show where that time does \emph{not} go, then where it does.
-
-Only the checkpoint code path and the eviction code path call reconciliation.
-The cursor insert path appends an update to the page's skip list and returns; no reconciliation call occurs on this path.
-Block allocation is reachable only through the block-write path invoked at the end of reconciliation.
-Only eviction triggers page splits, and the split itself is purely in-memory: it allocates a new page, migrates insert-list entries, and updates parent pointers, with no disk writes and no block allocation.
-
-With WAL and checkpoints disabled, these persistence components together account for 46\,ns per inserted edge, under 0.5\% of writer CPU time.
+With WAL and checkpoints disabled, the persistence components (reconciliation, block management, logging, and page splits) account for 46\,ns per inserted edge, under 0.5\% of writer CPU time.
 
 \subsection{Where the Time Goes}
 \label{sec:wt-overhead-costs}
@@ -40,22 +31,27 @@ The costs that dominate the ingest path are intrinsic to \wt{}'s B-tree access p
   \centering
   \begin{tabularx}{\columnwidth}{@{}Xrrrr@{}}
     \toprule
-    Component & w=1 (ns) & \% & w=72 (ns) & Growth \\
+    Component & $T_1$ (ns) & \% of $T_1$ & $T_{72}$ (ns) & Growth ($T_{72}/T_1$) \\
     \midrule
-    B-tree descent and insertion           & 5,421 & 39 & 6,664 & $\times$1.2 \\
-    Key comparison during descent          & 2,180 & 16 & 2,603 & $\times$1.2 \\
-    Cache accounting and eviction protocol & 1,047 & 8 & 18,879 & $\times$18 \\
-    Cursor, transaction, config parsing    & 1,819 & 13 & 13,017 & $\times$7 \\
-    Memory allocation and page faults      & 1,570 & 11 & 653 & $\times$0.4 \\
-    Key serialization (packing)            & 185 & 1 & 264 & $\times$1.4 \\
-    Persistence components                 & 46 & $<$1 & 62 & $\times$1.3 \\
-    Other                                  & 1,554 & 11 & 3,520 & $\times$2.3 \\
+    B-tree descent and insertion           & 5,421 & 39 & 6,664 & $1.2\times$ \\
+    Key comparison during descent          & 2,180 & 16 & 2,603 & $1.2\times$ \\
+    Cache accounting and eviction protocol & 1,047 & 8 & 18,879 & $18.0\times$ \\
+    Cursor, transaction, config parsing    & 1,819 & 13 & 13,017 & $7.2\times$ \\
+    Memory allocation and page faults      & 1,570 & 11 & 653 & $0.4\times$ \\
+    Key serialization (packing)            & 185 & 1 & 264 & $1.4\times$ \\
+    Persistence components                 & 46 & $<$1 & 62 & $1.3\times$ \\
+    Other                                  & 1,554 & 11 & 3,520 & $2.3\times$ \\
     \midrule
-    Writer on-CPU total & \textbf{13,822} & & \textbf{45,662} & $\times$\textbf{3.3} \\
+    Writer on-CPU total & \textbf{13,822} & & \textbf{45,662} & $\mathbf{3.3\times}$ \\
     \bottomrule
   \end{tabularx}
   \caption{On-CPU time per inserted edge for \project{} on graph500-24 with WAL and
   checkpoints disabled.
+  $T_1$ and $T_{72}$ are the on-CPU nanoseconds a component spends per inserted edge at one
+  and at 72 concurrent writers.
+  The third column gives each component's share of $T_1$, and the last gives the growth
+  ratio $T_{72}/T_1$: a value above $1\times$ means the component spends more CPU per edge
+  under contention than it does alone.
   Persistence components include reconciliation, block management, WAL, and page splits.
   The ``other'' row includes generation counters, dirty-page tracking, libc string
   operations, kernel overhead, and unresolved samples.}
