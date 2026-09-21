@@ -160,7 +160,7 @@ We stopped the run, because successive completion estimates kept moving farther 
 
 \textbf{Takeaway.}
 The configuration we adopt to make \project{} comparable with in-memory systems postpones the cost of persistence and pays it in a single burst.
-For 31~minutes the engine performs no I/O at all, and the reported throughput of 1.010\,M~ops/s is, in that window, an in-memory number.
+For 31~minutes the engine performs no I/O at all, and the reported throughput of 1.01\,M~ops/s is, in that window, an in-memory number.
 That number is obtained by allowing 364\,GiB of unreconciled updates to accumulate (46\% of the configured cache), all of which must subsequently be reconciled and written.
 \wt{}'s own defaults hold the dirty set to a quarter of that size but spend 88\% of writer thread-time on cache eviction and write two orders of magnitude more data.
 The system never reaches a steady state.
