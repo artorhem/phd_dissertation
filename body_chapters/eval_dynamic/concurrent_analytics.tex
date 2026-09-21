@@ -5,9 +5,9 @@
 Every experiment so far separates writing from reading.
 Experiments in \autoref{sec:eval:dynamic:analytics} ingest the graph before running analytics on it.
 This section runs both at once, and that is where \project{}'s central design decision meets its hardest workload.
-\project{} gives an analytics pass a consistent view of the graph by running it against a checkpoint, so that every kernel in the pass traverses the same graph however much the writers change underneath it.
-Producing that checkpoint means writing out the B-trees that hold the graph, and the writers keep modifying those same trees while it is written.
-The two contend on every tree they share, and how much they contend follows from how a layout distributes the graph across B-trees.
+\project{} gives an analytics pass a consistent view of the graph by running it against a checkpoint, so that every kernel in the pass traverses the same graph independent of how much the writers simultaneously change it.
+Producing that checkpoint means writing out the B-trees that hold the graph, and the writers keep modifying those same trees while they are  written.
+The two workloads contend on every tree they share, and how much they contend follows from how a layout distributes the graph across B-trees.
 EdgeKey, the layout we measure here, keeps almost all of the graph in a single edge table.
 
 \subsection{Workload and metrics}
@@ -36,7 +36,7 @@ Analytics runs for hours, and the writers need eviction reclaiming pages through
 
 \wt{} tracks two quantities here, each with its own thresholds.
 \emph{Dirty data} is the bytes in pages whose images a checkpoint or an eviction must write out.
-\emph{Update bytes} counts only the in-memory update chains that \project{} appends to on every edge insertion, not the page images that hold them.
+\emph{Update bytes} counts only the in-memory update chains to which \project{} appends on every edge insertion, not the page images that hold them.
 \wt{} never sets the update-bytes thresholds directly; it derives each one as half of its dirty-data counterpart, so \texttt{eviction\_updates\_trigger} sits at half of \texttt{eviction\_dirty\_trigger}'s default $20\%$ of the cache.
 On our $800$\,GiB cache that puts it at $80$\,GiB, and it is the threshold that binds in this workload.
 Once update bytes cross that threshold, \wt{} conscripts application threads into performing eviction themselves.
@@ -84,7 +84,7 @@ Reuse delays the stalls; it does not prevent them.
 The first thing we tried was giving the checkpoint less to contend with.
 Each writer thread adds to the dirty data that a checkpoint must write out and that eviction must reclaim, so cutting the count from $25$ writers to $5$ slows the rate at which it builds up.
 The rest of this section runs at $W=5$ unless stated otherwise.
-It buys time, and only time: the first analytics pass that stalls the writers now arrives twenty-eight minutes into the analytics window rather than three.
+This approach only buys time; the first analytics pass that stalls the writers now arrives twenty-eight minutes into the analytics window rather than three.
 \autoref{fig:concurrent-collapse} shows twenty passes at the default $10$\,s checkpoint interval at each of the two writer counts.
 At $W=5$, \project{} retains $39.3\%$ of its pre-analytics throughput across a $78.6$-minute window, stalls for $48.2\%$ of it, and loses $305$ seconds to a single stall (\autoref{fig:concurrent-collapse:w5}).
 At $W=25$ it retains only $11.8\%$ of its own pre-analytics throughput over the same twenty passes, which take $54.4$ minutes at that writer count (\autoref{fig:concurrent-collapse:w25}).
@@ -128,15 +128,15 @@ While \wt{} checkpoints a B-tree, it forbids the eviction of that tree's dirty p
 The rule protects correctness: evicting a dirty child after its parent has already been written would leave an inconsistent checkpoint.
 EdgeKey holds almost all of the graph in one edge table, so this rule bars eviction almost everywhere, almost all of the time.
 A checkpoint's duration depends on how much dirty data it must write, not on how large the graph is.
-Once analytics begins, the log deletes edges about as fast as it inserts them, so the graph's size changes by less than $0.5\%$ across the analytics window.
+Once analytics begins, the log deletes edges about as quickly as it inserts them, so the graph's size changes by less than $0.5\%$ across the analytics window.
 In the twenty passes at $W=5$ the checkpoints still lengthen over that window, from $222$ seconds to between $284$ and $357$, as the dirty data each one starts with climbs from $53$ to between $73$ and $86$\,GiB.
 
 Barred eviction keeps dirty data high, and update bytes climb with it.
 Once they reach the $80$\,GiB \texttt{eviction\_updates\_trigger}, \wt{} conscripts the application threads into performing eviction themselves.
-Those threads find nothing they may evict, and they wait without a timeout.
+Those threads find nothing to evict, and they wait without a timeout.
 Writer throughput then reads exactly zero, and the longest single insert latency matches the length of the stall.
 \autoref{fig:concurrent-dirty} traces update bytes at two checkpoint intervals: \wt{}'s $10$\,s default and the $120$\,s setting of \autoref{sec:eval:dynamic:concurrent:spaced}.
-At $10$\,s update bytes reach the $80$\,GiB threshold and stay there; at $120$\,s they never reach it.
+At $10$\,s, update bytes reach the $80$\,GiB threshold and stay there; at $120$\,s they never reach it.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \begin{figure}[!htb]
@@ -145,8 +145,8 @@ At $10$\,s update bytes reach the $80$\,GiB threshold and stay there; at $120$\,
   \caption{Update bytes at $W=5$, against \texttt{eviction\_updates\_trigger}, the level at which \wt{} conscripts writer threads into eviction.
   The grey bands mark when a checkpoint is running.
   The curve climbs inside each band, where the checkpoint bars eviction, and drains between bands; that alternation is what gives the trace its teeth.
-  At the default $10$\,s checkpoint interval the gaps drain almost nothing: update bytes climb for $45$ minutes, reach the $80$\,GiB threshold and stay on it, holding the writers at exactly the point where conscription begins.
-  At a $120$\,s checkpoint interval each fall undoes the rise before it, and they peak at $77.2$\,GiB without ever reaching it.}
+  At the default $10$\,s checkpoint interval the gaps drain almost nothing: update bytes climb for $45$ minutes, reach the $80$\,GiB threshold, and stay on it, holding the writers at exactly the point where conscription begins.
+  At a $120$\,s checkpoint interval, each fall undoes the rise before it, and they peak at $77.2$\,GiB without ever reaching it.}
   \label{fig:concurrent-dirty}
 \end{figure}
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -155,7 +155,7 @@ A pair of $W=25$ runs differing only in \texttt{eviction\_updates\_trigger}, rai
 At $80$\,GiB the writers stalled for $72.6\%$ of the analytics window; at $400$\,GiB they never stall at all.
 Application threads that had spent $27{,}267$ thread-seconds waiting for cache spend none, and retention rises from $24.4$ to $92.8\%$.
 The knob defers the stall rather than removing its cause.
-The checkpoint still runs for $95\%$ of the time and eviction stays barred, while dirty data grows unchecked to $134$\,GiB instead of holding near $86$.
+The checkpoint still runs for $95\%$ of the time, and eviction stays barred, while dirty data grows unchecked to $134$\,GiB instead of holding near $86$.
 That run is on its way to the dirty trigger.
 
 \subsection{The configuration space}
@@ -258,14 +258,14 @@ All of this depends on one quantity: how much time eviction gets to run.
 At $W=5$ with $N=120$\,s, checkpoints occupy $64\%$ of the wall-clock instead of the $94\%$ they occupy at the $10$\,s default, and the update bytes that trigger conscription peak at $77.2$\,GiB without ever reaching the $80$\,GiB threshold where the $10$\,s run pins.
 
 The writers hold their rate.
-Over $83.6$ minutes of continuous analytics, comprising $58$ passes, \project{} retains $69.7\%$ of its pre-analytics throughput, fluctuating between $64$ and $76\%$ with no downward trend, and stalls for less than $1\%$ of the time.
-\autoref{tab:concurrent-spaced} compares that run against the same workload at the default $10$\,s interval, measured in the same session on the same binary, and against LiveGraph.
+Over $83.6$ minutes of continuous analytics, completing $58$ passes, \project{} retains $69.7\%$ of its pre-analytics throughput, fluctuating between $64$ and $76\%$ with no downward trend, and stalls for less than $1\%$ of the time.
+\autoref{tab:concurrent-spaced} compares that run to the same workload at the default $10$\,s interval, measured in the same session on the same binary, and to LiveGraph.
 \autoref{fig:concurrent-throughput} shows the throughput traces for all three runs.
 
 Two conclusions follow.
 First, both systems retain close to $70\%$ of their pre-analytics throughput.
 The $30\%$ they each lose measures the cost of running analytics alongside writers rather than the cost of checkpointing, because two designs with nothing in common land within a percentage point of each other.
-Second, \project{} runs faster in absolute terms at this operating point, sustaining $267$\,K\,ops/s against LiveGraph's $161$ before analytics and $186$ against $113$ during it, while LiveGraph keeps nothing on disk.
+Second, \project{} runs faster in absolute terms at this operating point, sustaining $267$\,K\,ops/s compared to LiveGraph's $161$\,K\,ops/s before analytics and $186$\,K\,ops/s compared to $113$ during it, while LiveGraph keeps nothing on disk.
 
 Passes reuse checkpoints under this setting.
 The $58$ passes read $14$ distinct checkpoints, about four passes to each, so a pass might read a graph that is a few minutes old.
@@ -303,9 +303,9 @@ Running LiveGraph that way puts both systems on the same device, and sampling \t
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 LiveGraph writes more than \project{} does.
-The system with no checkpoints, no log, and no page reconciliation moved $1{,}049$\,GB to the device against \project{}'s $806$, and sustained $240$\,MB/s against $168$.
-Write granularity explains the difference.
-The kernel flushes every dirty mapped page once per expiry cycle, so a page that changes repeatedly gets written repeatedly, whereas a checkpoint reconciles each page once per interval however many times it changed.
+The system with no checkpoints, no log, and no page reconciliation wrote $1{,}049$\,GB to the device compared to \project{}'s $806$\,GB, and sustained $240$\,MB/s compared to \project{}'s $168$\,MB/s.
+The write granularity explains the difference.
+The kernel flushes every dirty mapped page once per expiry cycle, so a page that changes repeatedly gets written repeatedly, whereas a checkpoint reconciles each page once per interval, independent of how many times it changed.
 LiveGraph's block file holds $155$\,GiB, so the run wrote roughly seven times the size of its own data.
 
 Backing LiveGraph with a file also costs it throughput.
@@ -317,7 +317,7 @@ These numbers come with two qualifications.
 The two runs cover windows of $53.7$ and $40.3$ minutes, so their retention figures compare but their pass counts do not.
 The second matters more.
 A file-backed LiveGraph is storage-backed rather than recoverable: the kernel writes those pages in no particular order and flushes nothing until the mapping closes, so a crash leaves a torn file.
-It buys a weaker guarantee than a checkpoint does, and it pays more I/O for it.
+It provides a weaker guarantee than a checkpoint does, and it pays more I/O for it.
 
 \subsection{Takeaway}
 \label{sec:eval:dynamic:concurrent:takeaway}
@@ -329,5 +329,5 @@ A schedule fixes this where a knob cannot.
 Spacing checkpoints gives eviction time in which nothing bars it, and a low writer count keeps the dirty data small enough that eviction finishes within those gaps.
 At that operating point \project{} sustains concurrent analytics at the same relative cost as an in-memory system, and it provides a consistent, crash-recoverable checkpoint of the graph it serves.
 
-Two structural changes would attack the problem at its source: sharding the edge table so that the checkpoint bars eviction on one shard at a time, and a checkpointer that parallelises within a single tree.
+Two structural changes would attack the problem at its source: sharding the edge table so that the checkpoint bars eviction on only one shard at a time, and a checkpointer that parallelises within a single tree.
 Both remain future work.
