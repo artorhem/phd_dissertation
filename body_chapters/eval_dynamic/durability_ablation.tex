@@ -6,7 +6,7 @@ We disable the write-ahead log and periodic checkpointing so that \project{} beh
 This section measures what those mechanisms cost, by ablation: starting from \project{} configured with both persistence mechanisms enabled, we remove one at a time.
 
 No comparison reported in this chapter uses an intermediate configuration; \textsc{none} is the fastest.
-The ablation eliminates a hypothesis: if \project{}'s persistence machinery were expensive, the throughput gap against Teseo, LiveGraph, and GraphOne (none of which are run durably either) would need no further explanation.
+The ablation eliminates a hypothesis: if \project{}'s persistence machinery were expensive, the throughput gap that appears between Felxograph's performance and that of Teseo, LiveGraph, and GraphOne (none of which are run durably either) would need no further explanation.
 The measurements below show that the machinery is cheap, which forces the explanation elsewhere.
 
 \subsection{The configurations}
@@ -43,11 +43,11 @@ This is analogous to the asynchronous commit protocol commonly used by databases
 \end{table}
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-\textsc{wal} is ranked above \textsc{ckpt} because its worst-case loss window is
+\textsc{wal} is ranked above \textsc{ckpt}, because its worst-case loss window is
 narrower, not because a log is inherently a stronger mechanism than a
 checkpoint. Both give sawtooth protection: a crash immediately after a log
-rotation, or immediately after a checkpoint completes, loses almost nothing, and
-the exposure then grows until the next one. What separates them is the width of
+rotation or immediately after a checkpoint completes loses almost nothing, and
+the exposure then grows until the next one. The difference is the width of
 the tooth. Log files rotate when they fill, which at the $100$\,MB default and
 the ${\sim}133$\,MB/s of log this ingest generates is roughly every $0.8$\,s,
 whereas checkpoints complete every $78$\,s early in the run, stretching to
@@ -59,7 +59,7 @@ one. The log bounds how much committed work a crash destroys; the checkpoint
 bounds how long recovery takes. \textsc{wal} with no checkpoint ever taken must
 replay its log from the beginning of the run, so its recovery time grows without
 bound, while \textsc{ckpt} recovers by opening the last checkpoint and replays
-nothing. \textsc{wal-ckpt} heads the list because it is the only configuration
+nothing. \textsc{wal-ckpt} heads the list, because it is the only configuration
 that bounds both.
 
 \subsection{Method}
@@ -68,16 +68,16 @@ that bounds both.
 All runs insert the 260\,M edges of \texttt{graph500-24} into an initially empty graph using the split edge-key layout with 72 writer threads, on machine~A (\autoref{sec:eval:dynamic:setup}).
 The \wt{} cache is sized at 800\,GiB so that the graph is resident throughout, producing no eviction pressure; memory-mapped I/O and statistics collection are both off, as they perturb the ingest path.
 We report medians.
-Only the persistence configuration varies between runs; we hold every other parameter, and the binary itself, fixed.
+Only the persistence configuration varies between runs; we hold every other parameter and the binary itself fixed.
 
 \subsection{Results}
 \label{sec:eval:dynamic:durability:results}
 
 \autoref{tab:durability-ablation} presents the results. The two mechanisms are independent, so the four configurations form a $2\times2$ grid, and each mechanism can be priced with the other held fixed.
 
-The redo log costs $37\%$ of ingest throughput, and costs the same whether checkpointing is on ($-36.8\%$) or off ($-37.0\%$).
+The redo log costs $37\%$ of ingest throughput, regardless of costs whether checkpointing is on ($-36.8\%$) or off ($-37.0\%$).
 Checkpointing costs about $5\%$, again regardless of the log ($-4.9\%$ with it, $-5.2\%$ without).
-The two do not interact: the product of the marginal costs predicts the corner where both are enabled to within $0.2$ percentage points of the measured $-40.1\%$.
+The two do not interact: the product of the marginal costs predicts the configuration in which both are enabled (bottom right) to within $0.2$ percentage points of the measured $-40.1\%$.
 \project{}'s full persistence machinery therefore costs $1.67\times$ on ingest throughput, taking the system from $1.700$ to $1.019$\,M edges/s, and essentially all of that is the log.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -114,14 +114,14 @@ Each inserted edge is its own \wt{} transaction, so the log receives one record 
 \paragraph{Checkpointing is cheap at this scale, and only at this scale.}
 The near-equality of \textsc{ckpt} and \textsc{none} should not be interpreted as a global property.
 \wt{}'s \texttt{checkpoint=(\allowbreak wait=$n$)} specifies the interval \emph{between} the end of one checkpoint and the start of the next, not a period; as the graph grows, each checkpoint takes longer, so the duty cycle degrades over the life of a run.
-In these ingests the observed interval stretches from roughly $78$\,s early in the run to $479$\,s near its end.
+In these ingests, the observed interval stretches from roughly $78$\,s early in the run to $479$\,s near its end.
 A \texttt{graph500-24} ingest completes before that divergence has run its course, so the figures above understate the steady-state cost of checkpointing on a longer or larger ingest.
 
 \subsection{On synchronous commits}
 \label{sec:eval:dynamic:durability:sync}
 
 \wt{} can additionally be asked to make each commit durable before it returns, rather than buffering the redo record.
-We measured this configuration and do not report it as a rung of the ablation, because at \project{}'s transaction granularity it does not measure what the ladder is measuring.
+We measured this configuration and do not report it as part of the ablation, because at \project{}'s transaction granularity, it does not measure what the ablation is measuring.
 \project{} commits one edge per transaction, so a synchronous commit forces a durability wait per edge ($260$\,M of them for the ingest above), and the resulting slowdown of roughly $40\times$ is dominated by the per-edge granularity rather than by durability as such.
 A system intending to ingest durably would batch many edges into each transaction and amortise the wait across the batch; that is a different experiment, and one we have not run.
 We note the measurement here so that its absence from \autoref{tab:durability-ablation} is not mistaken for an oversight.

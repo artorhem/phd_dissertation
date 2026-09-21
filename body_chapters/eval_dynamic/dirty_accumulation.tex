@@ -101,16 +101,16 @@ Because no checkpoint is running, this isolates the effect of the thresholds fro
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-\autoref{fig:dirty-accumulation} plots the resident dirty set over time. 
+\autoref{fig:dirty-accumulation} shows the resident dirty set over time. 
 The two configurations produce qualitatively different behavior.
 
-\textbf{Under \project{}'s setting the run has three phases.} For the first
-31~minutes the dirty set grows linearly to 322\,GiB and the block manager writes \emph{nothing}: not a single page is evicted, because no threshold has been crossed. 
+\textbf{Under \project{}'s setting, the run has three phases.} For the first
+31~minutes the dirty set grows linearly to 322\,GiB, and the block manager writes \emph{nothing}: not a single page is evicted, because no threshold has been crossed. 
 The engine is, for this period, a pure in-memory store with a write-ahead structure that has never been written ahead.
 At minute~30.7 the update byte count (322\,GiB inflated by the 8\% cache overhead, or 348\,GiB effective) crosses the derived \texttt{updates\_target} of 340\,GiB, and the eight background eviction threads begin working.
 Eviction then peaks at 9{,}283~pages/s and 302\,MB/s, and in eleven minutes performs 92\% of all the disk writing the run will ever do.
 The dirty set nevertheless continues to grow during this burst, to a peak of 364.3\,GiB, because the writers are still outpacing eviction.
-Only when the update stream completes does the forced checkpoint drain the remaining 326\,GiB back to zero.
+The forced checkpoint drains the remaining 326\,GiB only when the update stream completes (where the blue shading begins).
 Throughout, application threads are never conscripted: the application-thread eviction wait is exactly zero, and no page is evicted by a writer (\autoref{tab:dirty-arms}).
 
 \textbf{Under \wt{}'s defaults the run has one phase.} The dirty set climbs to 87\,GiB within ten minutes (crossing the 80\,GiB derived \texttt{updates\_trigger}) and is then held flat there for the remainder of the run.
@@ -124,8 +124,8 @@ We stopped this configuration run after 201~minutes, at which point it had compl
 
 \textbf{The default configuration also degrades without bound.} Measured in ten-minute windows, the cursor operation rate falls from 3{,}651\,K/s in the first ten minutes to 431\,K/s in the second, an 8.5$\times$ collapse occurring exactly as the dirty set crosses the 80\,GiB trigger.
 It thereafter decays monotonically to 205\,K/s by minute~130, with no sign of a floor. 
-Before the crossing this configuration was in fact \emph{faster} than \project{}'s setting (3{,}651\,K/s against 3{,}018\,K/s); the entire deficit is created at the threshold.
-We stopped the run because successive completion estimates kept receding (147, then 255, then 325~minutes) as the rate fell.
+Before the crossing this configuration was in fact \emph{faster} than \project{}'s setting (3{,}651\,K/s compared to  3{,}018\,K/s); the entire deficit is created at the threshold.
+We stopped the run, because successive completion estimates kept moving farther and farther into the future (147, then 255, then 325~minutes) as the cursor operation rate fell.
 
 \autoref{tab:dirty-arms} summarises the two configurations.
 
@@ -162,8 +162,8 @@ We stopped the run because successive completion estimates kept receding (147, t
 The configuration we adopt to make \project{} comparable with in-memory systems postpones the cost of persistence and pays it in a single burst.
 For 31~minutes the engine performs no I/O at all, and the reported throughput of 1.010\,M~ops/s is, in that window, an in-memory number.
 That number is obtained by allowing 364\,GiB of unreconciled updates to accumulate (46\% of the configured cache), all of which must subsequently be reconciled and written.
-\wt{}'s own defaults hold the dirty set to a quarter of that size, but spend 88\% of writer thread-time on cache eviction and write two orders of magnitude more data.
-They never reach a steady state.
+\wt{}'s own defaults hold the dirty set to a quarter of that size but spend 88\% of writer thread-time on cache eviction and write two orders of magnitude more data.
+The system never reaches a steady state.
 There is no setting of these thresholds that makes the work disappear: only a choice of when to pay and how dramatically it impacts performance.
 This is the substance of the ``persistence machinery tax'' referred to in \autoref{sec:eval:dynamic}: the in-memory baselines avoid the obligation to ever reconcile a page.
 That reconciliation obligation, more than the I/O it produces, is what \project{} cannot escape while remaining persistable by construction.

@@ -20,8 +20,8 @@ Teseo scans its sorted segments sequentially under optimistic latches; clean seg
 LiveGraph iterates each vertex's edge block under snapshot isolation, filtering every entry against the read epoch with two timestamp comparisons.
 
 
-Most dynamic graph systems have no way to persist data across restarts; the exceptions are LiveGraph, which supports file-backed mmap, and GraphOne, which provides a write-ahead log.
-For a fair comparison with Teseo, we disable persistence in LiveGraph and GraphOne, so all three baselines operate under comparable in-memory conditions.
+Most dynamic graph systems (such as ASPEN~\cite{10.1145/3314221.3314598}, STINGER~\cite{stinger2012ediger}, Sortledton~\cite{sortledton2022Fuchs}, GTX~\cite{libinzhou2025GTX}, etc.) have no way to persist data across restarts; the exceptions are LiveGraph~\cite{zhu2019livegraph}, which supports file-backed mmap, and GraphOne~\cite{graphone2019kumar}, which provides a write-ahead log.
+For a fair comparison with Teseo~\cite{teseo2021deLeo}, we disable persistence in LiveGraph and GraphOne, so all three baselines operate under comparable in-memory conditions.
 Recall that \project{} is inherently persistent; to best approximate in-memory behavior in the presence of updates, we disable the write-ahead log and checkpointing and size \wt{}'s cache to prevent most evictions.
 We do not use \wt{}'s in-memory mode, because it would be contrary to our design objective.
 We therefore avoid as much disk I/O as possible, but \project{} still maintains the graph in \wt{}'s persistable, page-oriented B-tree format at all times.
