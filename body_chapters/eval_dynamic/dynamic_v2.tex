@@ -36,16 +36,11 @@ Teseo provides transactional semantics comparable to \project{}'s, but it has no
 LiveGraph has similar transactional semantics, but since it relies on mmap, the host OS can evict pages at any time, so the write ordering needed for consistency and crash recovery is difficult, if not impossible, to guarantee.
 
 We conduct four experiments:
-
-\begin{enumerate}
-  \item A scalability study that varies writer thread count (\autoref{sec:eval:dynamic:scalability}).
-
-  \item An insertion benchmark at each system's optimal thread count (\autoref{sec:dynamic:ingest-update-tput}).
-
-  \item A sustained mixed insert-and-delete workload that replays a graph update log (\autoref{sec:dynamic:ingest-update-tput}).
-
-  \item A graph analytics benchmark (PageRank, BFS, and weakly connected components) run on the graph each system holds once the insertion-only ingest of experiment~2 completes (\autoref{sec:eval:dynamic:analytics}).
-\end{enumerate}
+(1)~a scalability study that varies writer thread count,
+(2)~an insertion benchmark at each system's optimal thread count,
+(3)~a sustained mixed insert-and-delete workload that replays a graph
+update log,
+(4)~a graph analytics benchmark (PageRank, BFS, and weakly connected components) run on the graph each system holds once the insertion-only ingest of~(2) completes.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % TODO: regenerate as a single-column, single-panel figure (scalability only;
