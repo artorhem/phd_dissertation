@@ -113,8 +113,8 @@ The dirty set nevertheless continues to grow during this burst, to a peak of 364
 The forced checkpoint drains the remaining 326\,GiB only when the update stream completes (where the blue shading begins).
 Throughout, application threads are never conscripted: the application-thread eviction wait is exactly zero, and no page is evicted by a writer (\autoref{tab:dirty-arms}).
 
-\textbf{Under \wt{}'s defaults the run has one phase.} The dirty set climbs to 87\,GiB within ten minutes (crossing the 80\,GiB derived \texttt{updates\_trigger}) and is then held flat there for the remainder of the run.
-It is held flat by conscription: application threads perform 428.8~million page evictions themselves and accumulate 768{,}192~thread-seconds of waiting for cache, which is 88\% of all available writer thread-time.
+\textbf{Under \wt{}'s defaults the run has one phase.} The dirty set climbs to 87\,GiB within ten minutes and is then held flat there for the remainder of the run.
+Update bytes reach the derived \texttt{updates\_trigger} of 80\,GiB after eight minutes, and from that point conscription holds the dirty set at its ceiling: application threads perform 428.8~million page evictions themselves and accumulate 768{,}192~thread-seconds of waiting for cache, which is 88\% of all available writer thread-time.
 Crucially, no checkpoint is running during any of this; eviction is entirely unobstructed.
 The derived threshold alone is sufficient to spend the overwhelming majority of the write path's time on cache management rather than on graph updates.
 
@@ -122,9 +122,9 @@ The cost is visible in the disk traffic (\autoref{fig:write-volume}).
 Write bandwidth saturates at ${\sim}$1.6\,GB/s within ten minutes and stays there: the writers are throttled to whatever the device will sustain. 
 We stopped this configuration run after 201~minutes, at which point it had completed only 61\% of the update log having written 18{,}657\,GiB (117$\times$ what \project{}'s setting wrote for the \emph{entire} workload, or ${\sim}$191$\times$ normalised per unit of work).
 
-\textbf{The default configuration also degrades without bound.} Measured in ten-minute windows, the cursor operation rate falls from 3{,}651\,K/s in the first ten minutes to 431\,K/s in the second, an 8.5$\times$ collapse occurring exactly as the dirty set crosses the 80\,GiB trigger.
+\textbf{The default configuration also degrades without bound.} Measured in ten-minute windows, the cursor operation rate falls from 3{,}651\,K/s in the first ten minutes to 431\,K/s in the second, an 8.5$\times$ collapse occurring exactly as the update bytes crosses the 80\,GiB trigger.
 It thereafter decays monotonically to 205\,K/s by minute~130, with no sign of a floor. 
-Before the crossing this configuration was in fact \emph{faster} than \project{}'s setting (3{,}651\,K/s compared to  3{,}018\,K/s); the entire deficit is created at the threshold.
+Before update bytes reached the trigger this configuration was in fact \emph{faster} than \project{}'s raised \texttt{dirty} thresholds (3{,}651\,K/s compared to  3{,}018\,K/s); the entire deficit is created at the threshold.
 We stopped the run, because successive completion estimates kept moving farther and farther into the future (147, then 255, then 325~minutes) as the cursor operation rate fell.
 
 \autoref{tab:dirty-arms} summarises the two configurations.
