@@ -55,11 +55,15 @@ On DBLP, EdgeKey inserts an edge in 7.01\,$\mu$s, faster than Neo4j (16.55\,$\mu
 On the denser WikiTalk graph, Neo4j (20.35\,$\mu$s) outperforms both \project{} layouts (Adjacency~List: 49.42\,$\mu$s, EdgeKey: 78.23\,$\mu$s).
 Under Adjacency~List, each edge insert appends to the source vertex's packed neighbor list, a read-modify-write on the B-tree row whose cost grows with vertex degree.
 EdgeKey stores each edge as an independent row, avoiding this cost, but \wt{}'s per-transaction overhead (begin, cursor insert, commit) is the bottleneck at this granularity.
-Edge deletion follows a similar pattern: EdgeKey is fastest on DBLP (6.66\,$\mu$s vs.\ Neo4j's 22.09\,$\mu$s), while on WikiTalk, Adjacency~List (24.86\,$\mu$s) nearly matches Neo4j (24.34\,$\mu$s).
+Edge deletion follows a similar pattern: EdgeKey is fastest on DBLP (6.66\,$\mu$s vs.\ Neo4j's 22.09\,$\mu$s), while on WikiTalk, Neo4j again outperforms both layouts (24.34\,$\mu$s vs.\ Adjacency~List's 24.86\,$\mu$s and EdgeKey's 44.46\,$\mu$s).
+The degree-dependent cost of Adjacency~List mutations and the per-transaction overhead of EdgeKey both grow relative to Neo4j's pointer-based store as graphs become denser.
 
 ArangoDB and PostgreSQL are three to four orders of magnitude slower than \project{} on all structural operations.
 ArangoDB stores edges as JSON documents in a separate collection, requiring document-level index lookups and writes for each mutation.
 PostgreSQL, accessed through the SQLG TinkerPop provider, translates each graph operation into SQL statements on relational tables, paying relational join and transaction overhead.
+A direct-SQL decomposition analogous to \autoref{tab:crud-overhead} would
+isolate the SQLG translation cost, but the benchmark artifact does not
+expose a native SQL path for PostgreSQL.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \begin{figure}[h]
@@ -74,9 +78,12 @@ PostgreSQL, accessed through the SQLG TinkerPop provider, translates each graph 
 \textbf{Property mutations.}
 \autoref{fig:property-crud} reports eight property CRUD operations across two datasets.
 For point mutations (add, update, and delete of vertex and edge properties), \project{} and AsterDB are $100$--$10{,}000\times$ faster than the Gremlin-based systems.
-On the LDBC dataset, \project{} completes a vertex property update in ${\sim}$10\,$\mu$s versus Neo4j's 46.68\,ms (${\sim}4{,}000\times$), ArangoDB's 23.86\,ms, and JanusGraph's 105.77\,ms.
-AsterDB achieves similar mutation latency (40--140\,$\mu$s), roughly $5$--$10\times$ slower than \project{}.
-The pattern holds across all six mutation operations and both datasets.
+On the LDBC dataset, \project{} completes a vertex property update in ${\sim}$10\,$\mu$s versus Neo4j's 47\,ms (${\sim}4{,}000\times$), ArangoDB's 24\,ms, and JanusGraph's 106\,ms.
+AsterDB completes the same operation in 40--110\,$\mu$s, $5$--$11\times$
+slower than \project{} but still two to three orders of magnitude faster
+than the Gremlin-based baselines.
+Both systems bypass the Gremlin layer: \project{} issues a single \wt{}
+cursor write, while AsterDB uses its native RocksDB storage API.
 
 The dominant factor is the Gremlin query layer, not storage engine performance.
 Each baseline operation parses a Groovy script, compiles a TinkerPop traversal, resolves the target element through the provider's index, mutates the property, and commits.
@@ -85,33 +92,45 @@ Among the Gremlin-based systems, OrientDB is consistently fastest on mutations (
 
 \newflag[new: CRUD overhead decomposition]
 \textbf{Overhead decomposition.}
-We measure the same six CRUD operations on Neo4j through native Cypher (bypassing Gremlin) in two modes: single-shot (one operation per bolt request) and batched (1{,}000 operations per \texttt{UNWIND} request, amortizing Cypher parsing, query planning, and transaction commit).
-\autoref{tab:crud-overhead} reports vertex property update results; the other five mutations follow the same pattern.
+We measure the same six CRUD operations on Neo4j and ArangoDB through their native query languages (Cypher and AQL, respectively), bypassing Gremlin entirely.
+Each operation runs in two modes: single-shot (one operation per client request)  and batched (1{,}000 operations per request, amortizing query parsing, planning, and transaction commit).
+\autoref{tab:crud-overhead} reports all six mutations for both systems.
 Removing the Gremlin layer drops latency from 46.68\,ms to 3.27\,ms, a $14\times$ reduction that accounts for 93\% of the total gap.
-Batching further amortizes per-request overhead (Cypher parse/plan, transaction begin/commit, bolt round-trip), reducing per-operation cost to 0.027\,ms; \project{} reaches 0.01\,ms, only $2.7\times$ faster.
+Batching further amortizes per-request overhead (Cypher parse/plan, transaction begin/commit, bolt round-trip), reducing per-operation cost to 0.027\,ms; \project{} reaches 0.011\,ms, $2.5\times$ faster.
 Across all six mutations, Gremlin overhead accounts for 93--96\% of the gap for insert and update operations.
 Delete operations show a smaller Gremlin share (20--68\%), because the Gremlin delete path already runs faster (3.7--7.2\,ms), so per-request overhead dominates the remainder.
-Through batched Cypher, Neo4j's storage engine is $3$--$4\times$ slower than \project{}, not the $4{,}000\times$ that the Gremlin path introduces.
-All other results in this section report the full Gremlin-path latency for the baseline systems.
-The evaluation artifact routes every baseline operation through a Gremlin traversal: each system implements a TinkerPop provider, and the benchmark harness submits Groovy scripts to a Gremlin Server that dispatches them to the provider.
-This design enables a uniform comparison across seven backends but does not expose a native-API access path, so the query-layer overhead cannot be factored out of the remaining measurements.
+Through batched Cypher, Neo4j's storage engine is $2.5$--$5\times$ slower than \project{}, not the $4{,}000\times$ that the Gremlin path suggests.
+ArangoDB shows the same pattern: native AQL reduces vertex property update latency from 23.86\,ms to 1.64\,ms ($15\times$), with Gremlin accounting for 93\% of the gap.
+ArangoDB's single-shot native latency (1.5--1.8\,ms) is in fact lower than Neo4j's (2.3--3.3\,ms), indicating a more efficient per-request path; batched vertex operations are comparable (${\sim}$0.02\,ms/op), though ArangoDB's batched edge operations are $3$--$4\times$ more expensive (0.14 vs.\ 0.04\,ms/op), reflecting its document-oriented edge storage.
 
+For OrientDB and PostgreSQL, the benchmark artifact does not expose a native-API path, so we cannot perform the same decomposition; JanusGraph's native API is TinkerPop itself, leaving no layer to remove.
+The remaining results in this section report full Gremlin-path latency
+for all baseline systems.
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \begin{table}[t]
   \centering
-  \setlength{\tabcolsep}{3pt}
+  \setlength{\tabcolsep}{2pt}
   \begin{tabular*}{\columnwidth}{@{\extracolsep{\fill}}l rrrr rrr@{}}
     \toprule
     & \multicolumn{4}{c}{Latency (ms)} & \multicolumn{3}{c}{Overhead (\%)} \\
     \cmidrule(lr){2-5} \cmidrule(lr){6-8}
-     Operation & Gremlin & Cypher & Batch/op & FG & Gremlin & Cypher & Engine \\
+      Operation & Gremlin & Native & Batch/op & FG & Gremlin & Native & Engine \\
     \midrule
-    Update vprop & 46.68 & 3.27 & 0.027 & 0.01 & 93.0 & 7.0 & 0.0 \\
-    Insert vprop & 68.44 & 2.94 & 0.026 & 0.01 & 95.7 & 4.3 & 0.0 \\
-    Delete vprop &  3.71 & 2.96 & 0.028 & 0.01 & 20.3 & 79.2 & 0.5 \\
-    Update eprop & 41.96 & 2.33 & 0.043 & 0.01 & 94.5 & 5.5 & 0.1 \\
-    Insert eprop & 42.66 & 2.65 & 0.041 & 0.01 & 93.8 & 6.1 & 0.1 \\
-    Delete eprop &  7.24 & 2.30 & 0.044 & 0.01 & 68.4 & 31.2 & 0.5 \\
+    \multicolumn{8}{l}{\textit{Neo4j (Cypher)}} \\
+    Update vprop & 46.68 & 3.27 & 0.027 & 0.011 & 93.0 & 6.9 & 0.0 \\
+    Insert vprop & 68.44 & 2.94 & 0.026 & 0.008 & 95.7 & 4.3 & 0.0 \\
+    Delete vprop &  3.71 & 2.96 & 0.028 & 0.007 & 20.3 & 79.2 & 0.6 \\
+    Update eprop & 41.96 & 2.33 & 0.043 & 0.013 & 94.5 & 5.5 & 0.1 \\
+    Insert eprop & 42.66 & 2.65 & 0.041 & 0.010 & 93.8 & 6.1 & 0.1 \\
+    Delete eprop &  7.24 & 2.30 & 0.044 & 0.009 & 68.3 & 31.2 & 0.5 \\
+    \midrule
+    \multicolumn{8}{l}{\textit{ArangoDB (AQL)}} \\
+    Update vprop & 23.86 & 1.64 & 0.023 & 0.011 & 93.2 & 6.8 & 0.0 \\
+    Insert vprop & 22.48 & 1.76 & 0.020 & 0.008 & 92.2 & 7.7 & 0.1 \\
+    Delete vprop &  7.13 & 1.65 & 0.019 & 0.007 & 76.9 & 22.9 & 0.2 \\
+    Update eprop & 20.97 & 1.72 & 0.146 & 0.013 & 91.9 & 7.5 & 0.6 \\
+    Insert eprop & 23.42 & 1.64 & 0.143 & 0.010 & 93.1 & 6.4 & 0.6 \\
+    Delete eprop & 14.34 & 1.51 & 0.142 & 0.009 & 89.5 & 9.6 & 0.9 \\
     \bottomrule
   \end{tabular*}
   \caption{CRUD overhead decomposition on LDBC (Neo4j).
