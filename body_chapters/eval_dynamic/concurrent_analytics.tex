@@ -261,7 +261,7 @@ At $W=5$ with $N=120$\,s, checkpoints occupy $64\%$ of the wall-clock rather tha
 Update bytes then peak at $77.2$\,GiB and never reach the $80$\,GiB conscription threshold.
 The $10$\,s run reaches that threshold and stays on it for the rest of the window.
 
-The writers hold their rate.
+The writers maintain their rate.
 Over $83.6$ minutes of continuous analytics, completing $58$ passes, \project{} retains $69.7\%$ of its pre-analytics throughput, fluctuating between $64$ and $76\%$ with no downward trend, and stalls for less than $1\%$ of the time.
 \autoref{tab:concurrent-spaced} compares that run to the same workload at the default $10$\,s interval, measured in the same session on the same binary, and to LiveGraph.
 \autoref{fig:concurrent-throughput} shows the throughput traces for all three runs.
