@@ -12,10 +12,17 @@ We use Machine~A and the structural datasets described in \autoref{ch:eval-overv
 
 \input{body_chapters/eval_dynamic/dynamic_v2.tex}
 
+% MOVED: the durability ablation now runs BEFORE the detailed persistence-tax
+% analysis, so that it eliminates WAL/checkpointing as an explanation for the
+% ingest gap rather than re-confirming a conclusion the reader already has.
+\input{body_chapters/eval_dynamic/durability_ablation.tex}
+
 \input{body_chapters/eval_dynamic/wt_persistable_overhead.tex}
 
 \input{body_chapters/eval_dynamic/dirty_accumulation.tex}
 
-\input{body_chapters/eval_dynamic/durability_ablation.tex}
+% MOVED: durability_ablation.tex was input here; it is now above
+% wt_persistable_overhead.tex.
+% \input{body_chapters/eval_dynamic/durability_ablation.tex}
 
 \input{body_chapters/eval_dynamic/concurrent_analytics.tex}

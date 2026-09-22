@@ -113,7 +113,9 @@ GraphOne and Teseo are substantially faster than \project{}, sustaining 5.6--6.6
 \project{} EdgeKey is $3\times$ faster than LiveGraph (0.48\,M~edges/s).
 GraphOne issues blind writes and performs no existence checks during inserts; both GraphOne and LiveGraph use append-only paths.
 This gap in \project{}'s insertion throughput against GraphOne and Teseo is the persistence machinery tax defined in~\autoref{sec:eval:dynamic}.
-\autoref{sec:wt-ingest-overhead} attributes it per edge and separates it from the B-tree work that any transactional sorted index would perform; \autoref{sec:eval:dynamic:durability} prices the durability guarantees that none of these baselines provide at all.
+% EDITED: forward references reordered to match the new section order.
+% \autoref{sec:wt-ingest-overhead} attributes it per edge and separates it from the B-tree work that any transactional sorted index would perform; \autoref{sec:eval:dynamic:durability} prices the durability guarantees that none of these baselines provide at all.
+\textcolor{red}{\autoref{sec:eval:dynamic:durability} first prices the durability guarantees that none of these baselines provide at all; \autoref{sec:wt-ingest-overhead} then attributes what remains per edge and separates it from the B-tree work that any transactional sorted index would perform.}
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \begin{figure*}[h!]
   \centering

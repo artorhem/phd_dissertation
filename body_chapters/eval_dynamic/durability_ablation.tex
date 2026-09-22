@@ -1,13 +1,15 @@
 \section{Pricing Durability: A Configuration Ablation}
 \label{sec:eval:dynamic:durability}
 
-\autoref{sec:eval:dynamic:dirty} showed that the configuration used throughout this chapter \emph{defers} the cost of persistence rather than avoiding it.
-We disable the write-ahead log and periodic checkpointing so that \project{} behaves as much like an in-memory system as its architecture permits.
+% \autoref{sec:eval:dynamic:dirty} showed that the configuration used throughout this chapter \emph{defers} the cost of persistence rather than avoiding it.
+\autoref{sec:dynamic:ingest-update-tput} reported \project{} ingesting 3 to 5$\times$ more slowly than Teseo and GraphOne, under a configuration that writes nothing to disk on the commit path.
+That configuration disables the write-ahead log and periodic checkpointing, so \project{} behaves as much like an in-memory system as its architecture permits.
 This section measures what those mechanisms cost, by ablation: starting from \project{} configured with both persistence mechanisms enabled, we remove one at a time.
 
 No comparison reported in this chapter uses an intermediate configuration; \textsc{none} is the fastest.
-The ablation eliminates a hypothesis: if \project{}'s persistence machinery were expensive, the throughput gap that appears between Felxograph's performance and that of Teseo, LiveGraph, and GraphOne (none of which are run durably either) would need no further explanation.
-The measurements below show that the machinery is cheap, which forces the explanation elsewhere.
+% The ablation eliminates a hypothesis: if \project{}'s persistence machinery were expensive, the throughput gap that appears between Felxograph's performance and that of Teseo, LiveGraph, and GraphOne (none of which are run durably either) would need no further explanation.
+The ablation eliminates a hypothesis: if \project{}'s persistence machinery were expensive, the throughput gap that appears between \project{}'s performance and that of Teseo, LiveGraph, and GraphOne (none of which are run durably either) would need no further explanation.
+The measurements below show that the machinery is cheap, so the ingest gap must have another cause.
 
 \subsection{The configurations}
 \label{sec:eval:dynamic:durability:configs}
@@ -75,7 +77,7 @@ Only the persistence configuration varies between runs; we hold every other para
 
 \autoref{tab:durability-ablation} presents the results. The two mechanisms are independent, so the four configurations form a $2\times2$ grid, and each mechanism can be priced with the other held fixed.
 
-The redo log costs $37\%$ of ingest throughput, regardless of costs whether checkpointing is on ($-36.8\%$) or off ($-37.0\%$).
+The redo log costs $37\%$ of ingest throughput, regardless of whether checkpointing is on ($-36.8\%$) or off ($-37.0\%$).
 Checkpointing costs about $5\%$, again regardless of the log ($-4.9\%$ with it, $-5.2\%$ without).
 The two do not interact: the product of the marginal costs predicts the configuration in which both are enabled (bottom right) to within $0.2$ percentage points of the measured $-40.1\%$.
 \project{}'s full persistence machinery therefore costs $1.67\times$ on ingest throughput, taking the system from $1.700$ to $1.019$\,M edges/s, and essentially all of that is the log.
@@ -126,14 +128,21 @@ We measured this configuration and do not report it as part of the ablation, bec
 A system intending to ingest durably would batch many edges into each transaction and amortise the wait across the batch; that is a different experiment, and one we have not run.
 We note the measurement here so that its absence from \autoref{tab:durability-ablation} is not mistaken for an oversight.
 
-\subsection{Residual cost}
-\label{sec:eval:dynamic:durability:residual}
+% DELETED: the \subsection{Residual cost} heading and its second paragraph.
+% The second paragraph stated the thesis of the two sections that now follow
+% (\autoref{sec:wt-ingest-overhead} and \autoref{sec:eval:dynamic:dirty}), so it
+% is replaced by a hand-off rather than restated. The first paragraph's
+% conclusion is kept below as the section's closing.
+% \subsection{Residual cost}
+% \label{sec:eval:dynamic:durability:residual}
+%
+% \textsc{none} removes every persistence mechanism: no redo log, no checkpointing, a cache large enough that the graph never approaches an eviction
+% threshold.
+% Removing them was worth $1.67\times$ in total.
+% Yet \textsc{none} is the configuration behind every \project{} number reported elsewhere in this chapter, including those where the gap relative to the in-memory comparison systems is widest. The ablation therefore excludes the write-ahead log and checkpointing as explanations for that gap.
+%
+% The remaining cost cannot be eliminated. Disabling the log and the checkpoint server stops \wt{} from \emph{writing}, but leaves the representation untouched: the graph is still held as page-oriented, block-aligned B-tree images with byte-comparable keys, still reconciled when pages are released, still governed by an extent allocator and an always-on eviction protocol.
+% \project{} pays for remaining \emph{persistable}, and \autoref{sec:eval:dynamic:dirty} shows the same thing from the other direction: the deferred work does not disappear but accumulates.
+% That cost is a property of the storage format, and no configuration removes it.
 
-\textsc{none} removes every persistence mechanism: no redo log, no checkpointing, a cache large enough that the graph never approaches an eviction
-threshold.
-Removing them was worth $1.67\times$ in total.
-Yet \textsc{none} is the configuration behind every \project{} number reported elsewhere in this chapter, including those where the gap relative to the in-memory comparison systems is widest. The ablation therefore excludes the write-ahead log and checkpointing as explanations for that gap.
-
-The remaining cost cannot be eliminated. Disabling the log and the checkpoint server stops \wt{} from \emph{writing}, but leaves the representation untouched: the graph is still held as page-oriented, block-aligned B-tree images with byte-comparable keys, still reconciled when pages are released, still governed by an extent allocator and an always-on eviction protocol.
-\project{} pays for remaining \emph{persistable}, and \autoref{sec:eval:dynamic:dirty} shows the same thing from the other direction: the deferred work does not disappear but accumulates.
-That cost is a property of the storage format, and no configuration removes it.
+\textsc{none} removes every persistence mechanism: no redo log, no checkpointing, a cache large enough that the graph never approaches an eviction threshold. Removing them was worth $1.67\times$ in total. Yet \textsc{none} is the configuration behind every \project{} number reported elsewhere in this chapter, including those where the gap relative to the in-memory comparison systems is widest. The ablation therefore excludes the write-ahead log and checkpointing as explanations for that gap, and leaves the 3 to 5$\times$ to be accounted for by what \wt{} still does once both are off. \autoref{sec:wt-ingest-overhead} attributes that cost per inserted edge.

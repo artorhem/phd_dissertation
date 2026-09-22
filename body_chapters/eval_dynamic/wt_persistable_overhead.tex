@@ -8,7 +8,10 @@
 \newflag[new: Results from profiling the per-edge overhead when running an ingest-only workload]
 
 \project{} uses \wt{} as its storage engine, because \wt{} provides crash recovery, transactions, and a mature concurrency model.
-When a workload does not need persistence, \project{} disables write-ahead logging (\texttt{log=(enabled=false)}), checkpoints (\texttt{checkpoint=(wait=0, log\_size=0)}), and raises all eviction thresholds to 100\% so that no eviction work occurs.
+% EDITED: the configuration is now introduced by the ablation that precedes
+% this section, so this line back-references it instead of re-explaining it.
+% When a workload does not need persistence, \project{} disables write-ahead logging (\texttt{log=(enabled=false)}), checkpoints (\texttt{checkpoint=(wait=0, log\_size=0)}), and raises all eviction thresholds to 100\% so that no eviction work occurs.
+\autoref{sec:eval:dynamic:durability} measured the cost of the two mechanisms \project{} disables when a workload does not need persistence, write-ahead logging (\texttt{log=(enabled=false)}) and checkpoints (\texttt{checkpoint=(wait=0, log\_size=0)}); for the profile below we additionally raise all eviction thresholds to 100\% so that no eviction work occurs.
 These settings eliminate disk I/O on the write path.
 
 What CPU overhead does \wt{} still impose on the ingest path once we turn persistence off?
@@ -20,6 +23,7 @@ We used \texttt{perf} to profile the same ingest-only experiment we report in \a
 We then use DWARF\cite{dwarf5standard} to resolve each sample to its \wt{} source function.
 Profiling this experiment shows that \project{} spends 13.8\,$\mu$s of writer CPU time per inserted edge at one writer, 3.8$\times$ that of Teseo on the same workload.
 With WAL and checkpoints disabled, the persistence components (reconciliation, block management, logging, and page splits) account for 46\,ns per inserted edge, under 0.5\% of writer CPU time.
+This is a different measurement from the ablation, not a restatement of it: \autoref{sec:eval:dynamic:durability} prices turning durability \emph{on} ($1.67\times$ on ingest throughput), whereas the 46\,ns here is what persistence code costs while durability is \emph{off}. Neither quantity accounts for the gap.
 
 \subsection{Where the Time Goes}
 \label{sec:wt-overhead-costs}
