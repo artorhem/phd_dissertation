@@ -257,7 +257,7 @@ All of this depends on one quantity: how much time eviction gets to run.
 \wt{}'s \texttt{checkpoint=(wait=$N$)} setting specifies a gap \emph{between} checkpoints, so raising $N$ buys eviction exactly that time.
 At $W=5$ with $N=120$\,s, checkpoints occupy $64\%$ of the wall-clock instead of the $94\%$ they occupy at the $10$\,s default, and the update bytes that trigger conscription peak at $77.2$\,GiB without ever reaching the $80$\,GiB threshold where the $10$\,s run pins.
 
-The writers hold their rate.
+The writers maintain their rate.
 Over $83.6$ minutes of continuous analytics, completing $58$ passes, \project{} retains $69.7\%$ of its pre-analytics throughput, fluctuating between $64$ and $76\%$ with no downward trend, and stalls for less than $1\%$ of the time.
 \autoref{tab:concurrent-spaced} compares that run to the same workload at the default $10$\,s interval, measured in the same session on the same binary, and to LiveGraph.
 \autoref{fig:concurrent-throughput} shows the throughput traces for all three runs.
