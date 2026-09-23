@@ -6,9 +6,13 @@ Composite graph queries interleave structural traversal with property access, so
 We first isolate per-operation costs using microbenchmarks from the AsterDB artifact (structural mutations, neighbor lookups, and property CRUD) before evaluating composite queries in~\autoref{sec:eval:property-ldbc}.
 Structural operations are measured on two undirected graphs: DBLP co-authorship (${\sim}$317\,K vertices, ${\sim}$1\,M edges) and WikiTalk (${\sim}$2.4\,M vertices, ${\sim}$5\,M edges).
 Property operations are measured on two property graphs from the AsterDB artifact, LDBC and Freebase, with Freebase substantially larger.
-The baseline systems execute each operation through a Gremlin traversal via TinkerPop; \project{} and AsterDB bypass this layer, accessing their storage engines through native APIs.
+The baseline systems execute each operation through an embedded TinkerPop provider loaded in the Gremlin Console;\footnote{JanusGraph is the exception: it runs a Gremlin Server in a separate process on the same host, so the console reaches it over a local socket and its measurements carry request serialization on top of the provider cost.}
+\project{} bypasses this layer, accessing its storage engine through a native C++ API; AsterDB is measured through its own TinkerPop provider, which is backed by RocksDB for structural operations only.
 \project{} property operations use the embedded property storage mode.
-Each operation runs 100 times after warmup; we report the median latency.
+The two operation classes run under different harnesses.
+Structural operations run 100{,}000 iterations inside a single container, so the reported cost reflects a warmed JVM.
+Property operations run once per container for the baseline systems, and 10 times in a single process for \project{} and AsterDB.
+We report the mean latency.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \begin{table}[t]
@@ -45,11 +49,12 @@ Each operation runs 100 times after warmup; we report the median latency.
 
 \textbf{Structural operations.}
 \autoref{tab:structural-ops} and \autoref{fig:structural-ops} report the latency of four structural primitives.
-\project{} Adjacency~List is fastest for neighbor lookups: 1.13\,$\mu$s on DBLP and 2.10\,$\mu$s on WikiTalk, $10\times$ faster than Neo4j (11.67 and 50.61\,$\mu$s) and four orders of magnitude faster than ArangoDB.
+\project{} Adjacency~List is fastest for neighbor lookups: 1.13\,$\mu$s on DBLP and 2.10\,$\mu$s on WikiTalk.
+It is $10\times$ faster than Neo4j on DBLP (11.67\,$\mu$s) and $24\times$ faster on WikiTalk (50.61\,$\mu$s), and four orders of magnitude faster than ArangoDB.
 A neighbor lookup in \project{} translates to a single B-tree cursor seek to the source vertex's adjacency list, followed by a sequential scan of packed neighbor entries within the same page.
 Neo4j follows pointer chains in its native store files, incurring a seek per hop; ArangoDB resolves edges through document-level index lookups, paying per-edge overhead.
 
-Vertex insertion completes in under 2.5\,$\mu$s for \project{} regardless of graph size, $4\times$ faster than Neo4j (8--9\,$\mu$s).
+Vertex insertion completes in under 2.5\,$\mu$s for \project{} regardless of graph size, $4\times$ faster than Neo4j (8--9\,$\mu$s).\footnote{This comparison is conservative for \project{}: Neo4j's structural harness commits every 10{,}000 operations, amortizing per-transaction overhead across the batch, while each \project{} mutation wraps its own \wt{} transaction.}
 Edge insertion reveals a degree-dependent tradeoff.
 On DBLP, EdgeKey inserts an edge in 7.01\,$\mu$s, faster than Neo4j (16.55\,$\mu$s), while Adjacency~List takes 11.35\,$\mu$s.
 On the denser WikiTalk graph, Neo4j (20.35\,$\mu$s) outperforms both \project{} layouts (Adjacency~List: 49.42\,$\mu$s, EdgeKey: 78.23\,$\mu$s).
@@ -58,7 +63,8 @@ EdgeKey stores each edge as an independent row, avoiding this cost, but \wt{}'s 
 Edge deletion follows a similar pattern: EdgeKey is fastest on DBLP (6.66\,$\mu$s vs.\ Neo4j's 22.09\,$\mu$s), while on WikiTalk, Neo4j again outperforms both layouts (24.34\,$\mu$s vs.\ Adjacency~List's 24.86\,$\mu$s and EdgeKey's 44.46\,$\mu$s).
 The degree-dependent cost of Adjacency~List mutations and the per-transaction overhead of EdgeKey both grow relative to Neo4j's pointer-based store as graphs become denser.
 
-ArangoDB and PostgreSQL are three to four orders of magnitude slower than \project{} on all structural operations.
+ArangoDB is three to four orders of magnitude slower than \project{} on every structural operation.
+PostgreSQL is $3$--$44\times$ slower on mutations and up to $28{,}000\times$ slower on neighbor lookups.
 ArangoDB stores edges as JSON documents in a separate collection, requiring document-level index lookups and writes for each mutation.
 PostgreSQL, accessed through the SQLG TinkerPop provider, translates each graph operation into SQL statements on relational tables, paying relational join and transaction overhead.
 A direct-SQL decomposition analogous to \autoref{tab:crud-overhead} would isolate the SQLG translation cost, but the benchmark artifact does not expose a native SQL path for PostgreSQL.
@@ -75,31 +81,43 @@ A direct-SQL decomposition analogous to \autoref{tab:crud-overhead} would isolat
 
 \textbf{Property mutations.}
 \autoref{fig:property-crud} reports eight property CRUD operations across two datasets.
-For point mutations (add, update, and delete of vertex and edge properties), \project{} and AsterDB are $100$--$10{,}000\times$ faster than the Gremlin-based systems.
-On the LDBC dataset, \project{} completes a vertex property update in ${\sim}$10\,$\mu$s versus Neo4j's 47\,ms (${\sim}4{,}000\times$), ArangoDB's 24\,ms, and JanusGraph's 106\,ms.
-AsterDB completes the same operation in 40--110\,$\mu$s, $5$--$11\times$ slower than \project{} but still two to three orders of magnitude faster than the Gremlin-based baselines.
-Both systems bypass the Gremlin layer: \project{} issues a single \wt{} cursor write, while AsterDB uses its native RocksDB storage API.
+On the LDBC dataset, \project{} completes a vertex property update in ${\sim}$10\,$\mu$s, against 47\,ms for Neo4j, 24\,ms for ArangoDB, and 106\,ms for JanusGraph.
+These gaps of three to four orders of magnitude measure the artifact's TinkerPop path rather than the baselines' storage engines.
+The decomposition that follows separates the two.
 
-The dominant factor is the Gremlin query layer, not storage engine performance.
-Each baseline operation parses a Groovy script, compiles a TinkerPop traversal, resolves the target element through the provider's index, mutates the property, and commits.
-\project{} reduces this to a single \wt{} cursor operation: position by key and write the property value.
-Among the Gremlin-based systems, OrientDB is consistently fastest on mutations (8--18\,ms), suggesting a lightweight provider implementation; JanusGraph is slowest (21--207\,ms); although all systems run on a single node, JanusGraph's layered architecture (TinkerPop provider, JanusGraph core, pluggable storage backend) adds per-operation overhead that compounds on fine-grained mutations.
+The artifact runs each baseline property operation in a fresh container: a new JVM opens the database from disk and resolves the target element, then times a single property mutation and transaction commit before exiting.
+The timed path therefore executes without JIT-compiled code and with a cold storage-engine cache, both consequences of the single-operation-per-container harness rather than of TinkerPop itself.
+The structural harness amortizes these costs across a single container of 100{,}000 operations, which is why Neo4j appears in the microsecond range in \autoref{tab:structural-ops} but in the tens of milliseconds here.
+
+AsterDB completes property mutations in 40--110\,$\mu$s, but its Gremlin bridge writes properties to TinkerGraph's in-memory map, so they never reach its RocksDB backend.
+\project{} issues a single \wt{} cursor write with an implicit commit, positioning by key and writing the property value into the B-tree; it persists at checkpoint, so neither system pays a per-operation fsync here.
+AsterDB's figures therefore isolate the TinkerPop provider path in a warm JVM with the storage term removed, and bound provider overhead at $4$--$10\times$ the cost of a \project{} mutation that carries full B-tree and transaction work.
+
+Among the baseline systems, OrientDB is consistently fastest on mutations (8--18\,ms), suggesting a lightweight provider implementation.
+JanusGraph is slowest (21--207\,ms): it carries request serialization to its Gremlin Server process on top of a layered architecture (TinkerPop provider, JanusGraph core, pluggable storage backend) that compounds on fine-grained mutations.
 
 \newflag[new: CRUD overhead decomposition]
 \textbf{Overhead decomposition.}
-We measure the same six CRUD operations on Neo4j and ArangoDB through their native query languages (Cypher and AQL, respectively), bypassing Gremlin entirely.
-Each operation runs in two modes: single-shot (one operation per client request)  and batched (1{,}000 operations per request, amortizing query parsing, planning, and transaction commit).
+We measure the same six CRUD operations on Neo4j and ArangoDB through their native query languages (Cypher and AQL, respectively), bypassing the TinkerPop layer entirely.
+Both systems run as warm servers with many operations per session, so this measurement also removes the cold-start costs described above.
+Each operation runs in two modes: single-shot (one operation per client request) and batched (1{,}000 operations per request, amortizing query parsing, planning, and transaction commit).
 \autoref{tab:crud-overhead} reports all six mutations for both systems.
-Removing the Gremlin layer drops latency from 46.68\,ms to 3.27\,ms, a $14\times$ reduction that accounts for 93\% of the total gap.
-Batching further amortizes per-request overhead (Cypher parse/plan, transaction begin/commit, bolt round-trip), reducing per-operation cost to 0.027\,ms; \project{} reaches 0.011\,ms, $2.5\times$ faster.
-Across all six mutations, Gremlin overhead accounts for 93--96\% of the gap for insert and update operations.
-Delete operations show a smaller Gremlin share (20--68\%), because the Gremlin delete path already runs faster (3.7--7.2\,ms), so per-request overhead dominates the remainder.
-Through batched Cypher, Neo4j's storage engine is $2.5$--$5\times$ slower than \project{}, not the $4{,}000\times$ that the Gremlin path suggests.
-ArangoDB shows the same pattern: native AQL reduces vertex property update latency from 23.86\,ms to 1.64\,ms ($15\times$), with Gremlin accounting for 93\% of the gap.
-ArangoDB's single-shot native latency (1.5--1.8\,ms) is in fact lower than Neo4j's (2.3--3.3\,ms), indicating a more efficient per-request path; batched vertex operations are comparable (${\sim}$0.02\,ms/op), though ArangoDB's batched edge operations are $3$--$4\times$ more expensive (0.14 vs.\ 0.04\,ms/op), reflecting its document-oriented edge storage.
+On Neo4j, measuring the same mutation on the warm native path drops vertex property update latency from 46.68\,ms to 3.27\,ms, a $14\times$ reduction that accounts for 93\% of the total gap.
+Batching further amortizes per-request overhead (query parse and plan, transaction begin and commit, client round-trip), reducing per-operation cost to 0.027\,ms; \project{} reaches 0.011\,ms, $2.5\times$ faster.
+Across both systems, the TinkerPop path and its cold-start costs together account for 92--96\% of the gap on insert and update operations.
+Neo4j's deletes show a smaller share (20--68\%), because its TinkerPop delete path already runs faster (3.7--7.2\,ms), leaving per-request overhead to dominate the remainder; ArangoDB's deletes retain a high share (77--90\%).
+Through batched Cypher, Neo4j's storage engine is $2.5$--$5\times$ slower than \project{}, not the $4{,}000\times$ that the artifact's TinkerPop path reports.
+ArangoDB shows the same pattern: native AQL reduces vertex property update latency from 23.86\,ms to 1.64\,ms ($15\times$), with the TinkerPop path accounting for 93\% of the gap.
+ArangoDB's single-shot native latency (1.5--1.8\,ms) falls below Neo4j's (2.3--3.3\,ms), indicating a more efficient per-request path.
+Batched vertex operations are comparable across the two systems (${\sim}$0.02\,ms/op), while ArangoDB's batched edge operations cost $3$--$4\times$ more (0.14 vs.\ 0.04\,ms/op), reflecting its document-oriented edge storage.
 
 For OrientDB and PostgreSQL, the benchmark artifact does not expose a native-API path, so we cannot perform the same decomposition; JanusGraph's native API is TinkerPop itself, leaving no layer to remove.
-The remaining results in this section report full Gremlin-path latency for all baseline systems.
+The decomposition establishes the engine-level comparison for both systems: under batched native queries, \project{} is $2.5$--$5\times$ faster than Neo4j, and $2$--$3\times$ faster than ArangoDB on vertex properties and $11$--$16\times$ on edge properties.
+Subsequent claims about engine-level performance rest on this comparison.
+\autoref{fig:property-crud} reports the artifact's single-operation-per-container path, so its baseline figures represent an upper bound on each system's engine-level gap rather than a direct measurement of it.
+\autoref{tab:structural-ops} is measured on the warm path and needs no such correction, though its baseline measurements commit every 10{,}000 operations against a per-operation transaction for \project{}, understating \project{}'s advantage.
+Both subsequent experiments measure the baselines on a native path.
+The LDBC query workload (\autoref{sec:eval:property-ldbc}) executes Neo4j and ArangoDB through their native query languages with per-request overhead amortized by batching, and the graph algorithm comparison (\autoref{sec:eval:property-graphalytics}) quantifies the TinkerPop overhead and reports the residual gap.
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \begin{table}[t]
   \centering
@@ -108,7 +126,7 @@ The remaining results in this section report full Gremlin-path latency for all b
     \toprule
     & \multicolumn{4}{c}{Latency (ms)} & \multicolumn{3}{c}{Overhead (\%)} \\
     \cmidrule(lr){2-5} \cmidrule(lr){6-8}
-      Operation & Gremlin & Native & Batch/op & FG & Gremlin & Native & Engine \\
+      Operation & TP & Native & Batch/op & FG & TP & Native & Engine \\
     \midrule
     \multicolumn{8}{l}{\textit{Neo4j (Cypher)}} \\
     Update vprop & 46.68 & 3.27 & 0.027 & 0.011 & 93.0 & 6.9 & 0.0 \\
@@ -127,9 +145,9 @@ The remaining results in this section report full Gremlin-path latency for all b
     Delete eprop & 14.34 & 1.51 & 0.142 & 0.009 & 89.5 & 9.6 & 0.9 \\
     \bottomrule
   \end{tabular*}
-  \caption{CRUD overhead decomposition on LDBC (Neo4j).
-    Gremlin = TinkerPop path; Cypher = single-shot native Cypher; Batch/op = 1{,}000-op \texttt{UNWIND}, per-operation; FG = \project{} Adjacency~List.
-    Gremlin, Cypher, and Engine columns show each layer's share of the total gap (Gremlin $-$ FG) as a percentage.}
+  \caption{CRUD overhead decomposition on LDBC for Neo4j and ArangoDB.
+    TP = the artifact's TinkerPop measurement, one operation per fresh container, and so inclusive of cold-start costs; Native = single-shot native query (Cypher, AQL) against a warm server; Batch/op = 1{,}000-op batch, per-operation; FG = \project{} Adjacency~List.
+    The TP, Native, and Engine columns show each layer's share of the total gap (TP $-$ FG) as a percentage.}
   \label{tab:crud-overhead}
 \end{table}
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -138,7 +156,8 @@ The remaining results in this section report full Gremlin-path latency for all b
   \centering
   \includegraphics[width=0.85\columnwidth]{property/property_crud.pdf}
   \caption{Property CRUD latency (ms, log scale) on LDBC and Freebase.
-    \project{} and AsterDB bypass the Gremlin layer and complete point mutations $100$--$10{,}000\times$ faster.
+    Baseline measurements run one operation per fresh container and so include cold-start costs that the harness never amortizes; AsterDB's property writes go to an in-memory map and never reach its storage engine.
+    \autoref{tab:crud-overhead} separates these costs from engine performance.
     Property search narrows the gap as scan work outweighs overhead.}
   \label{fig:property-crud}
 \end{figure}

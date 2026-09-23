@@ -2,9 +2,10 @@
 \section{Property Graph Queries}
 \label{sec:eval:property}
 
-We integrate \project{} into the AsterDB evaluation artifact~\cite{moAsterEnhancingLSMstructures2025}, a reproducible Docker-based benchmark suite comparing seven graph storage systems---Neo4j, ArangoDB, JanusGraph, OrientDB, PostgreSQL (via SQLG), NebulaGraph, and AsterDB---on structural and property graph workloads.
-The AsterDB artifact uses Apache TinkerPop's Gremlin traversal language~\cite{apachetinkerpop} as a uniform query interface: each graph database implements a TinkerPop \emph{provider} that translates Gremlin traversals into its native storage operations, enabling an apples-to-apples comparison across backends.
-We quantify the overhead of this layer in~\autoref{sec:eval:property-ldbc}; \project{} bypasses it entirely, running all benchmarks through its native C++ API.
+We integrate \project{} into the AsterDB evaluation artifact~\cite{moAsterEnhancingLSMstructures2025}, a reproducible Docker-based benchmark suite comparing seven graph storage systems on structural and property graph workloads: Neo4j, ArangoDB, JanusGraph, OrientDB, PostgreSQL (via SQLG), NebulaGraph, and AsterDB.
+The AsterDB artifact uses Apache TinkerPop's Gremlin traversal language~\cite{apachetinkerpop} as a uniform query interface: each graph database implements a TinkerPop \emph{provider} that translates Gremlin traversals into its native storage operations.
+The uniform interface comes at a cost that the artifact does not account for, and that we quantify in \autoref{sec:eval:microbenchmarks}: the provider path and the harness configuration together dominate the reported property mutation latencies.
+\project{} bypasses this layer entirely, running all benchmarks through its native C++ API.
 We evaluate \project{}'s property graph capabilities in three experiments of increasing scope.
 First, we measure individual structural and property operations in isolation~(\autoref{sec:eval:microbenchmarks}).
 Second, we benchmark 14 composite queries that combine structural traversal with property access, derived from the LDBC Social Network Benchmark (SNB)~\cite{erling2015ldbc} at scale factor~3~(\autoref{sec:eval:property-ldbc}).
@@ -19,8 +20,7 @@ Third, we run iterative algorithms on the full cit-Patents graph and compare \pr
 
 The microbenchmarks above isolate individual primitives; we now examine how those primitives compose under realistic query workloads.
 We compare four \project{} configurations (Adjacency List and EdgeKey, each with embedded and columnar property storage; \autoref{arch:prop-embedded}, \autoref{arch:prop-columnar}) to Neo4j (Cypher), ArangoDB (AQL), and NeuG~\cite{NeuG2025Alibaba} (Cypher, embedded mmap-based CSR).
-We exclude AsterDB from this comparison: although its RocksDB backend persists properties, the Gremlin bridge reads vertex properties from an in-memory map that is never populated from storage, so property lookups return null; additionally, all edges are stored under a single default label, preventing label-filtered traversals.
-% AsterDB's property write path and indexed \code{has()} lookups are fully wired, so it participates in the CRUD microbenchmarks.
+We exclude AsterDB from this comparison: although its RocksDB backend persists structural data, its Gremlin bridge keeps vertex properties in an in-memory map that is never populated from storage, so property reads return null and property writes never reach storage; additionally, all edges are stored under a single default label, preventing label-filtered traversals.
 
 % We run 10~queries derived from the LDBC SNB specification, organized into four categories (\autoref{tab:ldbc-queries}).
 % \emph{Point queries} (R1, X1) fetch all properties of a single vertex.
@@ -68,7 +68,7 @@ We exclude AsterDB from this comparison: although its RocksDB backend persists p
     Units: \textmu{}s for point, aggregate, and write queries;
     ms for multi-hop queries; seconds for scan queries.
     Neo4j and ArangoDB point/aggregate queries measured via batched execution
-    (1000 queries per request) to amortise per-request overhead.
+    (1000 queries per request) to amortize per-request overhead.
     Emb~=~embedded properties, Col~=~columnar.
     Best per row in \textbf{bold}; ---~=~not applicable.}
   \label{tab:ldbc-queries}
@@ -98,10 +98,10 @@ tercile (deterministic seed for reproducibility).
 Post parameters are generated similarly, stratified by incoming
 \textsc{likes} count.
 
-Neo4j and ArangoDB operate as client-server systems, so every individual query pays for network round-trip, query parsing, and result serialisation.
-Single-shot read query measurements reported Neo4j R1 at $1.95$\,ms, but $\approx$98\% of that was per-request network and query-parse overhead: Neo4j's no-op round-trip alone costs $\approx$1.5\,ms.
+Neo4j and ArangoDB operate as client-server systems, so every individual query carries a request round-trip, query parsing, and result serialization.
+Measured single-shot, Neo4j R1 takes $1.95$\,ms, of which ${\approx}$98\% is per-request and query-parse overhead: Neo4j's no-op round-trip alone costs ${\approx}$1.5\,ms.
 NeuG and \project{}, by contrast, are embedded stores with no network layer.
-To avoid penalising Neo4j and ArangoDB for an architectural choice orthogonal to query-engine performance, we batch 1,000 parameterised queries in a single \texttt{UNWIND} request (Cypher) or \texttt{FOR-IN} loop (AQL) and divide by the batch size, amortising per-request overhead to $<$3\,$\mu$s.
+To avoid penalizing Neo4j and ArangoDB for an architectural choice orthogonal to query-engine performance, we batch 1,000 parameterized queries in a single \texttt{UNWIND} request (Cypher) or \texttt{FOR-IN} loop (AQL) and divide by the batch size, amortizing per-request overhead to $<$3\,$\mu$s.
 NeuG requires no such batching: it is embedded and its query plan cache (keyed by query string) eliminates repeated planning.
 Each query is run 100~times after warmup, cycling through the 90~parameter
 values; we report the median (p50) latency.
@@ -116,13 +116,13 @@ whose \texttt{creationDate} falls within a supplied date range.
 A2 counts outgoing \textsc{knows} edges, A3 counts outgoing \textsc{likes}
 edges (to Posts), and X5 counts incoming \textsc{likes} edges on a given Post.
 \project{} Adjacency~List with embedded storage dominates all point and aggregate queries.
-R1 completes in $7$\,$\mu$s on \project{}, $3.7\times$ faster than Neo4j ($27$\,$\mu$s), $2.7\times$ faster than ArangoDB ($20$\,$\mu$s), and $110\times$ faster than NeuG ($802$\,$\mu$s).
+R1 completes in $7$\,$\mu$s on \project{}, $3.9\times$ faster than Neo4j ($28$\,$\mu$s), $2.7\times$ faster than ArangoDB ($20$\,$\mu$s), and $110\times$ faster than NeuG ($802$\,$\mu$s).
 
 % A potential concern with a direct C++ API is developer effort compared to declarative query languages such as Cypher and Gremlin.
 % In practice, graph queries are rarely written ad hoc; they are embedded in application logic and invoked programmatically~\cite{10.1145/3357766.3359541,cheung2013optimizing}.
 % Modern code-generation tools (e.g., LLM-based assistants) further lower this barrier, making it straightforward to generate correct API calls to \project{}'s interface from a high-level description \cite{lyu2026text2gqlbenchtextgraphquery}.
 \project{}'s native C++ API trades the convenience of a declarative query language for direct storage-engine access.
-The cost of that declarative layer is large: on property CRUD operations, Gremlin parsing and traversal compilation account for 93--96\% of the latency gap between Neo4j and \project{} (\autoref{tab:crud-overhead}).
+The cost of that layer is large: on property CRUD operations, the TinkerPop path and its cold-start costs together account for 92--96\% of the latency gap between \project{} and the two baselines we decompose, Neo4j and ArangoDB (\autoref{tab:crud-overhead}).
 On iterative algorithms, Gremlin framework and index-resolution overhead consume 50\% of Neo4j's per-iteration cost (\autoref{sec:eval:property-graphalytics}).
 In practice, graph queries are rarely written ad hoc; they are embedded in application logic and invoked programmatically~\cite{10.1145/3357766.3359541,cheung2013optimizing}.
 
@@ -142,9 +142,9 @@ cutoff date, ranked by recency (top~20).
 Our IC-9 traverses only direct friends (1-hop), whereas the LDBC specification
 includes friends-of-friends (2-hop).
 %
-X3 favors \project{} at $0.24$\,ms, $4.7\times$ faster than NeuG ($1.14$\,ms) and $56\times$ faster than Neo4j ($13.5$\,ms).
-IC-9 also favors \project{} ($1.47$\,ms) over Neo4j ($64.5$\,ms, $44\times$) and ArangoDB ($188.8$\,ms, $129\times$).
-However, IC-3 reverses the ranking: NeuG completes in $3.84$\,ms, Neo4j in $8.3$\,ms, and \project{} in $29.0$\,ms.
+X3 favors \project{} at $0.24$\,ms, $4.6\times$ faster than NeuG ($1.1$\,ms) and $55\times$ faster than Neo4j ($13.1$\,ms).
+IC-9 also favors \project{} ($1.5$\,ms) over Neo4j ($65.4$\,ms, $44\times$) and ArangoDB ($188.8$\,ms, $126\times$).
+However, IC-3 reverses the ranking: NeuG completes in $3.8$\,ms, Neo4j in $7.6$\,ms, and \project{} in $29.0$\,ms.
 IC-3 fully expands the 2-hop \code{knows} neighborhood, which is large for well-connected persons.
 NeuG's in-memory CSR iterates each vertex's neighbor list in a single sequential memory scan per hop, while \project{} must issue a \wt{} B-tree cursor seek and page-level scan for each neighbor list, paying the cost of B-tree traversal at every hop.
 
@@ -158,7 +158,7 @@ BI-12 follows LDBC BI-12: scan all Posts, traverse \textsc{hasCreator} to
 identify the author, and return the top-10 creators by post count.
 %
 BI queries require columnar storage: scanning all Posts in embedded mode would deserialize the full property blob per vertex, negating the scan advantage.
-In columnar mode, BI-1 takes $404$\,ms, $4.03\times$ faster than Neo4j ($1{,}629$\,ms) and $16.5\times$ faster than ArangoDB ($6{,}666$\,ms); NeuG takes $892$\,ms.
+In columnar mode, BI-1 takes $404$\,ms, $4.4\times$ faster than Neo4j ($1{,}783$\,ms) and $16.5\times$ faster than ArangoDB ($6{,}666$\,ms); NeuG takes $892$\,ms.
 The columnar layout reads only the temporal and length column groups, skipping content columns entirely.
 For BI-12, NeuG excels at $93$\,ms, $13.4\times$ faster than \project{} ($1{,}245$\,ms).
 BI-12 adds an edge hop per Post; NeuG's CSR iterates these hops sequentially in memory, while \project{} pays a B-tree cursor seek per hop.
@@ -176,14 +176,14 @@ X4 inserts a \textsc{likes} edge from a Person to a Post (LDBC Insert~5).
 ArangoDB and Neo4j dominate W1--W3 ($21$--$68$\,$\mu$s), because their write paths are optimized for single-document upserts (insert key if not exists, update if it does) through mature, heavily tuned storage engines.
 \project{} takes $110$--$170$\,$\mu$s in embedded mode; each write opens a WiredTiger transaction, performs a B-tree cursor insert, and commits, overhead that is amortized in bulk ingest but visible at single-operation granularity.
 X4 (single edge insert with no vertex creation) favors \project{} at $11$\,$\mu$s, where the cost reduces to a single cursor insert.
-NeuG is $1{,}000\times$ slower on all writes ($190$\,ms), because each mutation parses and plans a full Cypher \texttt{CREATE} statement.
+NeuG takes ${\sim}$190\,ms on W1 and W2, three orders of magnitude slower than every other system, likely reflecting the cost of mutating its mmap-based CSR representation, which is optimized for read traversals.
 
 \section{Embedded vs.\ Columnar Trade-off}
 \label{sec:eval:emb-vs-col}
 
 The two property storage modes offer a clear, query-dependent trade-off (\autoref{tab:ldbc-queries}, Emb vs.\ Col columns).
 For point queries and single-hop reads, both modes perform similarly (R1: $7$\,$\mu$s embedded, $14$\,$\mu$s columnar), because the dominant cost is the structural cursor seek, not the property read.
-For multi-hop traversals that access properties at each hop, embedded mode wins decisively: IC-9 takes $1.47$\,ms embedded vs.\ $17.7$\,ms columnar ($12\times$); IC-5 (not shown) takes $2.65$\,ms vs.\ $15.2$\,ms ($5.7\times$).
+For multi-hop traversals that access properties at each hop, embedded mode wins decisively: IC-9 takes $1.5$\,ms embedded vs.\ $17.7$\,ms columnar ($12\times$); IC-5 (not shown) takes $2.65$\,ms vs.\ $15.2$\,ms ($5.7\times$).
 The overhead stems from columnar mode's per-hop cost: at each traversal step, the query opens a cursor on the target column group's B-tree, while embedded mode reads properties inline from the already-fetched vertex or edge value.
 
 Conversely, BI queries that scan a single column benefit from columnar storage.
@@ -220,7 +220,7 @@ We now scale to cit-Patents (3.77\,M vertices, 16.5\,M edges), a structural grap
     JanusGraph & t/o & t/o & t/o & 0.11 & 0.10 \\
     \bottomrule
   \end{tabular*}
-  \caption{Graph algorithm runtimes (s) on cit-Patents. PR, CDLP, WCC are full-graph iterative; BFS, SP are single-pair. Timout ~=~2\,h.}
+  \caption{Graph algorithm runtimes (s) on cit-Patents. PR, CDLP, WCC are full-graph iterative; BFS, SP are single-pair. t/o~=~exceeded the 2\,h timeout.}
   \label{tab:graph-algorithms}
 \end{table}
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -231,11 +231,11 @@ PageRank (PR), community detection (CDLP), and weakly-connected components (WCC)
 WCC finishes in 0.3\,s vs.\ Neo4j's 998\,s ($\approx 3000\times$).
 These systems are designed for OLTP queries and assume that when analytics are necessary, they are part of an ETL workflow, exporting the structural graph for external processing using a specialized graph processing system.
 \project{} lets us bypass this costly ETL process without jeopardizing query performance.
-ArangoDB and JanusGraph exceed the 2-hour timeout on all iterative algorithms but complete the single-pair traversals quickly (BFS in 28 to 97\,ms, SP in 35 to 110\,ms) where their native shortest-path implementations apply.
+ArangoDB and JanusGraph exceed the 2-hour timeout on all iterative algorithms but complete the single-pair traversals quickly (BFS in 30 to 100\,ms, SP in 30 to 110\,ms) where their native shortest-path implementations apply.
 PostgreSQL also times out on all iterative algorithms and takes $\approx$11\,s for the single-pair traversals.
 \project{} runs parallel C++ algorithm implementations directly on the \wt{} B-tree; graph databases execute these benchmarks using the TinkerPop abstraction layer. %graph databases execute interpreted procedures through their query engines, adding per-iteration overhead that compounds across the thousands of supersteps these algorithms require.
 To quantify the per-call overhead of the Gremlin/TinkerPop query layer, we decompose Neo4j's PageRank execution into three variants on cit-patents:
-(1)~\emph{no-op}, which measures the round-trip latency between the TinkerPop client and the database server with no graph access;
+(1)~\emph{no-op}, which measures the per-call cost of the TinkerPop traversal machinery with no graph access;
 (2)~\emph{vertex-lookup}, which additionally resolves a vertex by its index; and
 (3)~the full PageRank step, which traverses the vertex's neighbors.
 The per-call costs are 4.34 µs, 6.41 µs, and 12.75 µs respectively, revealing that 50\% of Neo4j's PageRank time is spent on Gremlin framework overhead (34\%) and vertex index resolution (16\%) rather than actual edge traversal.

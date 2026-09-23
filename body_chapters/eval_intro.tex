@@ -136,7 +136,7 @@ The dynamic experiments (\autoref{sec:eval:dynamic}) use the GFE benchmarking dr
 \paragraph{Property graphs.}
 The property graph experiments (\autoref{sec:eval:property}) use the AsterDB evaluation artifact~\cite{moAsterEnhancingLSMstructures2025}, a Docker-based benchmark suite with Apache TinkerPop's Gremlin traversal language as a uniform query interface.
 Each graph database implements a TinkerPop \emph{provider} that translates Gremlin traversals into its native storage operations.
-\project{} bypasses this layer and runs benchmarks through its native C++ API; we quantify the overhead of the Gremlin layer in~\autoref{sec:eval:property-ldbc}.
+\project{} bypasses this layer and runs benchmarks through its native C++ API; we quantify the overhead of the provider path in~\autoref{sec:eval:microbenchmarks}.
 The LDBC SNB queries are additionally compared to NeuG~\cite{NeuG2025Alibaba}, an embedded mmap-based CSR system that accepts Cypher queries.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
