@@ -14,7 +14,7 @@ This section introduces the \wt{} concepts that are most relevant to understandi
 \subsection{Storage Formats: Row-Store and Column-Store}
 \label{sec:wt-storage-formats}
 
-\wt{} organises every table as a B-tree, but it offers two fundamentally
+\wt{} organizes every table as a B-tree, but it offers two fundamentally
 different ways to lay out data within that tree: \emph{row-store} and
 \emph{column-store}.
 
@@ -41,7 +41,7 @@ Property storage using column stores is discussed in \autoref{sec:architecture:p
 \subsection{Connections, Sessions, and Cursors}
 \label{sec:wt-conn-sess-cur}
 
-\wt{}'s programming model is organised around three principal
+\wt{}'s programming model is organized around three principal
 abstractions: \emph{connections}, \emph{sessions}, and \emph{cursors}.
 
 A \textbf{connection} (\texttt{WT\_CONNECTION}) is a handle to a \wt{}
@@ -56,7 +56,7 @@ application performs work.
 Sessions are created from a connection via \texttt{WT\_CONNECTION::open\_session()}.
 A connection may have many sessions, but each session is \emph{single-threaded}: it is not safe to access a session concurrently from multiple threads.
 A session owns at most one active transaction at a time, and that transaction must complete (commit or rollback) before another can begin.
-Sessions also cache data handles to the B-trees they access, amortising the cost of repeated opens.
+Sessions also cache data handles to the B-trees they access, amortizing the cost of repeated opens.
 
 A \textbf{cursor} (\texttt{WT\_CURSOR}) provides the data access interface.
 Cursors are opened within a session via \texttt{WT\_SESSION::open\_cursor()}
@@ -87,7 +87,7 @@ Within the process, the threading contract is:
 \end{itemize}
 
 \wt{} uses no thread-local storage internally.
-If an application wishes to share a session between threads (e.g.,\ in a thread pool), it must serialise access itself.
+If an application wishes to share a session between threads (e.g.,\ in a thread pool), it must serialize access itself.
 In practice, the session-per-thread model eliminates this complexity.
 
 In addition to application threads, \wt{} manages several internal background threads:
@@ -134,7 +134,7 @@ If the application does not explicitly begin a transaction, \wt{} automatically 
   \item \textbf{Read-committed.}  The transaction obtains a fresh snapshot
     before each search operation.  Between successive reads, a transaction may
     observe changes committed by other transactions (phantom reads are
-    possible).  As an optimisation, \wt{} reuses the same snapshot for all
+    possible).  As an optimization, \wt{} reuses the same snapshot for all
     reads between successive search calls.
 
   \item \textbf{Read-uncommitted.}  No snapshot is maintained.  The transaction
@@ -209,7 +209,7 @@ Evicting a \emph{dirty} page first requires \emph{reconciliation}, i.e., convert
 \subsection{In-Memory Page Structures: Skip Lists and Update Chains}
 \label{sec:wt-skiplist}
 
-The in-memory representation of B-tree leaf pages is optimised for fast, concurrent access and differs substantially from the compact on-disk format.
+The in-memory representation of B-tree leaf pages is optimized for fast, concurrent access and differs substantially from the compact on-disk format.
 
 \subsubsection{Row-Store Pages}
 
@@ -263,7 +263,7 @@ This has two main benefits:
 
 \begin{enumerate}
   \item \textbf{Reduced cache pressure.}  When the value is large (e.g.\ a
-    serialised adjacency list stored as a byte array) and the change is small
+    serialized adjacency list stored as a byte array) and the change is small
     (e.g.\ appending one edge), storing only the delta avoids duplicating the
     full value in the update chain.  For a value of $V$ bytes and a change of
     $\Delta$ bytes, a standard update consumes $O(V)$ while a modify update
@@ -295,7 +295,7 @@ It is invoked in two contexts: when a dirty page is selected for \emph{eviction}
 
 The in-memory and on-disk representations serve different purposes.
 The in-memory format uses indexing arrays, skip lists, and update chains to support fast concurrent access.
-The on-disk format packs keys and values into a compact cell-based encoding to minimise storage space and I/O cost.
+The on-disk format packs keys and values into a compact cell-based encoding to minimize storage space and I/O cost.
 
 The reconciliation process proceeds as follows:
 

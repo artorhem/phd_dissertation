@@ -108,7 +108,7 @@ The scan is no longer sequential with respect to a single edge type.
   \label{fig:label:embed-type}
 \end{figure}
 
-\paragraph{Alternative 3: Vertex re-labelling (ID-space partitioning).}
+\paragraph{Alternative 3: Vertex re-labeling (ID-space partitioning).}
 A third option partitions the vertex ID space by label.
 All Person vertices receive IDs in one contiguous range, all Post vertices in another, and so on.
 Because \wt{} stores keys in sorted order, all vertices of a given label are contiguous in the B-tree; a label-filtered scan is a simple key-range bound, and access within a label is sequential.
@@ -116,12 +116,12 @@ Because \wt{} stores keys in sorted order, all vertices of a given label are con
 The drawback is that the range boundaries depend on vertex counts at load time: the system must decide up front how many IDs to reserve for each label.
 If a label's allocation is exhausted, re-partitioning is expensive.
 An initial prototype implemented this approach as a user-space framework that re-mapped original vertex IDs into partitioned ranges and maintained a bidirectional mapping table.
-\autoref{fig:label:relabel} illustrates the re-labelled ID space.
+\autoref{fig:label:relabel} illustrates the re-labeled ID space.
 
 \begin{figure}[htbp]
   \centering
   \includegraphics[width=\textwidth]{fig/architecture_property/alternative3_relabel.pdf}
-  \caption{Vertex re-labelling: partitioning the vertex ID space by label gives sequential access within a type but requires boundaries fixed at load time.}
+  \caption{Vertex re-labeling: partitioning the vertex ID space by label gives sequential access within a type but requires boundaries fixed at load time.}
   \label{fig:label:relabel}
 \end{figure}
 

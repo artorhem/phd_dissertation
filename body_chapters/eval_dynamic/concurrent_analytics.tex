@@ -15,13 +15,13 @@ EdgeKey, the layout we measure here, keeps almost all of the graph in a single e
 
 We replay the \texttt{graph500-24} update log with $W$ writer threads.
 The remaining $R = 50 - W$ threads of a $50$-thread budget run analytics passes over a checkpoint, one pass after another.
-An \emph{analytics pass} runs BFS, PageRank, WCC, SSSP, and the one- and two-hop neighbour queries in a fixed order.
+An \emph{analytics pass} runs BFS, PageRank, WCC, SSSP, and the one- and two-hop neighbor queries in a fixed order.
 Analytics begins once the writers have replayed the first tenth of the log, which builds the original graph.
 The remaining nine tenths insert new edges and vertices and delete them again, so only the original graph remains once the whole log is applied.
 Every pass therefore reads the original graph together with whatever the writers have inserted and not yet deleted.
 
 We report three quantities: how many checkpoints a run produced, how long each one took, and how much throughput the writers sustained while analytics ran.
-We summarise the third as \emph{retention}, the mean writer throughput during the analytics window divided by the mean before analytics began.
+We summarize the third as \emph{retention}, the mean writer throughput during the analytics window divided by the mean before analytics began.
 Both rates come from the same run, so retention separates what analytics costs the writers from the rate those writers reach on their own.
 We call a writer \emph{stalled} when its throughput falls below $5$\,K\,ops/s, roughly $2\%$ of the rate reached before analytics at $W=5$, and we report the share of the analytics window spent that way.
 
@@ -144,7 +144,7 @@ At $10$\,s, update bytes reach the $80$\,GiB threshold and stay there; at $120$\
   \includegraphics[width=\columnwidth]{fig/dynamic/concurrent_dirty.pdf}
   \caption{Update bytes at $W=5$, plotted over time.
   The horizontal line marks \texttt{eviction\_updates\_trigger}, the level at which \wt{} conscripts writer threads into eviction.
-  The grey bands mark when a checkpoint is running.
+  The gray bands mark when a checkpoint is running.
   The curve climbs inside each band, where the checkpoint prevents eviction, and drains between bands; that alternation is what produces the sawtooth shape.
   At the default $10$\,s checkpoint interval the gaps drain almost nothing: update bytes climb for $45$ minutes, reach the $80$\,GiB threshold, and stay on it, holding the writers at exactly the point where conscription begins.
   At a $120$\,s checkpoint interval, each fall undoes the rise before it, and update bytes peak at $77.2$\,GiB without ever reaching the $80$\,GiB threshold.}
@@ -176,9 +176,9 @@ Each row acts on a different step of the mechanism in \autoref{sec:eval:dynamic:
   \midrule
   How an analytics pass acquires its checkpoint & Force one per pass; reuse the rolling checkpoint; wait for a new one each pass & Reuse wins. Waiting ties the pass rate to checkpoint duration \\
   Writer count & 5, 12, 25 & Fewer writers delay the stalls. Every count stalls eventually \\
-  \texttt{eviction\_updates\_trigger} & $80$\,GiB derived, raised to $400$\,GiB & Stalls vanish and dirty data grows unchecked towards the dirty trigger. Deferred, not prevented \\
+  \texttt{eviction\_updates\_trigger} & $80$\,GiB derived, raised to $400$\,GiB & Stalls vanish and dirty data grows unchecked toward the dirty trigger. Deferred, not prevented \\
   \texttt{eviction\_dirty\_target} and \texttt{eviction\_checkpoint\_target} & Defaults $5\%$ and $1\%$; both set to $1\%$ & The dirty ceiling barely moves, $86$ to $88$\,GiB. Both knobs moved together, so this row isolates neither \\
-  \texttt{eviction=(threads\_min, threads\_max)} & $15/20$ raised towards $25/45$ & \wt{} caps the pool at $20$. The pool sits idle for lack of evictable pages, not for lack of threads \\
+  \texttt{eviction=(threads\_min, threads\_max)} & $15/20$ raised toward $25/45$ & \wt{} caps the pool at $20$. The pool sits idle for lack of evictable pages, not for lack of threads \\
   \texttt{checkpoint=(wait)} & $2$\,s, $10$\,s, $120$\,s & $120$\,s holds at $W=5$ \\
   No checkpoint at all & Analytics reads the live table & The writers stop stalling. WCC never converges, and both consistency and durability are lost \\
   \bottomrule
@@ -327,11 +327,11 @@ It provides a weaker guarantee than a checkpoint does, and it pays more I/O for 
 \label{sec:eval:dynamic:concurrent:takeaway}
 
 Concurrent analytics over a checkpoint-based storage engine is checkpoint-bound.
-The checkpoint that an analytics pass reads and the eviction that sustains the writers contend for the same B-tree; \wt{} resolves that contention in favour of the checkpoint, and the engine's only remaining response is to stall the writers.
+The checkpoint that an analytics pass reads and the eviction that sustains the writers contend for the same B-tree; \wt{} resolves that contention in favor of the checkpoint, and the engine's only remaining response is to stall the writers.
 
 A checkpoint schedule fixes what no single configuration setting can.
 Spacing checkpoints gives eviction time in which nothing prevents it, and a low writer count keeps the dirty data small enough that eviction finishes within those gaps.
 At that operating point \project{} sustains concurrent analytics at the same relative cost as an in-memory system, and it provides a consistent, crash-recoverable checkpoint of the graph it serves.
 
-Two structural changes would address the cause: sharding the edge table so that the checkpoint prevents eviction on only one shard at a time, and a checkpointer that parallelises within a single tree.
+Two structural changes would address the cause: sharding the edge table so that the checkpoint prevents eviction on only one shard at a time, and a checkpointer that parallelizes within a single tree.
 Both remain future work.

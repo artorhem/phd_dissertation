@@ -10,7 +10,7 @@ The graph is written to disk eventually; the configuration only controls when an
 \label{sec:eval:dynamic:dirty:knobs}
 
 \wt{} governs cache pressure with a set of thresholds expressed as percentages of the configured cache size.
-Two are conventional: a \emph{target}, at which background eviction threads begin working, and a \emph{trigger}, above which application threads are conscripted into performing eviction on their own behalf before their operation may proceed.
+Two are conventional: a \emph{target}, at which background eviction threads begin working, and a \emph{trigger}, above which application threads are conscripted into performing eviction on their own behalf before their operation can proceed.
 What makes the system difficult to reason about is that these thresholds exist in three parallel families, and that two of the three are \emph{derived} rather than configured.
 \autoref{tab:wt-eviction-knobs} lists them for the two settings we compare.
 
@@ -36,8 +36,8 @@ What makes the system difficult to reason about is that these thresholds exist i
   \caption{\wt{} eviction thresholds on an 800\,GiB cache.
   Bold values in the \project{} column are those that differ from the \wt{} defaults.
   $^\dagger$The
-  \emph{updates} pair is not configured by either setting: when left unset \wt{} derives them as half of the corresponding dirty threshold. They are
-  nevertheless the thresholds that bind in this workload. All byte counts are inflated by \texttt{cache\_overhead} (\wt{} setting; default 8\,\%) to account for heap-allocator overhead before comparison with these thresholds.}
+  \emph{updates} pair is not configured by either setting: when left unset, \wt{} derives them as half of the corresponding dirty threshold. They are
+  nevertheless the thresholds that bind in this workload. All byte counts are inflated by \texttt{cache\_overhead} (\wt{} setting; default 8\%) to account for heap-allocator overhead before comparison with these thresholds.}
   \label{tab:wt-eviction-knobs}
 \end{table}
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -52,24 +52,26 @@ The configuration that most closely emulates an in-memory system is therefore al
 \textbf{The binding thresholds are never explicitly set.} The
 \texttt{updates} family (which accounts for bytes held in in-memory update structures rather than in reconciled page images) is derived as half of the corresponding \texttt{dirty} threshold.
 Under \project{}'s setting this places the background target at 340\,GiB and the application-thread trigger at 380\,GiB; under \wt{}'s defaults they fall to 20\,GiB and 80\,GiB.
-In both cases the explicitly configured \texttt{dirty} thresholds are never reached, and the derived \texttt{updates} thresholds are the ones that govern behaviour.
+In both cases the explicitly configured \texttt{dirty} thresholds are never reached, and the derived \texttt{updates} thresholds are the ones that govern behavior.
 
-\textbf{\project{} accumulates update chains, not modified page images.} A page can be dirty because its image has been modified in place or because it carries a chain of updates that has never been folded into an image; only the second describes \project{}.
-Under the SplitEdgeKey layout, an edge insertion or deletion appends to a page's update chain.
+\textbf{\project{} accumulates update chains, not page images.} A page is dirty when it carries updates that no reconciliation has folded into its image, and \wt{} counts both the image and those updates as dirty data.
+Under the SplitEdgeKey layout, an edge insertion or deletion appends to a page's update chain; \wt{} never edits the image in place.
 The image is rewritten only when the page is \emph{reconciled}, which occurs only on eviction or checkpoint.
 Because we have disabled periodic checkpointing and pushed the eviction thresholds out of reach, neither occurs for a long time.
 At minute~31 of the run described below, the cache held 322\,GiB in total.
-Of that, 320\,GiB sat in update structures and just 2.9\,GiB belonged to page images.
+Of that, 320\,GiB sat in update structures and just 1.45\,GiB belonged to page images.
 The graph existed almost entirely as an unreconciled log of modifications layered over a nearly empty B-tree.
-This explains why the derived \texttt{updates} thresholds are the ones that bind: they are the only family measuring the quantity \project{} actually accumulates.
+This explains why the derived \texttt{updates} thresholds are the ones that bind.
+\wt{} sets them at half of their \texttt{dirty} counterparts, so they are reached first whenever update chains account for more than half of what the cache holds as dirty.
+Here they account for $99\%$ of it.
 
 \subsection{Experiment}
 \label{sec:eval:dynamic:dirty:setup}
 
 We replay the full graph500-24 update log (2.6\,B operations, ${\sim}$55\% insertions and ${\sim}$45\% deletions) using \project{} SplitEdgeKey with 72 writer threads, the configuration used in \autoref{fig:throughput-update}. 
 We disable the write-ahead log and switch off the checkpoint server \mbox{(\texttt{wait=0})}, so no checkpoint runs until the driver forces one at the end of the run.
-\wt{}'s statistics log is enabled at  5\,s intervals, which is the only difference from the runs reported earlier.
-We leave eviction at \wt{}'s default thread pool (minimum 1, maximum 8).
+\wt{}'s statistics log is enabled at 5\,s intervals, which is the only difference from the runs reported earlier.
+We leave eviction at \wt{}'s default thread pool (minimum 1, maximum 8 threads).
 
 We compare two configurations that differ \emph{only} in the four configured eviction thresholds of \autoref{tab:wt-eviction-knobs}: our own setting (blue) and \wt{}'s defaults (red).
 Because no checkpoint is running, this isolates the effect of the thresholds from any interaction with checkpointing; eviction is free to run whenever the engine asks for it.
@@ -93,7 +95,8 @@ Because no checkpoint is running, this isolates the effect of the thresholds fro
   \centering
   \includegraphics[width=\columnwidth]{fig/dynamic/write_volume.pdf}
   \caption{Disk traffic for the same two configurations: instantaneous write rate (top) and cumulative volume (bottom, log scale; the configurations differ by two orders of magnitude).
-  \project{}'s setting writes nothing for 31~minutes and then performs 92\% of the run's I/O in an eleven-minute eviction burst; the default thresholds saturate write bandwidth at ${\sim}$1.6\,GB/s from minute~ten onward and never stop.
+  \project{}'s setting is idle from minute~1 to minute~30 and then performs 91\% of the run's I/O in a 15-minute eviction burst.
+  The default thresholds saturate write bandwidth at ${\sim}$1.6\,GiB/s from minute~10 onward and never stop.
   The default-threshold run was stopped after 201~minutes having completed only 61\% of the update log; its write volume is therefore a lower bound.
   Shaded regions mark a running checkpoint in the \project{} config.}
   \label{fig:write-volume}
@@ -105,29 +108,33 @@ Because no checkpoint is running, this isolates the effect of the thresholds fro
 The two configurations produce qualitatively different behavior.
 
 \textbf{Under \project{}'s setting, the run has three phases.} For the first
-31~minutes the dirty set grows linearly to 322\,GiB, and the block manager writes \emph{nothing}: not a single page is evicted, because no threshold has been crossed. 
+31~minutes the dirty set grows linearly to 322\,GiB while the block manager writes almost nothing.
+The load phase forces out 155 oversized pages in its first minute, 0.61\,GiB in all; from then until minute~30 not a single page is evicted, because no threshold has been crossed.
 The engine is, for this period, a pure in-memory store with a write-ahead structure that has never been written ahead.
-At minute~30.7 the update byte count (322\,GiB inflated by the 8\% cache overhead, or 348\,GiB effective) crosses the derived \texttt{updates\_target} of 340\,GiB, and the eight background eviction threads begin working.
-Eviction then peaks at 9{,}283~pages/s and 302\,MB/s, and in eleven minutes performs 92\% of all the disk writing the run will ever do.
+At minute~30.7 the update byte count (322\,GiB inflated by the 8\% cache overhead, or 348\,GiB effective) crosses the derived \texttt{updates\_target} of 340\,GiB, and the 8 background eviction threads begin working.
+Eviction then peaks at 9{,}392~pages/s and 327\,MiB/s, and in 15~minutes performs 91\% of all the disk writing the run will ever do.
 The dirty set nevertheless continues to grow during this burst, to a peak of 364.3\,GiB, because the writers are still outpacing eviction.
 The forced checkpoint drains the remaining 326\,GiB only when the update stream completes (where the blue shading begins).
-Throughout, application threads are never conscripted: the application-thread eviction wait is exactly zero, and no page is evicted by a writer (\autoref{tab:dirty-arms}).
+Throughout, application threads are never conscripted: the application-thread eviction wait is exactly zero, and no writer evicts a page (\autoref{tab:dirty-arms}).
 
-\textbf{Under \wt{}'s defaults the run has one phase.} The dirty set climbs to 87\,GiB within ten minutes and is then held flat there for the remainder of the run.
-Update bytes reach the derived \texttt{updates\_trigger} of 80\,GiB after eight minutes, and from that point conscription holds the dirty set at its ceiling: application threads perform 428.8~million page evictions themselves and accumulate 768{,}192~thread-seconds of waiting for cache, which is 88\% of all available writer thread-time.
+\textbf{Under \wt{}'s defaults the run has one phase.} The dirty set climbs to 87\,GiB within 10~minutes and is then held flat there for the remainder of the run.
+Update bytes reach the derived \texttt{updates\_trigger} of 80\,GiB after 8~minutes, and from that point conscription holds the dirty set at its ceiling.
+Application threads perform 428.8~million page evictions themselves and accumulate 768{,}192~thread-seconds of waiting for cache, 88\% of all available writer thread-time.
 Crucially, no checkpoint is running during any of this; eviction is entirely unobstructed.
 The derived threshold alone is sufficient to spend the overwhelming majority of the write path's time on cache management rather than on graph updates.
 
 The cost is visible in the disk traffic (\autoref{fig:write-volume}).
-Write bandwidth saturates at ${\sim}$1.6\,GB/s within ten minutes and stays there: the writers are throttled to whatever the device will sustain. 
-We stopped this configuration run after 201~minutes, at which point it had completed only 61\% of the update log having written 18{,}657\,GiB (117$\times$ what \project{}'s setting wrote for the \emph{entire} workload, or ${\sim}$191$\times$ normalised per unit of work).
+Write bandwidth saturates at ${\sim}$1.6\,GiB/s within 10~minutes and stays there: the writers are throttled to whatever the device will sustain. 
+We stopped this configuration run after 201~minutes, at which point it had completed only 61\% of the update log and written 18{,}657\,GiB.
+That is 117$\times$ what \project{}'s setting wrote for the \emph{entire} workload, or ${\sim}$191$\times$ normalized per unit of work.
 
-\textbf{The default configuration also degrades without bound.} Measured in ten-minute windows, the cursor operation rate falls from 3{,}651\,K/s in the first ten minutes to 431\,K/s in the second, an 8.5$\times$ collapse occurring exactly as the update bytes crosses the 80\,GiB trigger.
+\textbf{The default configuration also degrades without bound.} Measured in 10-minute windows, the cursor operation rate falls from 3{,}651\,K/s in the first 10~minutes to 431\,K/s in the second.
+This 8.5$\times$ collapse occurs exactly as the update bytes cross the 80\,GiB trigger.
 It thereafter decays monotonically to 205\,K/s by minute~130, with no sign of a floor. 
-Before update bytes reached the trigger this configuration was in fact \emph{faster} than \project{}'s raised \texttt{dirty} thresholds (3{,}651\,K/s compared to  3{,}018\,K/s); the entire deficit is created at the threshold.
+Before update bytes reached the trigger, this configuration was in fact \emph{faster} than \project{}'s raised \texttt{dirty} thresholds (3{,}651\,K/s compared to 3{,}018\,K/s); the entire deficit is created at the threshold.
 We stopped the run, because successive completion estimates kept moving farther and farther into the future (147, then 255, then 325~minutes) as the cursor operation rate fell.
 
-\autoref{tab:dirty-arms} summarises the two configurations.
+\autoref{tab:dirty-arms} summarizes the two configurations.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \begin{table}[t]
@@ -141,10 +148,10 @@ We stopped the run, because successive completion estimates kept moving farther 
   Wall-clock time                  & 72\,min   & 201\,min (stopped) \\
   Fraction of update log completed & 100\%     & 61\% \\
   Peak dirty bytes                & 364.3\,GiB & 87.7\,GiB \\
-  Time to first disk write        & 31\,min    & ${<}$1\,min \\
+  Time to first threshold-driven write & 31\,min & ${<}$1\,min \\
   Bytes written to disk           & 160\,GiB   & 18{,}657\,GiB \\
   \dots{} of which by checkpoint  & 13\,GiB (8\%) & 0\,GiB \\
-  Peak write bandwidth            & 327\,MB/s  & 1{,}754\,MB/s \\
+  Peak write bandwidth            & 327\,MiB/s & 1{,}754\,MiB/s \\
   Pages evicted by writer threads & 0          & 429\,M \\
   Writer time waiting for cache   & 0\,s       & 768\,K\,thread-s (88\%) \\
   Update throughput               & 1.01\,M~ops/s & see text \\
@@ -153,7 +160,8 @@ We stopped the run, because successive completion estimates kept moving farther 
   \caption{Update workload on graph500-24, SplitEdgeKey, 72 writers, WAL off,
   no periodic checkpoint.
   The two configurations differ only in the four configured eviction thresholds.
-  The default-threshold configuration was stopped after 201~minutes (2.8$\times$ the \emph{total} wall clock of the complete \project{} run), having finished 61\% of the update log; its throughput was still falling, so no single steady-state figure characterises it.}
+  The default-threshold configuration was stopped after 201~minutes (2.8$\times$ the \emph{total} wall clock of the complete \project{} run), having finished 61\% of the update log.
+  Its throughput was still falling, so no single steady-state figure characterizes it.}
   \label{tab:dirty-arms}
 \end{table}
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -164,6 +172,6 @@ For 31~minutes the engine performs no I/O at all, and the reported throughput of
 That number is obtained by allowing 364\,GiB of unreconciled updates to accumulate (46\% of the configured cache), all of which must subsequently be reconciled and written.
 \wt{}'s own defaults hold the dirty set to a quarter of that size but spend 88\% of writer thread-time on cache eviction and write two orders of magnitude more data.
 The system never reaches a steady state.
-There is no setting of these thresholds that makes the work disappear: only a choice of when to pay and how dramatically it impacts performance.
+There is no setting of these thresholds that makes the work disappear: only a choice of when to pay and how dramatically it affects performance.
 This is the substance of the ``persistence machinery tax'' referred to in \autoref{sec:eval:dynamic}: the in-memory baselines avoid the obligation to ever reconcile a page.
 That reconciliation obligation, more than the I/O it produces, is what \project{} cannot escape while remaining persistable by construction.
