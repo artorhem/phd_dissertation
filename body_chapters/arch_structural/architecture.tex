@@ -157,6 +157,8 @@ This design required either a full table scan or a secondary index lookup to fin
 To remedy this, \project{} materializes the in-neighborhood in a separate \code{edge\_in} table, keyed on $(dst\_id, src\_id)$, producing the \emph{Split EdgeKey} representation (\autoref{fig:schema:edgekey}).
 The Split EdgeKey trades additional disk space for significantly faster in-neighborhood access, a classic time-space tradeoff.
 \project{} maintains the \code{edge\_in} table internally and does not expose it through the API.
+Wherever this dissertation reports EdgeKey results, the representation measured is Split EdgeKey; the single-table design above appears only as the motivation for it.
+Later chapters write \emph{EdgeKey} for brevity.
 
 \paragraph{Leaf page density.}
 The EdgeKey representation encodes topology entirely in keys: a structural traversal iterates over keys without calling \code{get\_value()}.
