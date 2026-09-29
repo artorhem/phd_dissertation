@@ -55,7 +55,7 @@ Under \project{}'s setting this places the background target at 340\,GiB and the
 In both cases the explicitly configured \texttt{dirty} thresholds are never reached, and the derived \texttt{updates} thresholds are the ones that govern behavior.
 
 \textbf{\project{} accumulates update chains, not page images.} A page is dirty when it carries updates that no reconciliation has folded into its image, and \wt{} counts both the image and those updates as dirty data.
-Under the SplitEdgeKey layout, an edge insertion or deletion appends to a page's update chain; \wt{} never edits the image in place.
+Under the EdgeKey layout, an edge insertion or deletion appends to a page's update chain; \wt{} never edits the image in place.
 The image is rewritten only when the page is \emph{reconciled}, which occurs only on eviction or checkpoint.
 Because we have disabled periodic checkpointing and pushed the eviction thresholds out of reach, neither occurs for a long time.
 At minute~31 of the run described below, the cache held 322\,GiB in total.
@@ -68,7 +68,7 @@ Here they account for $99\%$ of it.
 \subsection{Experiment}
 \label{sec:eval:dynamic:dirty:setup}
 
-We replay the full graph500-24 update log (2.6\,B operations, ${\sim}$55\% insertions and ${\sim}$45\% deletions) using \project{} SplitEdgeKey with 72 writer threads, the configuration used in \autoref{fig:throughput-update}. 
+We replay the full graph500-24 update log (2.6\,B operations, ${\sim}$55\% insertions and ${\sim}$45\% deletions) using \project{} EdgeKey with 72 writer threads, the configuration used in \autoref{fig:throughput-update}. 
 We disable the write-ahead log and switch off the checkpoint server \mbox{(\texttt{wait=0})}, so no checkpoint runs until the driver forces one at the end of the run.
 \wt{}'s statistics log is enabled at 5\,s intervals, which is the only difference from the runs reported earlier.
 We leave eviction at \wt{}'s default thread pool (minimum 1, maximum 8 threads).
@@ -157,8 +157,7 @@ We stopped the run, because successive completion estimates kept moving farther 
   Update throughput               & 1.01\,M~ops/s & see text \\
   \bottomrule
   \end{tabular}
-  \caption{Update workload on graph500-24, SplitEdgeKey, 72 writers, WAL off,
-  no periodic checkpoint.
+  \caption{Update workload on graph500-24, EdgeKey, 72 writers, WAL off, no periodic checkpoint.
   The two configurations differ only in the four configured eviction thresholds.
   The default-threshold configuration was stopped after 201~minutes (2.8$\times$ the \emph{total} wall clock of the complete \project{} run), having finished 61\% of the update log.
   Its throughput was still falling, so no single steady-state figure characterizes it.}

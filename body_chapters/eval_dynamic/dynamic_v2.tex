@@ -141,7 +141,7 @@ The root cause is deletions: GraphOne's background archiver must locate the targ
 In LiveGraph, both edge additions and deletions are bottlenecked on finding the edge; the mutation itself is an append or a timestamp flip, respectively.
 Vertex deletions simply tombstone the vertex block: incident edges are left in place and reclaimed by background compaction.
 \project{}, by contrast, performs immediate cleanup: every incident edge is removed in a single transaction.
-Under the Adjacency List layout, this requires rewriting each affected neighbor's packed list; under SplitEdgeKey, each edge is an independent B-tree row, so removal is a point delete.
+Under the Adjacency List layout, this requires rewriting each affected neighbor's packed list; under EdgeKey, each edge is an independent B-tree row, so removal is a point delete.
 
 The uniform-24 dataset, which lacks high-degree hub vertices, reveals how much degree skew drives update behavior.
 GraphOne recovers to 0.87\,M~ops/s, only a 5.3$\times$ drop from its insertion rate, compared with the 114$\times$ collapse on graph500-24.

@@ -93,9 +93,7 @@ At 1 writer, the protocol costs 1,047\,ns per edge (8\%).
 At 72 writers, it grows to 18,879\,ns (41\%), an 18$\times$ increase, because every insert
 both writes and reads the same connection-wide cache byte counters.
 One function, \texttt{\_\_wt\_cache\_page\_inmem\_incr}, accounts for 7,104 of those nanoseconds, against 59\,ns at 1 writer.
-Every insert adds atomically to as many as 7 counters that all threads share, and
-SplitEdgeKey stores almost the whole graph in one B-tree, so even its per-tree counters
-are shared.
+Every insert adds atomically to as many as 7 counters that all threads share, and the EdgeKey representation stores almost the whole graph in one B-tree, so even its per-tree counters are shared.
 
 \wt{} creates the eviction server thread unconditionally at connection startup; no configuration can disable it.
 It runs a wake-check-sleep loop with an auto-scaling interval, finds nothing to do, and sleeps again; background threads add no measurable time to this row.
